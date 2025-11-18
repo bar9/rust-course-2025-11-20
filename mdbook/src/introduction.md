@@ -31,6 +31,7 @@ Download from [zed.dev](https://zed.dev/)
 During the course the trainer will use Zed - participants are recommended to use the same editor, but are free to choose any other editor or IDE. The trainer will not be able to provide setup or configuration support for other editors or IDEs during the course.
 
 ## Create a Test Project
+
 Create a new Rust project and build it:
 
 ```bash
@@ -40,6 +41,7 @@ cargo build
 ```
 
 ## Run the Project
+
 Execute the project to verify your Rust installation:
 
 ```bash
@@ -59,7 +61,6 @@ If you encounter any issues:
 - Try clearing the cargo cache: `cargo clean`
 - Update rust: `rustup update`
 
-
 ## Cleanup
 To remove the test project:
 
@@ -72,7 +73,7 @@ If you can complete all these steps successfully, your environment is ready for 
 
 # Installation Instructions Day 3 and 4 - ESP32-C3 Embedded Development
 
-From day 3, we will be using ESP32-C3 boards. Please install the following tooling in advance:
+For Thursday, we will be using ESP32-C3 boards. Please install the following tooling in advance:
 
 ## Required ESP32-C3 Tooling
 
@@ -184,4 +185,3 @@ If you encounter issues with probe-rs, you can use the traditional ESP-IDF toolc
 - [ESP32-C3 Hardware Reference](https://www.espressif.com/en/products/socs/esp32-c3)
 
 **→ Regularly pull updates to the repo. There will also be additional setup instructions for days 3 and 4.**
-

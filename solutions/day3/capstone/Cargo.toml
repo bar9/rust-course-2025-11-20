@@ -1,0 +1,20 @@
+[workspace]
+members = [
+    "temp_core",
+    "temp_store",
+    "temp_async",
+    "temp_protocol",
+    "temp_embedded",
+]
+exclude = ["temp_esp32"]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.35", features = ["full"] }
+heapless = "0.8"
+postcard = { version = "1.0", features = ["alloc"] }
+
+[profile.release]
+lto = true
+opt-level = 3

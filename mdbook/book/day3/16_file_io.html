@@ -1,0 +1,808 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Serialization &amp; Protocols - Rust Course 2025</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Interactive Rust programming course built with mdBook">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Rust Course 2025</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/day3/16_file_io.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="chapter-16-serialization--protocols"><a class="header" href="#chapter-16-serialization--protocols">Chapter 16: Serialization &amp; Protocols</a></h1>
+<h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
+<ul>
+<li>Master serialization with serde for JSON, TOML, and binary formats</li>
+<li>Design robust protocols for embedded and networked systems</li>
+<li>Understand format trade-offs: human-readable vs. binary efficiency</li>
+<li>Build command/response protocols with proper error handling</li>
+<li>Compare Rust serialization approaches with other languages</li>
+<li>Implement protocol versioning and backward compatibility</li>
+</ul>
+<h2 id="why-serialization-and-protocols-matter"><a class="header" href="#why-serialization-and-protocols-matter">Why Serialization and Protocols Matter</a></h2>
+<p>In embedded systems and networked applications, data must be:</p>
+<ul>
+<li><strong>Transmitted</strong> between devices over serial, I2C, or network connections</li>
+<li><strong>Stored</strong> in flash memory or external storage with minimal space</li>
+<li><strong>Debugged</strong> with human-readable formats during development</li>
+<li><strong>Versioned</strong> to handle firmware updates and compatibility</li>
+</ul>
+<p>Rust’s serde ecosystem provides powerful, zero-cost abstractions for all these needs.</p>
+<h2 id="serialization-fundamentals-with-serde"><a class="header" href="#serialization-fundamentals-with-serde">Serialization Fundamentals with Serde</a></h2>
+<h3 id="basic-serialization-with-json"><a class="header" href="#basic-serialization-with-json">Basic Serialization with JSON</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct TemperatureReading {
+    sensor_id: String,
+    temperature_celsius: f32,
+    timestamp: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    location: Option&lt;String&gt;,
+}
+
+fn json_serialization_example() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let reading = TemperatureReading {
+        sensor_id: "temp_01".to_string(),
+        temperature_celsius: 23.5,
+        timestamp: 1672531200, // Unix timestamp
+        location: Some("living_room".to_string()),
+    };
+
+    // Serialize to JSON string
+    let json = serde_json::to_string(&amp;reading)?;
+    println!("JSON: {}", json);
+    // Output: {"sensor_id":"temp_01","temperature_celsius":23.5,"timestamp":1672531200,"location":"living_room"}
+
+    // Pretty-print for debugging
+    let pretty_json = serde_json::to_string_pretty(&amp;reading)?;
+    println!("Pretty JSON:\n{}", pretty_json);
+
+    // Deserialize back
+    let parsed: TemperatureReading = serde_json::from_str(&amp;json)?;
+    println!("Parsed: {:?}", parsed);
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="configuration-with-toml"><a class="header" href="#configuration-with-toml">Configuration with TOML</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Serialize, Deserialize, Debug)]
+struct SensorConfig {
+    name: String,
+    enabled: bool,
+    sample_rate_ms: u64,
+    thresholds: TemperatureThresholds,
+    #[serde(default)]
+    calibration: Option&lt;CalibrationData&gt;,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TemperatureThresholds {
+    min_warning: f32,
+    max_warning: f32,
+    critical_shutdown: f32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct CalibrationData {
+    offset: f32,
+    scale: f32,
+}
+
+fn toml_configuration_example() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let config = SensorConfig {
+        name: "Main Temperature Sensor".to_string(),
+        enabled: true,
+        sample_rate_ms: 1000,
+        thresholds: TemperatureThresholds {
+            min_warning: 5.0,
+            max_warning: 35.0,
+            critical_shutdown: 50.0,
+        },
+        calibration: Some(CalibrationData {
+            offset: -1.2,
+            scale: 1.05,
+        }),
+    };
+
+    // Serialize to TOML
+    let toml_string = toml::to_string_pretty(&amp;config)?;
+    println!("TOML Configuration:\n{}", toml_string);
+
+    // Write to file
+    std::fs::write("sensor_config.toml", &amp;toml_string)?;
+
+    // Read from file
+    let file_content = std::fs::read_to_string("sensor_config.toml")?;
+    let loaded_config: SensorConfig = toml::from_str(&amp;file_content)?;
+    println!("Loaded config: {:#?}", loaded_config);
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="binary-serialization-with-postcard"><a class="header" href="#binary-serialization-with-postcard">Binary Serialization with Postcard</a></h3>
+<p>For embedded systems, binary formats provide significant space and performance advantages:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use postcard;
+
+fn binary_serialization_example() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let readings = vec![
+        TemperatureReading {
+            sensor_id: "temp_01".to_string(),
+            temperature_celsius: 23.5,
+            timestamp: 1672531200,
+            location: Some("living_room".to_string()),
+        },
+        TemperatureReading {
+            sensor_id: "temp_02".to_string(),
+            temperature_celsius: 21.8,
+            timestamp: 1672531260,
+            location: None,
+        },
+    ];
+
+    // JSON serialization for comparison
+    let json_data = serde_json::to_string(&amp;readings)?;
+    let json_size = json_data.len();
+
+    // Binary serialization with postcard
+    let binary_data = postcard::to_allocvec(&amp;readings)?;
+    let binary_size = binary_data.len();
+
+    println!("JSON size: {} bytes", json_size);
+    println!("Binary size: {} bytes", binary_size);
+    println!("Space savings: {:.1}%",
+             (json_size - binary_size) as f32 / json_size as f32 * 100.0);
+
+    // Deserialize binary data
+    let parsed_readings: Vec&lt;TemperatureReading&gt; = postcard::from_bytes(&amp;binary_data)?;
+    println!("Parsed {} readings from binary", parsed_readings.len());
+
+    // Write binary data to file
+    std::fs::write("readings.bin", &amp;binary_data)?;
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Format Comparison:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Format</th><th>Pros</th><th>Cons</th><th>Use Case</th></tr></thead><tbody>
+<tr><td><strong>JSON</strong></td><td>Human-readable, widely supported, debugging-friendly</td><td>Large size, parsing overhead</td><td>Development, APIs, configuration</td></tr>
+<tr><td><strong>TOML</strong></td><td>Human-readable, great for config, comments supported</td><td>Config files only</td><td>Configuration files, settings</td></tr>
+<tr><td><strong>Binary (postcard)</strong></td><td>Minimal size, fast parsing, no_std support</td><td>Not human-readable, debugging harder</td><td>Embedded storage, high-frequency data</td></tr>
+</tbody></table>
+</div>
+<h2 id="protocol-design-patterns"><a class="header" href="#protocol-design-patterns">Protocol Design Patterns</a></h2>
+<h3 id="command-response-protocol"><a class="header" href="#command-response-protocol">Command-Response Protocol</a></h3>
+<p>Embedded systems often use command-response protocols for communication:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
+pub enum Command {
+    GetStatus,
+    GetReading { sensor_id: String },
+    SetThreshold {
+        sensor_id: String,
+        min_temp: f32,
+        max_temp: f32
+    },
+    GetHistory {
+        sensor_id: String,
+        last_n: usize
+    },
+    Calibrate {
+        sensor_id: String,
+        actual_temp: f32
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "type")]
+pub enum Response {
+    Status {
+        active_sensors: Vec&lt;String&gt;,
+        uptime_seconds: u64,
+        memory_usage: u32,
+    },
+    Reading {
+        sensor_id: String,
+        temperature: f32,
+        timestamp: u64,
+    },
+    ThresholdSet {
+        sensor_id: String
+    },
+    History {
+        sensor_id: String,
+        readings: Vec&lt;TemperatureReading&gt;,
+    },
+    CalibrationComplete {
+        sensor_id: String,
+        offset_adjustment: f32,
+    },
+    Error {
+        code: u16,
+        message: String,
+    },
+}
+
+// Protocol wrapper with versioning
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ProtocolMessage {
+    pub version: u8,
+    pub id: u32,  // For matching requests to responses
+    pub payload: MessagePayload,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "kind")]
+pub enum MessagePayload {
+    Command(Command),
+    Response(Response),
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="protocol-implementation"><a class="header" href="#protocol-implementation">Protocol Implementation</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::collections::HashMap;
+
+pub struct ProtocolHandler {
+    next_message_id: u32,
+    pending_requests: HashMap&lt;u32, std::time::Instant&gt;,
+}
+
+impl ProtocolHandler {
+    pub fn new() -&gt; Self {
+        Self {
+            next_message_id: 1,
+            pending_requests: HashMap::new(),
+        }
+    }
+
+    pub fn create_command(&amp;mut self, command: Command) -&gt; ProtocolMessage {
+        let id = self.next_message_id;
+        self.next_message_id += 1;
+        self.pending_requests.insert(id, std::time::Instant::now());
+
+        ProtocolMessage {
+            version: 1,
+            id,
+            payload: MessagePayload::Command(command),
+        }
+    }
+
+    pub fn create_response(&amp;self, request_id: u32, response: Response) -&gt; ProtocolMessage {
+        ProtocolMessage {
+            version: 1,
+            id: request_id,
+            payload: MessagePayload::Response(response),
+        }
+    }
+
+    pub fn serialize_json(&amp;self, message: &amp;ProtocolMessage) -&gt; Result&lt;String, serde_json::Error&gt; {
+        serde_json::to_string(message)
+    }
+
+    pub fn serialize_binary(&amp;self, message: &amp;ProtocolMessage) -&gt; Result&lt;Vec&lt;u8&gt;, postcard::Error&gt; {
+        postcard::to_allocvec(message)
+    }
+
+    pub fn deserialize_json(&amp;self, data: &amp;str) -&gt; Result&lt;ProtocolMessage, serde_json::Error&gt; {
+        serde_json::from_str(data)
+    }
+
+    pub fn deserialize_binary(&amp;self, data: &amp;[u8]) -&gt; Result&lt;ProtocolMessage, postcard::Error&gt; {
+        postcard::from_bytes(data)
+    }
+
+    pub fn cleanup_expired_requests(&amp;mut self, timeout_duration: std::time::Duration) {
+        let now = std::time::Instant::now();
+        self.pending_requests.retain(|_, timestamp| {
+            now.duration_since(*timestamp) &lt; timeout_duration
+        });
+    }
+}
+
+// Usage example
+fn protocol_usage_example() -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+    let mut handler = ProtocolHandler::new();
+
+    // Create a command
+    let command = Command::GetReading {
+        sensor_id: "temp_01".to_string(),
+    };
+    let request_msg = handler.create_command(command);
+
+    // Serialize for transmission
+    let json_data = handler.serialize_json(&amp;request_msg)?;
+    let binary_data = handler.serialize_binary(&amp;request_msg)?;
+
+    println!("JSON message: {}", json_data);
+    println!("Binary message size: {} bytes", binary_data.len());
+
+    // Deserialize received message
+    let received_msg = handler.deserialize_json(&amp;json_data)?;
+    println!("Received message ID: {}", received_msg.id);
+
+    // Create response
+    let response = Response::Reading {
+        sensor_id: "temp_01".to_string(),
+        temperature: 23.5,
+        timestamp: 1672531200,
+    };
+    let response_msg = handler.create_response(received_msg.id, response);
+
+    println!("Response: {:?}", response_msg);
+
+    Ok(())
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="error-handling-in-protocols"><a class="header" href="#error-handling-in-protocols">Error Handling in Protocols</a></h2>
+<p>Robust protocols need comprehensive error handling:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum ProtocolError {
+    InvalidSensorId { sensor_id: String },
+    SensorNotResponding { sensor_id: String },
+    InvalidThreshold { min: f32, max: f32, reason: String },
+    CalibrationFailed { sensor_id: String, reason: String },
+    SystemError { code: u16, details: String },
+    ProtocolVersionMismatch { expected: u8, received: u8 },
+}
+
+impl ProtocolError {
+    pub fn to_response(&amp;self) -&gt; Response {
+        match self {
+            ProtocolError::InvalidSensorId { sensor_id } =&gt; Response::Error {
+                code: 404,
+                message: format!("Sensor '{}' not found", sensor_id),
+            },
+            ProtocolError::SensorNotResponding { sensor_id } =&gt; Response::Error {
+                code: 503,
+                message: format!("Sensor '{}' is not responding", sensor_id),
+            },
+            ProtocolError::InvalidThreshold { min, max, reason } =&gt; Response::Error {
+                code: 400,
+                message: format!("Invalid threshold min={}, max={}: {}", min, max, reason),
+            },
+            ProtocolError::CalibrationFailed { sensor_id, reason } =&gt; Response::Error {
+                code: 422,
+                message: format!("Calibration failed for '{}': {}", sensor_id, reason),
+            },
+            ProtocolError::SystemError { code, details } =&gt; Response::Error {
+                code: *code,
+                message: details.clone(),
+            },
+            ProtocolError::ProtocolVersionMismatch { expected, received } =&gt; Response::Error {
+                code: 505,
+                message: format!("Protocol version mismatch: expected {}, got {}", expected, received),
+            },
+        }
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="rust-vs-other-languages-serialization"><a class="header" href="#rust-vs-other-languages-serialization">Rust vs Other Languages: Serialization</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Aspect</th><th><strong>Rust (serde)</strong></th><th><strong>C++</strong></th><th><strong>C#</strong></th></tr></thead><tbody>
+<tr><td><strong>Type Safety</strong></td><td>Compile-time guaranteed</td><td>Manual/libraries</td><td>Runtime with attributes</td></tr>
+<tr><td><strong>Performance</strong></td><td>Zero-cost abstractions</td><td>Variable (manual/lib)</td><td>Reflection overhead</td></tr>
+<tr><td><strong>Memory Safety</strong></td><td>Automatic bounds checking</td><td>Manual management</td><td>Garbage collected</td></tr>
+<tr><td><strong>Binary Formats</strong></td><td>postcard, bincode, many others</td><td>Manual/protobuf</td><td>BinaryFormatter/protobuf</td></tr>
+<tr><td><strong>Derive Macros</strong></td><td><code>#[derive(Serialize)]</code></td><td>Not built-in</td><td><code>[Serializable]</code> attribute</td></tr>
+<tr><td><strong>Custom Serialization</strong></td><td><code>#[serde(with = "...")]</code></td><td>Manual implementation</td><td>ISerializable interface</td></tr>
+<tr><td><strong>Schema Evolution</strong></td><td><code>#[serde(default)]</code>, versioning</td><td>Manual handling</td><td>Version tolerant</td></tr>
+</tbody></table>
+</div>
+<p><strong>Rust Advantages:</strong></p>
+<ul>
+<li>Compile-time serialization code generation</li>
+<li>Zero-cost abstractions - no runtime overhead</li>
+<li>Memory safety prevents buffer overflows</li>
+<li>Rich ecosystem of format support</li>
+</ul>
+<h2 id="file-io-integration"><a class="header" href="#file-io-integration">File I/O Integration</a></h2>
+<p>Serialized data needs to be stored and retrieved efficiently:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use std::fs::File;
+use std::io::{BufReader, BufWriter};
+use std::path::Path;
+
+pub struct DataStore {
+    data_directory: std::path::PathBuf,
+}
+
+impl DataStore {
+    pub fn new&lt;P: AsRef&lt;Path&gt;&gt;(data_dir: P) -&gt; Result&lt;Self, std::io::Error&gt; {
+        let data_directory = data_dir.as_ref().to_path_buf();
+        std::fs::create_dir_all(&amp;data_directory)?;
+        Ok(Self { data_directory })
+    }
+
+    pub fn save_readings_json(&amp;self, readings: &amp;[TemperatureReading]) -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+        let file_path = self.data_directory.join("readings.json");
+        let file = File::create(file_path)?;
+        let writer = BufWriter::new(file);
+        serde_json::to_writer_pretty(writer, readings)?;
+        Ok(())
+    }
+
+    pub fn load_readings_json(&amp;self) -&gt; Result&lt;Vec&lt;TemperatureReading&gt;, Box&lt;dyn std::error::Error&gt;&gt; {
+        let file_path = self.data_directory.join("readings.json");
+        let file = File::open(file_path)?;
+        let reader = BufReader::new(file);
+        let readings = serde_json::from_reader(reader)?;
+        Ok(readings)
+    }
+
+    pub fn save_readings_binary(&amp;self, readings: &amp;[TemperatureReading]) -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+        let file_path = self.data_directory.join("readings.bin");
+        let binary_data = postcard::to_allocvec(readings)?;
+        std::fs::write(file_path, binary_data)?;
+        Ok(())
+    }
+
+    pub fn load_readings_binary(&amp;self) -&gt; Result&lt;Vec&lt;TemperatureReading&gt;, Box&lt;dyn std::error::Error&gt;&gt; {
+        let file_path = self.data_directory.join("readings.bin");
+        let binary_data = std::fs::read(file_path)?;
+        let readings = postcard::from_bytes(&amp;binary_data)?;
+        Ok(readings)
+    }
+
+    pub fn save_config(&amp;self, config: &amp;SensorConfig) -&gt; Result&lt;(), Box&lt;dyn std::error::Error&gt;&gt; {
+        let file_path = self.data_directory.join("config.toml");
+        let toml_string = toml::to_string_pretty(config)?;
+        std::fs::write(file_path, toml_string)?;
+        Ok(())
+    }
+
+    pub fn load_config(&amp;self) -&gt; Result&lt;SensorConfig, Box&lt;dyn std::error::Error&gt;&gt; {
+        let file_path = self.data_directory.join("config.toml");
+        let toml_content = std::fs::read_to_string(file_path)?;
+        let config = toml::from_str(&amp;toml_content)?;
+        Ok(config)
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="exercise-temperature-monitoring-protocol"><a class="header" href="#exercise-temperature-monitoring-protocol">Exercise: Temperature Monitoring Protocol</a></h2>
+<p>Build a comprehensive temperature monitoring protocol that supports both JSON and binary formats:</p>
+<h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
+<ol>
+<li>
+<p><strong>Protocol Definition</strong>: Create a command/response protocol that supports:</p>
+<ul>
+<li>Getting current sensor readings</li>
+<li>Setting temperature thresholds</li>
+<li>Retrieving historical data</li>
+<li>System status queries</li>
+</ul>
+</li>
+<li>
+<p><strong>Dual Format Support</strong>: Support both JSON (for debugging) and binary (for production)</p>
+</li>
+<li>
+<p><strong>Integration</strong>: Use types from previous capstone increments (<code>temp_core</code>, <code>temp_store</code>)</p>
+</li>
+<li>
+<p><strong>Error Handling</strong>: Comprehensive error types and proper error responses</p>
+</li>
+<li>
+<p><strong>Protocol Versioning</strong>: Support for protocol version handling</p>
+</li>
+</ol>
+<h3 id="starting-code"><a class="header" href="#starting-code">Starting Code</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// In temp_protocol/src/lib.rs
+use serde::{Deserialize, Serialize};
+use temp_core::{Temperature, TemperatureReading};
+use temp_store::TemperatureStats;
+
+// TODO: Define your Command enum here
+
+// TODO: Define your Response enum here
+
+// TODO: Define your ProtocolMessage wrapper
+
+// TODO: Implement ProtocolHandler
+
+pub struct TemperatureProtocolHandler {
+    // TODO: Add fields needed for protocol handling
+}
+
+impl TemperatureProtocolHandler {
+    pub fn new() -&gt; Self {
+        // TODO: Initialize handler
+        unimplemented!()
+    }
+
+    pub fn process_command(&amp;mut self, command: Command) -&gt; Response {
+        // TODO: Process commands and return appropriate responses
+        // This should integrate with your temperature monitoring system
+        unimplemented!()
+    }
+
+    pub fn serialize_json(&amp;self, message: &amp;ProtocolMessage) -&gt; Result&lt;String, serde_json::Error&gt; {
+        // TODO: Serialize message to JSON
+        unimplemented!()
+    }
+
+    pub fn serialize_binary(&amp;self, message: &amp;ProtocolMessage) -&gt; Result&lt;Vec&lt;u8&gt;, postcard::Error&gt; {
+        // TODO: Serialize message to binary format
+        unimplemented!()
+    }
+
+    pub fn deserialize_json(&amp;self, data: &amp;str) -&gt; Result&lt;ProtocolMessage, serde_json::Error&gt; {
+        // TODO: Deserialize JSON message
+        unimplemented!()
+    }
+
+    pub fn deserialize_binary(&amp;self, data: &amp;[u8]) -&gt; Result&lt;ProtocolMessage, postcard::Error&gt; {
+        // TODO: Deserialize binary message
+        unimplemented!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_command_serialization() {
+        // TODO: Test that commands can be serialized to JSON and back
+    }
+
+    #[test]
+    fn test_binary_vs_json_size() {
+        // TODO: Compare binary and JSON serialization sizes
+    }
+
+    #[test]
+    fn test_protocol_versioning() {
+        // TODO: Test protocol version handling
+    }
+
+    #[test]
+    fn test_error_responses() {
+        // TODO: Test that errors are properly converted to error responses
+    }
+
+    #[test]
+    fn test_command_processing() {
+        // TODO: Test that commands produce appropriate responses
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="success-criteria"><a class="header" href="#success-criteria">Success Criteria</a></h3>
+<ul>
+<li>All tests pass</li>
+<li>Binary format is significantly smaller than JSON for typical messages</li>
+<li>Protocol handler can process all defined commands</li>
+<li>Error cases are handled gracefully</li>
+<li>Integration with <code>temp_core</code> and <code>temp_store</code> types works correctly</li>
+</ul>
+<h3 id="extension-ideas"><a class="header" href="#extension-ideas">Extension Ideas</a></h3>
+<ol>
+<li><strong>Message Compression</strong>: Add optional compression for large data transfers</li>
+<li><strong>Authentication</strong>: Add basic authentication to the protocol</li>
+<li><strong>Streaming</strong>: Support for streaming large datasets</li>
+<li><strong>Rate Limiting</strong>: Add rate limiting for command processing</li>
+</ol>
+<h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
+<ol>
+<li><strong>Format Choice Matters</strong>: JSON for debugging, binary for production, TOML for configuration</li>
+<li><strong>Zero-Cost Serialization</strong>: Rust’s serde provides compile-time code generation with no runtime overhead</li>
+<li><strong>Type Safety</strong>: Serialization is compile-time checked, preventing runtime errors</li>
+<li><strong>Protocol Design</strong>: Structure messages with versioning and proper error handling from the start</li>
+<li><strong>Integration Strategy</strong>: Build protocols that work with existing type systems</li>
+<li><strong>Performance Awareness</strong>: Binary formats can provide 50-80% space savings over JSON</li>
+</ol>
+<p><strong>Next</strong>: In Chapter 17, we’ll explore no_std programming to prepare our temperature monitoring system for embedded deployment.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../day3/15_async.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../day3/17_no_std.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../day3/15_async.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../day3/17_no_std.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

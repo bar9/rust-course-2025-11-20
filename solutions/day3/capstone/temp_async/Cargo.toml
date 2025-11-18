@@ -1,0 +1,9 @@
+[package]
+name = "temp_async"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+temp_core = { path = "../temp_core", features = ["std"] }
+temp_store = { path = "../temp_store" }
+tokio = { workspace = true }

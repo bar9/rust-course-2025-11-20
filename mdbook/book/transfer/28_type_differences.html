@@ -1,0 +1,690 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Type System Differences - Rust Course 2025</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Interactive Rust programming course built with mdBook">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Rust Course 2025</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/transfer/28_type_differences.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="chapter-22-type-system-differences"><a class="header" href="#chapter-22-type-system-differences">Chapter 22: Type System Differences</a></h1>
+<h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
+<ul>
+<li>Understand Rust’s strict type system vs C++/.NET</li>
+<li>Learn why there are no implicit conversions</li>
+<li>Grasp the absence of function overloading</li>
+<li>Master type inference differences</li>
+<li>Transition from class hierarchies to algebraic data types</li>
+</ul>
+<h2 id="no-implicit-conversions"><a class="header" href="#no-implicit-conversions">No Implicit Conversions</a></h2>
+<p>Rust never performs implicit type conversions, unlike C++ and .NET.</p>
+<h3 id="c-style-with-implicit-conversions"><a class="header" href="#c-style-with-implicit-conversions">C++ Style (With Implicit Conversions)</a></h3>
+<pre><code class="language-cpp">// C++ - These all compile
+void process(double value) { /* ... */ }
+
+int main() {
+    process(42);        // int -&gt; double
+    process(3.14f);     // float -&gt; double
+    process('A');       // char -&gt; double
+    
+    std::string str = "hello";
+    const char* cstr = str.c_str();  // Implicit via method
+}
+</code></pre>
+<h3 id="net-style"><a class="header" href="#net-style">.NET Style</a></h3>
+<pre><code class="language-csharp">// C# - Implicit conversions allowed
+void Process(double value) { /* ... */ }
+
+void Main() {
+    Process(42);        // int -&gt; double
+    Process(3.14f);     // float -&gt; double
+    
+    string str = "hello";
+    // Implicit ToString() in many contexts
+    Console.WriteLine("Value: " + 42);
+}
+</code></pre>
+<h3 id="rust-style-explicit-everything"><a class="header" href="#rust-style-explicit-everything">Rust Style (Explicit Everything)</a></h3>
+<pre><pre class="playground"><code class="language-rust">// Rust - Everything must be explicit
+fn process(value: f64) { /* ... */ }
+
+fn main() {
+    // process(42);         // ERROR: expected f64, found i32
+    process(42.0);          // OK: f64 literal
+    process(42_f64);        // OK: typed literal
+    process(42 as f64);     // OK: explicit cast
+    process(f64::from(42)); // OK: explicit conversion
+    
+    let x: i32 = 42;
+    process(x as f64);      // Must explicitly cast
+    
+    // String conversions are explicit
+    let s = String::from("hello");
+    let slice: &amp;str = &amp;s;   // Explicit borrow
+    let owned = slice.to_string(); // Explicit conversion
+}</code></pre></pre>
+<h3 id="why-no-implicit-conversions"><a class="header" href="#why-no-implicit-conversions">Why No Implicit Conversions?</a></h3>
+<ol>
+<li><strong>Predictability</strong>: You always know what type you have</li>
+<li><strong>Safety</strong>: No surprising precision loss or overflow</li>
+<li><strong>Performance</strong>: No hidden allocations or conversions</li>
+<li><strong>Clarity</strong>: Code intent is explicit</li>
+</ol>
+<h2 id="no-function-overloading"><a class="header" href="#no-function-overloading">No Function Overloading</a></h2>
+<p>Rust doesn’t support function overloading. Use different names or traits instead.</p>
+<h3 id="c-overloading"><a class="header" href="#c-overloading">C++ Overloading</a></h3>
+<pre><code class="language-cpp">// C++ - Multiple functions with same name
+class Logger {
+    void log(int value);
+    void log(double value);
+    void log(const std::string&amp; value);
+    void log(int level, const std::string&amp; message);
+};
+</code></pre>
+<h3 id="net-overloading"><a class="header" href="#net-overloading">.NET Overloading</a></h3>
+<pre><code class="language-csharp">// C# - Method overloading
+public class Logger {
+    public void Log(int value) { }
+    public void Log(double value) { }
+    public void Log(string value) { }
+    public void Log(int level, string message) { }
+}
+</code></pre>
+<h3 id="rust-alternatives"><a class="header" href="#rust-alternatives">Rust Alternatives</a></h3>
+<h4 id="option-1-different-names"><a class="header" href="#option-1-different-names">Option 1: Different Names</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Logger;
+
+impl Logger {
+    fn log_int(&amp;self, value: i32) { }
+    fn log_float(&amp;self, value: f64) { }
+    fn log_string(&amp;self, value: &amp;str) { }
+    fn log_with_level(&amp;self, level: i32, message: &amp;str) { }
+}
+<span class="boring">}</span></code></pre></pre>
+<h4 id="option-2-traits"><a class="header" href="#option-2-traits">Option 2: Traits</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>trait Loggable {
+    fn log(&amp;self);
+}
+
+impl Loggable for i32 {
+    fn log(&amp;self) {
+        println!("Integer: {}", self);
+    }
+}
+
+impl Loggable for f64 {
+    fn log(&amp;self) {
+        println!("Float: {}", self);
+    }
+}
+
+impl Loggable for String {
+    fn log(&amp;self) {
+        println!("String: {}", self);
+    }
+}
+
+// Usage
+fn log_value&lt;T: Loggable&gt;(value: T) {
+    value.log();
+}
+<span class="boring">}</span></code></pre></pre>
+<h4 id="option-3-enums-for-variants"><a class="header" href="#option-3-enums-for-variants">Option 3: Enums for Variants</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>enum LogMessage {
+    Int(i32),
+    Float(f64),
+    Text(String),
+    WithLevel { level: i32, message: String },
+}
+
+impl LogMessage {
+    fn log(&amp;self) {
+        match self {
+            LogMessage::Int(v) =&gt; println!("Int: {}", v),
+            LogMessage::Float(v) =&gt; println!("Float: {}", v),
+            LogMessage::Text(v) =&gt; println!("Text: {}", v),
+            LogMessage::WithLevel { level, message } =&gt; {
+                println!("[Level {}] {}", level, message)
+            }
+        }
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="no-default-parameters"><a class="header" href="#no-default-parameters">No Default Parameters</a></h2>
+<p>Rust doesn’t have default parameters. Use builder pattern or Option types.</p>
+<h3 id="c-default-parameters"><a class="header" href="#c-default-parameters">C++ Default Parameters</a></h3>
+<pre><code class="language-cpp">// C++
+void connect(const string&amp; host, int port = 80, bool secure = false) {
+    // ...
+}
+
+connect("example.com");           // port=80, secure=false
+connect("example.com", 443);      // secure=false
+connect("example.com", 443, true);
+</code></pre>
+<h3 id="rust-alternatives-1"><a class="header" href="#rust-alternatives-1">Rust Alternatives</a></h3>
+<h4 id="option-1-builder-pattern"><a class="header" href="#option-1-builder-pattern">Option 1: Builder Pattern</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct Connection {
+    host: String,
+    port: u16,
+    secure: bool,
+}
+
+impl Connection {
+    fn builder(host: String) -&gt; ConnectionBuilder {
+        ConnectionBuilder {
+            host,
+            port: 80,
+            secure: false,
+        }
+    }
+}
+
+struct ConnectionBuilder {
+    host: String,
+    port: u16,
+    secure: bool,
+}
+
+impl ConnectionBuilder {
+    fn port(mut self, port: u16) -&gt; Self {
+        self.port = port;
+        self
+    }
+    
+    fn secure(mut self, secure: bool) -&gt; Self {
+        self.secure = secure;
+        self
+    }
+    
+    fn connect(self) -&gt; Connection {
+        Connection {
+            host: self.host,
+            port: self.port,
+            secure: self.secure,
+        }
+    }
+}
+
+// Usage
+let conn = Connection::builder("example.com".to_string())
+    .port(443)
+    .secure(true)
+    .connect();
+<span class="boring">}</span></code></pre></pre>
+<h4 id="option-2-option-parameters"><a class="header" href="#option-2-option-parameters">Option 2: Option Parameters</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct ConnectOptions {
+    port: Option&lt;u16&gt;,
+    secure: Option&lt;bool&gt;,
+}
+
+fn connect(host: &amp;str, options: ConnectOptions) {
+    let port = options.port.unwrap_or(80);
+    let secure = options.secure.unwrap_or(false);
+    // ...
+}
+
+// Usage
+connect("example.com", ConnectOptions {
+    port: Some(443),
+    secure: Some(true),
+});
+<span class="boring">}</span></code></pre></pre>
+<h4 id="option-3-multiple-functions"><a class="header" href="#option-3-multiple-functions">Option 3: Multiple Functions</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn connect(host: &amp;str) {
+    connect_with_port(host, 80)
+}
+
+fn connect_with_port(host: &amp;str, port: u16) {
+    connect_full(host, port, false)
+}
+
+fn connect_full(host: &amp;str, port: u16, secure: bool) {
+    // Implementation
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="type-inference-differences"><a class="header" href="#type-inference-differences">Type Inference Differences</a></h2>
+<h3 id="c-auto-c11"><a class="header" href="#c-auto-c11">C++ Auto (C++11+)</a></h3>
+<pre><code class="language-cpp">// C++ - auto deduction
+auto x = 42;           // int
+auto y = 42.0;         // double
+auto z = "hello";      // const char*
+auto vec = std::vector&lt;int&gt;{1, 2, 3}; // std::vector&lt;int&gt;
+
+// Templates with auto
+template&lt;typename T&gt;
+auto add(T a, T b) -&gt; decltype(a + b) {
+    return a + b;
+}
+</code></pre>
+<h3 id="net-var"><a class="header" href="#net-var">.NET var</a></h3>
+<pre><code class="language-csharp">// C# - var inference
+var x = 42;            // int
+var y = 42.0;          // double
+var z = "hello";       // string
+var list = new List&lt;int&gt; { 1, 2, 3 }; // List&lt;int&gt;
+
+// Cannot use var for:
+// - Field declarations
+// - Method parameters
+// - Return types (except lambdas)
+</code></pre>
+<h3 id="rust-type-inference"><a class="header" href="#rust-type-inference">Rust Type Inference</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Rust - let inference
+let x = 42;            // i32 (default integer type)
+let y = 42.0;          // f64 (default float type)
+let z = "hello";       // &amp;str
+let mut vec = Vec::new(); // Type determined by usage
+
+vec.push(1);           // Now vec: Vec&lt;i32&gt;
+
+// Partial type annotation
+let numbers: Vec&lt;_&gt; = (0..10).collect(); // Infer element type
+
+// Turbofish for disambiguation
+let parsed = "42".parse::&lt;i32&gt;().unwrap();
+
+// Inference flows through expressions
+fn process(x: i32) -&gt; i32 { x * 2 }
+let result = process(21); // result: i32
+<span class="boring">}</span></code></pre></pre>
+<h3 id="key-differences"><a class="header" href="#key-differences">Key Differences</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Feature</th><th>C++</th><th>.NET</th><th>Rust</th></tr></thead><tbody>
+<tr><td>Local inference</td><td><code>auto</code></td><td><code>var</code></td><td><code>let</code></td></tr>
+<tr><td>Return type inference</td><td><code>auto</code> (C++14)</td><td>No</td><td>Yes (impl Trait)</td></tr>
+<tr><td>Generic inference</td><td>Template deduction</td><td>Type inference</td><td>Type inference</td></tr>
+<tr><td>Default numeric</td><td>Platform-dependent</td><td>int/double</td><td>i32/f64</td></tr>
+<tr><td>Inference scope</td><td>Local</td><td>Local</td><td>Flow-based</td></tr>
+</tbody></table>
+</div>
+<h2 id="algebraic-data-types-vs-classes"><a class="header" href="#algebraic-data-types-vs-classes">Algebraic Data Types vs Classes</a></h2>
+<h3 id="traditional-oop-hierarchy"><a class="header" href="#traditional-oop-hierarchy">Traditional OOP Hierarchy</a></h3>
+<pre><code class="language-cpp">// C++ - Class hierarchy
+class Shape {
+public:
+    virtual double area() = 0;
+};
+
+class Circle : public Shape {
+    double radius;
+public:
+    double area() override { return 3.14 * radius * radius; }
+};
+
+class Rectangle : public Shape {
+    double width, height;
+public:
+    double area() override { return width * height; }
+};
+</code></pre>
+<h3 id="rust-algebraic-data-types"><a class="header" href="#rust-algebraic-data-types">Rust Algebraic Data Types</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Rust - Enum with variants
+enum Shape {
+    Circle { radius: f64 },
+    Rectangle { width: f64, height: f64 },
+    Triangle { base: f64, height: f64 },
+}
+
+impl Shape {
+    fn area(&amp;self) -&gt; f64 {
+        match self {
+            Shape::Circle { radius } =&gt; std::f64::consts::PI * radius * radius,
+            Shape::Rectangle { width, height } =&gt; width * height,
+            Shape::Triangle { base, height } =&gt; 0.5 * base * height,
+        }
+    }
+}
+
+// Exhaustive pattern matching
+fn describe(shape: &amp;Shape) -&gt; String {
+    match shape {
+        Shape::Circle { radius } =&gt; format!("Circle with radius {}", radius),
+        Shape::Rectangle { width, height } =&gt; {
+            format!("Rectangle {}x{}", width, height)
+        }
+        Shape::Triangle { base, height } =&gt; {
+            format!("Triangle with base {} and height {}", base, height)
+        }
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="benefits-of-algebraic-data-types"><a class="header" href="#benefits-of-algebraic-data-types">Benefits of Algebraic Data Types</a></h3>
+<ol>
+<li><strong>Exhaustiveness</strong>: Compiler ensures all cases handled</li>
+<li><strong>Closed Set</strong>: All variants known at compile time</li>
+<li><strong>No Null</strong>: No uninitialized objects</li>
+<li><strong>Pattern Matching</strong>: Powerful destructuring</li>
+<li><strong>Memory Efficient</strong>: Size of largest variant + discriminant</li>
+</ol>
+<h2 id="pattern-matching-vs-switch"><a class="header" href="#pattern-matching-vs-switch">Pattern Matching vs Switch</a></h2>
+<h3 id="c-switch"><a class="header" href="#c-switch">C++ Switch</a></h3>
+<pre><code class="language-cpp">// C++ - Limited to integral types
+switch(value) {
+    case 1:
+        handle_one();
+        break;
+    case 2:
+    case 3:
+        handle_two_or_three();
+        break;
+    default:
+        handle_other();
+}
+</code></pre>
+<h3 id="rust-pattern-matching"><a class="header" href="#rust-pattern-matching">Rust Pattern Matching</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Rust - Works with any type
+match value {
+    1 =&gt; handle_one(),
+    2 | 3 =&gt; handle_two_or_three(),
+    4..=10 =&gt; handle_range(),
+    x if x &gt; 100 =&gt; handle_large(x),
+    _ =&gt; handle_other(),
+}
+
+// Destructuring in patterns
+match person {
+    Person { age: 0..=17, name } =&gt; println!("Minor: {}", name),
+    Person { age: 18..=64, name } =&gt; println!("Adult: {}", name),
+    Person { age: 65.., name } =&gt; println!("Senior: {}", name),
+    Person { age, .. } =&gt; println!("Invalid age: {}", age),
+}
+
+// Option matching
+match optional_value {
+    Some(x) if x &gt; 0 =&gt; println!("Positive: {}", x),
+    Some(x) =&gt; println!("Non-positive: {}", x),
+    None =&gt; println!("No value"),
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="common-migration-patterns"><a class="header" href="#common-migration-patterns">Common Migration Patterns</a></h2>
+<h3 id="from-nullable-to-option"><a class="header" href="#from-nullable-to-option">From Nullable to Option</a></h3>
+<pre><code class="language-cpp">// C++
+Person* find_person(int id) {
+    if (found) return &amp;person;
+    return nullptr;
+}
+</code></pre>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Rust
+fn find_person(id: i32) -&gt; Option&lt;Person&gt; {
+    if found { Some(person) } else { None }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="from-exceptions-to-result"><a class="header" href="#from-exceptions-to-result">From Exceptions to Result</a></h3>
+<pre><code class="language-cpp">// C++
+int divide(int a, int b) {
+    if (b == 0) throw std::runtime_error("Division by zero");
+    return a / b;
+}
+</code></pre>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Rust
+fn divide(a: i32, b: i32) -&gt; Result&lt;i32, String&gt; {
+    if b == 0 {
+        Err("Division by zero".to_string())
+    } else {
+        Ok(a / b)
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="exercises"><a class="header" href="#exercises">Exercises</a></h2>
+<h3 id="exercise-211-remove-implicit-conversions"><a class="header" href="#exercise-211-remove-implicit-conversions">Exercise 21.1: Remove Implicit Conversions</a></h3>
+<p>Convert this C++ code to Rust, making all conversions explicit:</p>
+<pre><code class="language-cpp">void process_temperature(double celsius) { }
+
+int main() {
+    process_temperature(98.6f);
+    process_temperature(37);
+    process_temperature('A');
+}
+</code></pre>
+<h3 id="exercise-212-replace-overloading"><a class="header" href="#exercise-212-replace-overloading">Exercise 21.2: Replace Overloading</a></h3>
+<p>Redesign this overloaded C++ interface in Rust:</p>
+<pre><code class="language-cpp">class Database {
+    void insert(int id, string name);
+    void insert(User user);
+    void insert(vector&lt;User&gt; users);
+};
+</code></pre>
+<h3 id="exercise-213-algebraic-data-type"><a class="header" href="#exercise-213-algebraic-data-type">Exercise 21.3: Algebraic Data Type</a></h3>
+<p>Convert this class hierarchy to a Rust enum:</p>
+<pre><code class="language-cpp">class Event {
+public:
+    virtual void handle() = 0;
+};
+class ClickEvent : public Event { };
+class KeyEvent : public Event { };
+class TimerEvent : public Event { };
+</code></pre>
+<h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
+<p>✅ <strong>No implicit conversions</strong> - Every type change is explicit and visible</p>
+<p>✅ <strong>No function overloading</strong> - Use traits, enums, or different names</p>
+<p>✅ <strong>No default parameters</strong> - Use builders or Option types</p>
+<p>✅ <strong>Powerful type inference</strong> - But always predictable and local</p>
+<p>✅ <strong>Algebraic data types</strong> - More powerful than class hierarchies</p>
+<p>✅ <strong>Pattern matching</strong> - Far beyond switch statements</p>
+<hr />
+<p>Next: <a href="./29_traits_vs_oop.html">Chapter 29: Traits vs OOP</a></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../transfer/27_null_safety.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../transfer/29_traits_vs_oop.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../transfer/27_null_safety.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../transfer/29_traits_vs_oop.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

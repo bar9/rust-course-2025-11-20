@@ -1,0 +1,1164 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>no_std &amp; Embedded Patterns - Rust Course 2025</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Interactive Rust programming course built with mdBook">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Rust Course 2025</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/day3/17_no_std.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="chapter-17-no_std--embedded-patterns"><a class="header" href="#chapter-17-no_std--embedded-patterns">Chapter 17: no_std &amp; Embedded Patterns</a></h1>
+<h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
+<ul>
+<li>Understand the difference between <code>core</code>, <code>alloc</code>, and <code>std</code> libraries</li>
+<li>Convert existing Rust code to work in <code>no_std</code> environments</li>
+<li>Use heapless data structures for memory-constrained environments</li>
+<li>Master const functions for compile-time computation and configuration</li>
+<li>Apply embedded programming patterns and best practices</li>
+<li>Handle resource constraints and real-time requirements</li>
+</ul>
+<h2 id="why-no_std-matters-in-embedded-systems"><a class="header" href="#why-no_std-matters-in-embedded-systems">Why no_std Matters in Embedded Systems</a></h2>
+<p>Embedded systems often operate under strict constraints:</p>
+<ul>
+<li><strong>Limited Memory</strong>: Kilobytes, not gigabytes of RAM</li>
+<li><strong>No Operating System</strong>: Direct hardware control without OS services</li>
+<li><strong>Real-time Requirements</strong>: Deterministic timing and response</li>
+<li><strong>Power Constraints</strong>: Battery-operated devices need efficiency</li>
+<li><strong>Code Size Limits</strong>: Flash memory is precious</li>
+</ul>
+<p>Rust’s <code>no_std</code> approach provides zero-cost abstractions without runtime overhead, making it ideal for these environments.</p>
+<h2 id="core-vs-alloc-vs-std-understanding-rusts-library-layers"><a class="header" href="#core-vs-alloc-vs-std-understanding-rusts-library-layers">Core vs Alloc vs Std: Understanding Rust’s Library Layers</a></h2>
+<p>Rust’s standard library is composed of three layers:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span>#![no_std]
+<span class="boring">fn main() {
+</span>// Using only core library - no heap allocation, no OS dependencies
+
+// Core is always available and provides:
+use core::{
+    mem, ptr, slice, str,
+    option::Option,
+    result::Result,
+    fmt::{Debug, Display},
+    iter::Iterator,
+    clone::Clone,
+    marker::{Copy, Send, Sync},
+};
+
+// Example of core-only function
+fn find_max_core_only(slice: &amp;[i32]) -&gt; Option&lt;i32&gt; {
+    if slice.is_empty() {
+        return None;
+    }
+
+    let mut max = slice[0];
+    for &amp;item in slice.iter().skip(1) {
+        if item &gt; max {
+            max = item;
+        }
+    }
+    Some(max)
+}
+
+// Working with core types
+fn core_types_example() {
+    // Basic types work the same
+    let x: i32 = 42;
+    let y: Option&lt;i32&gt; = Some(x);
+    let z: Result&lt;i32, &amp;str&gt; = Ok(x);
+
+    // Iterators work (but no collect() without alloc)
+    let data = [1, 2, 3, 4, 5];
+    let sum: i32 = data.iter().sum();
+
+    // String slices work, but no String type
+    let text: &amp;str = "Hello, embedded world!";
+    let first_char = text.chars().next();
+
+    // Arrays work, but no Vec without alloc
+    let mut buffer = [0u8; 64];
+    buffer[0] = 42;
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Library Comparison:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Layer</th><th>Features</th><th>Use Case</th></tr></thead><tbody>
+<tr><td><strong>core</strong></td><td>Basic types, iterators, traits</td><td>Minimal embedded, bootloaders</td></tr>
+<tr><td><strong>alloc</strong></td><td>Heap allocation (Vec, String, Box)</td><td>Embedded with heap allocator</td></tr>
+<tr><td><strong>std</strong></td><td>OS services, networking, threading</td><td>Desktop applications</td></tr>
+</tbody></table>
+</div>
+<p><strong>Rust vs Other Languages:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Aspect</th><th><strong>Rust (no_std)</strong></th><th><strong>C</strong></th><th><strong>C++</strong></th></tr></thead><tbody>
+<tr><td><strong>Memory Safety</strong></td><td>Compile-time guaranteed</td><td>Manual management</td><td>RAII + manual</td></tr>
+<tr><td><strong>Zero-cost Abstractions</strong></td><td>Built-in</td><td>Manual optimization</td><td>Template metaprogramming</td></tr>
+<tr><td><strong>Standard Library</strong></td><td>Explicit layers (core/alloc/std)</td><td>Platform-specific libraries</td><td>STL often avoided in embedded</td></tr>
+<tr><td><strong>Error Handling</strong></td><td>Result&lt;T, E&gt; with no overhead</td><td>Error codes</td><td>Exceptions (often disabled)</td></tr>
+</tbody></table>
+</div>
+<h2 id="converting-to-no_std-a-practical-example"><a class="header" href="#converting-to-no_std-a-practical-example">Converting to no_std: A Practical Example</a></h2>
+<p>Let’s convert a temperature monitoring function from std to no_std:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// STD VERSION
+use std::collections::HashMap;
+use std::vec::Vec;
+
+struct TemperatureMonitor {
+    sensors: HashMap&lt;String, f32&gt;,
+    history: Vec&lt;f32&gt;,
+}
+
+impl TemperatureMonitor {
+    fn new() -&gt; Self {
+        Self {
+            sensors: HashMap::new(),
+            history: Vec::new(),
+        }
+    }
+
+    fn add_reading(&amp;mut self, sensor_id: String, temp: f32) {
+        self.sensors.insert(sensor_id, temp);
+        self.history.push(temp);
+    }
+
+    fn format_status(&amp;self) -&gt; String {
+        format!("Sensors: {}, History: {} readings",
+                self.sensors.len(), self.history.len())
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// NO_STD VERSION
+#![no_std]
+
+use heapless::{FnvIndexMap, Vec, String};
+
+struct EmbeddedTemperatureMonitor {
+    sensors: FnvIndexMap&lt;heapless::String&lt;16&gt;, f32, 8&gt;, // Max 8 sensors
+    history: Vec&lt;f32, 100&gt;, // Max 100 readings
+}
+
+impl EmbeddedTemperatureMonitor {
+    const fn new() -&gt; Self {
+        Self {
+            sensors: FnvIndexMap::new(),
+            history: Vec::new(),
+        }
+    }
+
+    fn add_reading(&amp;mut self, sensor_id: &amp;str, temp: f32) -&gt; Result&lt;(), &amp;'static str&gt; {
+        // Convert to heapless string
+        let mut key = heapless::String::new();
+        key.push_str(sensor_id).map_err(|_| "Sensor ID too long")?;
+
+        self.sensors.insert(key, temp).map_err(|_| "Too many sensors")?;
+        self.history.push(temp).map_err(|_| "History full")?;
+
+        Ok(())
+    }
+
+    fn format_status(&amp;self) -&gt; heapless::String&lt;64&gt; {
+        let mut status = heapless::String::new();
+        status.push_str("Sensors: ").ok();
+        push_number(&amp;mut status, self.sensors.len() as i32);
+        status.push_str(", History: ").ok();
+        push_number(&amp;mut status, self.history.len() as i32);
+        status.push_str(" readings").ok();
+        status
+    }
+
+    fn get_average(&amp;self) -&gt; Option&lt;f32&gt; {
+        if self.history.is_empty() {
+            return None;
+        }
+
+        let sum: f32 = self.history.iter().sum();
+        Some(sum / self.history.len() as f32)
+    }
+}
+
+// Helper function for formatting numbers without std::format!
+fn push_number(s: &amp;mut heapless::String&lt;64&gt;, mut num: i32) {
+    if num == 0 {
+        s.push('0').ok();
+        return;
+    }
+
+    if num &lt; 0 {
+        s.push('-').ok();
+        num = -num;
+    }
+
+    let mut digits = heapless::Vec::&lt;u8, 16&gt;::new();
+    while num &gt; 0 {
+        digits.push((num % 10) as u8).ok();
+        num /= 10;
+    }
+
+    for &amp;digit in digits.iter().rev() {
+        s.push((b'0' + digit) as char).ok();
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="using-alloc-without-std"><a class="header" href="#using-alloc-without-std">Using Alloc Without Std</a></h2>
+<p>When you need heap allocation but not OS services, <code>alloc</code> provides the middle ground:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span>#![no_std]
+<span class="boring">fn main() {
+</span>extern crate alloc;
+
+use alloc::{
+    vec::Vec,
+    string::String,
+    boxed::Box,
+    collections::BTreeMap,
+    format,
+};
+
+// Global allocator required for alloc
+use linked_list_allocator::LockedHeap;
+
+#[global_allocator]
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
+// Initialize heap in embedded context
+fn init_heap() {
+    const HEAP_SIZE: usize = 1024;
+    static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+
+    unsafe {
+        ALLOCATOR.lock().init(HEAP.as_mut_ptr(), HEAP_SIZE);
+    }
+}
+
+// Now we can use heap-allocated types
+fn alloc_examples() {
+    let mut numbers = Vec::new();
+    numbers.push(1);
+    numbers.push(2);
+
+    let greeting = String::from("Hello");
+    let formatted = format!("{}!", greeting);
+
+    let boxed_value = Box::new(42i32);
+
+    // Collections that don't require hashing
+    let mut map = BTreeMap::new();
+    map.insert("key", "value");
+
+    // HashMap requires std due to RandomState dependency
+    // This won't compile in no_std:
+    // use std::collections::HashMap; // Error!
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="heapless-data-structures"><a class="header" href="#heapless-data-structures">Heapless Data Structures</a></h2>
+<p>The <code>heapless</code> crate provides fixed-capacity collections perfect for embedded systems:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span>#![no_std]
+
+<span class="boring">fn main() {
+</span>use heapless::{
+    Vec, String, FnvIndexMap,
+    pool::{Pool, Node},
+    spsc::{Producer, Consumer, Queue},
+};
+
+// Fixed-capacity vector - perfect for sensor readings
+fn heapless_sensor_storage() {
+    // Vec with maximum 32 temperature readings
+    let mut temperatures: Vec&lt;f32, 32&gt; = Vec::new();
+
+    temperatures.push(23.5).ok(); // Returns Result - can fail if full
+    temperatures.push(24.1).ok();
+    temperatures.push(23.8).ok();
+
+    // Check capacity and usage
+    assert_eq!(temperatures.len(), 3);
+    assert_eq!(temperatures.capacity(), 32);
+
+    // Calculate average
+    let sum: f32 = temperatures.iter().sum();
+    let average = sum / temperatures.len() as f32;
+
+    // Convert to slice for processing
+    let slice: &amp;[f32] = &amp;temperatures;
+    process_readings(slice);
+}
+
+fn process_readings(readings: &amp;[f32]) {
+    for &amp;temp in readings {
+        if temp &gt; 25.0 {
+            // Handle high temperature
+        }
+    }
+}
+
+// Fixed-capacity string for sensor names
+fn heapless_string_example() {
+    let mut sensor_name: String&lt;16&gt; = String::new();
+
+    sensor_name.push_str("temp_").ok();
+    sensor_name.push_str("01").ok();
+
+    // Safe string formatting without heap
+    assert_eq!(sensor_name.as_str(), "temp_01");
+}
+
+// Hash map alternative for sensor lookup
+fn sensor_registry_example() {
+    let mut sensors: FnvIndexMap&lt;&amp;str, f32, 16&gt; = FnvIndexMap::new();
+
+    sensors.insert("living_room", 23.5).ok();
+    sensors.insert("kitchen", 24.2).ok();
+    sensors.insert("bedroom", 22.8).ok();
+
+    if let Some(&amp;temp) = sensors.get("living_room") {
+        if temp &gt; 25.0 {
+            // Trigger cooling
+        }
+    }
+
+    // Iterate over all sensors
+    for (location, &amp;temperature) in &amp;sensors {
+        println!("{}: {:.1}°C", location, temperature);
+    }
+}
+
+// Memory pool for dynamic allocation without heap
+static mut SENSOR_POOL_MEMORY: [Node&lt;[u8; 64]&gt;; 8] = [Node::new(); 8];
+static SENSOR_POOL: Pool&lt;[u8; 64]&gt; = Pool::new();
+
+fn init_sensor_pool() {
+    unsafe {
+        SENSOR_POOL.grow_exact(&amp;mut SENSOR_POOL_MEMORY);
+    }
+}
+
+fn use_sensor_buffer() -&gt; Option&lt;()&gt; {
+    let mut buffer = SENSOR_POOL.alloc()?; // Get buffer from pool
+
+    // Use buffer for sensor data processing
+    buffer[0] = 0x42; // Sensor command
+    buffer[1] = 0x01; // Sensor ID
+
+    // Buffer automatically returned to pool when dropped
+    Some(())
+}
+
+// Lock-free queue for interrupt communication
+static mut SENSOR_QUEUE: Queue&lt;f32, 16&gt; = Queue::new();
+
+fn init_sensor_communication() {
+    // Split queue for producer/consumer
+    let (mut producer, mut consumer) = unsafe { SENSOR_QUEUE.split() };
+
+    // Producer side (could be in interrupt)
+    producer.enqueue(23.5).ok(); // Temperature reading
+    producer.enqueue(24.1).ok();
+
+    // Consumer side (main loop)
+    while let Some(temperature) = consumer.dequeue() {
+        process_temperature_reading(temperature);
+    }
+}
+
+fn process_temperature_reading(temp: f32) {
+    // Process the temperature reading
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="const-functions-for-compile-time-configuration"><a class="header" href="#const-functions-for-compile-time-configuration">Const Functions for Compile-time Configuration</a></h2>
+<p>Const functions enable zero-cost configuration and computation:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span>#![no_std]
+
+<span class="boring">fn main() {
+</span>// Configuration constants computed at compile time
+const SYSTEM_CLOCK_HZ: u32 = 16_000_000; // 16 MHz
+const UART_BAUD_RATE: u32 = 115_200;
+
+// Const function to calculate UART register values
+const fn calculate_uart_divisor(clock_hz: u32, baud_rate: u32) -&gt; u32 {
+    clock_hz / (16 * baud_rate)
+}
+
+// Computed at compile time - zero runtime cost
+const UART_DIVISOR: u32 = calculate_uart_divisor(SYSTEM_CLOCK_HZ, UART_BAUD_RATE);
+
+// Temperature sensor configuration
+const fn celsius_to_adc_value(celsius: f32) -&gt; u16 {
+    // Simple linear conversion: 10mV/°C, 3.3V reference, 12-bit ADC
+    let voltage = celsius * 0.01; // 10mV/°C
+    let adc_value = (voltage / 3.3) * 4095.0;
+    adc_value as u16
+}
+
+// Temperature thresholds computed at compile time
+const TEMP_THRESHOLD_LOW: u16 = celsius_to_adc_value(5.0);   // 5°C
+const TEMP_THRESHOLD_HIGH: u16 = celsius_to_adc_value(35.0); // 35°C
+const TEMP_CRITICAL: u16 = celsius_to_adc_value(50.0);       // 50°C
+
+// Const generic functions for buffer sizing
+const fn next_power_of_two(n: usize) -&gt; usize {
+    if n &lt;= 1 {
+        1
+    } else {
+        2 * next_power_of_two((n + 1) / 2)
+    }
+}
+
+// Ring buffer with compile-time size validation
+struct RingBuffer&lt;T, const N: usize&gt; {
+    buffer: [Option&lt;T&gt;; N],
+    head: usize,
+    tail: usize,
+    full: bool,
+}
+
+impl&lt;T, const N: usize&gt; RingBuffer&lt;T, N&gt; {
+    const fn new() -&gt; Self {
+        // Compile-time assertion
+        assert!(N &gt; 0 &amp;&amp; (N &amp; (N - 1)) == 0, "Buffer size must be power of two");
+
+        const fn none&lt;T&gt;() -&gt; Option&lt;T&gt; { None }
+
+        RingBuffer {
+            buffer: [none(); N],
+            head: 0,
+            tail: 0,
+            full: false,
+        }
+    }
+
+    const fn capacity(&amp;self) -&gt; usize {
+        N
+    }
+
+    const fn mask(&amp;self) -&gt; usize {
+        N - 1 // Works because N is power of 2
+    }
+
+    fn push(&amp;mut self, item: T) -&gt; Result&lt;(), T&gt; {
+        if self.full {
+            return Err(item);
+        }
+
+        self.buffer[self.head] = Some(item);
+        self.head = (self.head + 1) &amp; self.mask();
+        self.full = self.head == self.tail;
+        Ok(())
+    }
+
+    fn pop(&amp;mut self) -&gt; Option&lt;T&gt; {
+        if self.is_empty() {
+            return None;
+        }
+
+        let item = self.buffer[self.tail].take()?;
+        self.tail = (self.tail + 1) &amp; self.mask();
+        self.full = false;
+        Some(item)
+    }
+
+    const fn is_empty(&amp;self) -&gt; bool {
+        !self.full &amp;&amp; self.head == self.tail
+    }
+}
+
+// Usage with compile-time validated size
+const READING_BUFFER_SIZE: usize = next_power_of_two(50); // Results in 64
+static mut TEMPERATURE_BUFFER: RingBuffer&lt;f32, READING_BUFFER_SIZE&gt; = RingBuffer::new();
+<span class="boring">}</span></code></pre></pre>
+<h2 id="embedded-programming-patterns"><a class="header" href="#embedded-programming-patterns">Embedded Programming Patterns</a></h2>
+<p>Essential patterns for embedded Rust development:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span>#![no_std]
+#![no_main]
+
+<span class="boring">fn main() {
+</span>use core::panic::PanicInfo;
+
+// Panic handler required for no_std
+#[panic_handler]
+fn panic(_info: &amp;PanicInfo) -&gt; ! {
+    // In production: reset system or enter safe mode
+    // For debug: could use RTT or LED patterns
+    loop {
+        // Infinite loop or system reset
+    }
+}
+
+// State machine for temperature monitoring device
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum MonitorState {
+    Initializing,
+    Idle,
+    Reading,
+    Processing,
+    Transmitting,
+    Error(ErrorCode),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum ErrorCode {
+    SensorTimeout,
+    InvalidReading,
+    CommunicationError,
+    OverTemperature,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum MonitorEvent {
+    InitComplete,
+    StartReading,
+    ReadingComplete(f32),
+    ReadingFailed(ErrorCode),
+    ProcessingComplete,
+    TransmissionComplete,
+    TransmissionFailed,
+    ErrorRecovered,
+}
+
+struct TemperatureMonitor {
+    state: MonitorState,
+    reading_count: u32,
+    error_count: u32,
+    last_reading: Option&lt;f32&gt;,
+}
+
+impl TemperatureMonitor {
+    const fn new() -&gt; Self {
+        Self {
+            state: MonitorState::Initializing,
+            reading_count: 0,
+            error_count: 0,
+            last_reading: None,
+        }
+    }
+
+    fn handle_event(&amp;mut self, event: MonitorEvent) -&gt; MonitorState {
+        self.state = match (self.state, event) {
+            (MonitorState::Initializing, MonitorEvent::InitComplete) =&gt; {
+                MonitorState::Idle
+            }
+            (MonitorState::Idle, MonitorEvent::StartReading) =&gt; {
+                self.start_sensor_reading();
+                MonitorState::Reading
+            }
+            (MonitorState::Reading, MonitorEvent::ReadingComplete(temp)) =&gt; {
+                self.last_reading = Some(temp);
+                self.reading_count += 1;
+                MonitorState::Processing
+            }
+            (MonitorState::Reading, MonitorEvent::ReadingFailed(error)) =&gt; {
+                self.error_count += 1;
+                MonitorState::Error(error)
+            }
+            (MonitorState::Processing, MonitorEvent::ProcessingComplete) =&gt; {
+                if self.should_transmit() {
+                    MonitorState::Transmitting
+                } else {
+                    MonitorState::Idle
+                }
+            }
+            (MonitorState::Transmitting, MonitorEvent::TransmissionComplete) =&gt; {
+                MonitorState::Idle
+            }
+            (MonitorState::Error(_), MonitorEvent::ErrorRecovered) =&gt; {
+                MonitorState::Idle
+            }
+            // Invalid transitions maintain current state
+            _ =&gt; self.state,
+        };
+
+        self.state
+    }
+
+    fn start_sensor_reading(&amp;self) {
+        // Initiate ADC conversion or I2C transaction
+    }
+
+    fn should_transmit(&amp;self) -&gt; bool {
+        // Transmit every 10 readings or if temperature is critical
+        self.reading_count % 10 == 0 ||
+        self.last_reading.map_or(false, |t| t &gt; 40.0)
+    }
+
+    fn get_status(&amp;self) -&gt; &amp;'static str {
+        match self.state {
+            MonitorState::Initializing =&gt; "Initializing sensors...",
+            MonitorState::Idle =&gt; "Ready",
+            MonitorState::Reading =&gt; "Reading sensors...",
+            MonitorState::Processing =&gt; "Processing data...",
+            MonitorState::Transmitting =&gt; "Transmitting...",
+            MonitorState::Error(ErrorCode::SensorTimeout) =&gt; "Sensor timeout",
+            MonitorState::Error(ErrorCode::InvalidReading) =&gt; "Invalid reading",
+            MonitorState::Error(ErrorCode::CommunicationError) =&gt; "Comm error",
+            MonitorState::Error(ErrorCode::OverTemperature) =&gt; "CRITICAL: Over temp!",
+        }
+    }
+}
+
+// Interrupt-safe shared data
+use core::cell::RefCell;
+use cortex_m::interrupt::{self, Mutex};
+
+type SharedSensorData = Mutex&lt;RefCell&lt;Option&lt;f32&gt;&gt;&gt;;
+static SENSOR_DATA: SharedSensorData = Mutex::new(RefCell::new(None));
+
+fn read_shared_sensor_data() -&gt; Option&lt;f32&gt; {
+    interrupt::free(|cs| {
+        *SENSOR_DATA.borrow(cs).borrow()
+    })
+}
+
+fn write_shared_sensor_data(value: f32) {
+    interrupt::free(|cs| {
+        *SENSOR_DATA.borrow(cs).borrow_mut() = Some(value);
+    });
+}
+
+// Task scheduler with fixed-size task array
+struct Task {
+    period_ms: u32,
+    last_run: u32,
+    enabled: bool,
+    function: fn(),
+}
+
+impl Task {
+    const fn new(period_ms: u32, function: fn()) -&gt; Self {
+        Self {
+            period_ms,
+            last_run: 0,
+            enabled: true,
+            function,
+        }
+    }
+
+    fn should_run(&amp;self, current_time: u32) -&gt; bool {
+        self.enabled &amp;&amp; current_time.wrapping_sub(self.last_run) &gt;= self.period_ms
+    }
+
+    fn run(&amp;mut self, current_time: u32) {
+        (self.function)();
+        self.last_run = current_time;
+    }
+}
+
+// Fixed task schedule
+static mut TASKS: [Task; 4] = [
+    Task::new(100, sensor_task),      // 100ms - sensor reading
+    Task::new(1000, heartbeat_task),  // 1s - status LED
+    Task::new(5000, telemetry_task),  // 5s - data transmission
+    Task::new(60000, watchdog_task),  // 60s - system health check
+];
+
+fn run_scheduler() {
+    let current_time = get_system_time_ms();
+
+    unsafe {
+        for task in &amp;mut TASKS {
+            if task.should_run(current_time) {
+                task.run(current_time);
+            }
+        }
+    }
+}
+
+fn sensor_task() {
+    // Read temperature sensors
+}
+
+fn heartbeat_task() {
+    // Toggle status LED
+}
+
+fn telemetry_task() {
+    // Send sensor data via radio/WiFi
+}
+
+fn watchdog_task() {
+    // Pet watchdog, check system health
+}
+
+fn get_system_time_ms() -&gt; u32 {
+    // Return system time in milliseconds
+    // Implementation depends on hardware timer
+    0 // Placeholder
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="exercise-convert-temperature-system-to-no_std"><a class="header" href="#exercise-convert-temperature-system-to-no_std">Exercise: Convert Temperature System to no_std</a></h2>
+<p>Build a complete no_std version of our temperature monitoring system:</p>
+<h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
+<ol>
+<li><strong>Core Types</strong>: Temperature and sensor traits that work in no_std</li>
+<li><strong>Fixed Storage</strong>: Use heapless collections for storing readings</li>
+<li><strong>Protocol Handler</strong>: Binary protocol processing without allocation</li>
+<li><strong>Const Configuration</strong>: Compile-time system parameters</li>
+<li><strong>Error Handling</strong>: Comprehensive error handling without std</li>
+</ol>
+<h3 id="starting-implementation"><a class="header" href="#starting-implementation">Starting Implementation</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// In temp_embedded/src/lib.rs
+#![no_std]
+
+use heapless::{Vec, String, FnvIndexMap};
+use serde::{Deserialize, Serialize};
+
+// Re-export core temperature types
+pub use temp_core::Temperature;
+
+// Fixed-capacity temperature reading
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct EmbeddedTemperatureReading {
+    pub temperature: Temperature,
+    pub timestamp: u32, // Using u32 for embedded systems
+}
+
+impl EmbeddedTemperatureReading {
+    pub fn new(temperature: Temperature, timestamp: u32) -&gt; Self {
+        Self { temperature, timestamp }
+    }
+}
+
+// Fixed-capacity storage for embedded systems
+pub struct EmbeddedTemperatureStore&lt;const N: usize&gt; {
+    readings: Vec&lt;EmbeddedTemperatureReading, N&gt;,
+    total_readings: u32,
+}
+
+impl&lt;const N: usize&gt; EmbeddedTemperatureStore&lt;N&gt; {
+    pub const fn new() -&gt; Self {
+        // TODO: Initialize with fixed capacity
+        unimplemented!()
+    }
+
+    pub fn add_reading(&amp;mut self, reading: EmbeddedTemperatureReading) -&gt; Result&lt;(), &amp;'static str&gt; {
+        // TODO: Add reading, handling full buffer (circular buffer behavior)
+        unimplemented!()
+    }
+
+    pub fn get_latest(&amp;self) -&gt; Option&lt;EmbeddedTemperatureReading&gt; {
+        // TODO: Return most recent reading
+        unimplemented!()
+    }
+
+    pub fn get_stats(&amp;self) -&gt; EmbeddedTemperatureStats {
+        // TODO: Calculate stats without heap allocation
+        unimplemented!()
+    }
+
+    pub fn clear(&amp;mut self) {
+        // TODO: Clear all readings
+        unimplemented!()
+    }
+
+    pub const fn capacity(&amp;self) -&gt; usize {
+        N
+    }
+
+    pub fn len(&amp;self) -&gt; usize {
+        // TODO: Return current number of readings
+        unimplemented!()
+    }
+
+    pub fn is_full(&amp;self) -&gt; bool {
+        // TODO: Check if storage is at capacity
+        unimplemented!()
+    }
+}
+
+// Statistics without heap allocation
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct EmbeddedTemperatureStats {
+    pub min: Temperature,
+    pub max: Temperature,
+    pub average: Temperature,
+    pub count: usize,
+}
+
+// Const configuration functions
+pub const fn calculate_sample_rate(desired_hz: u32, clock_hz: u32) -&gt; u32 {
+    clock_hz / desired_hz
+}
+
+pub const fn validate_buffer_size(size: usize) -&gt; usize {
+    assert!(size &gt; 0 &amp;&amp; size &lt;= 1024, "Buffer size must be 1-1024");
+    assert!(size &amp; (size - 1) == 0, "Buffer size must be power of 2");
+    size
+}
+
+// Configuration constants
+pub const SYSTEM_CLOCK_HZ: u32 = 16_000_000;
+pub const SAMPLE_RATE_HZ: u32 = 10; // 10 Hz sampling
+pub const TIMER_DIVISOR: u32 = calculate_sample_rate(SAMPLE_RATE_HZ, SYSTEM_CLOCK_HZ);
+pub const READING_BUFFER_SIZE: usize = validate_buffer_size(64);
+
+// Binary protocol for embedded communication
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EmbeddedCommand {
+    GetStatus,
+    GetLatestReading,
+    GetReadingCount,
+    ClearReadings,
+    SetSampleRate(u32),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EmbeddedResponse {
+    Status {
+        uptime_seconds: u32,
+        reading_count: u32,
+        sample_rate: u32,
+    },
+    Reading(EmbeddedTemperatureReading),
+    ReadingCount(u32),
+    Cleared,
+    SampleRateSet(u32),
+    Error(u8), // Error code as u8 for compact binary encoding
+}
+
+pub struct EmbeddedProtocolHandler&lt;const N: usize&gt; {
+    store: EmbeddedTemperatureStore&lt;N&gt;,
+    sample_rate: u32,
+    start_time: u32,
+}
+
+impl&lt;const N: usize&gt; EmbeddedProtocolHandler&lt;N&gt; {
+    pub const fn new() -&gt; Self {
+        // TODO: Initialize protocol handler
+        unimplemented!()
+    }
+
+    pub fn process_command(&amp;mut self, command: EmbeddedCommand, current_time: u32) -&gt; EmbeddedResponse {
+        // TODO: Process commands and return appropriate responses
+        unimplemented!()
+    }
+
+    pub fn serialize_binary(&amp;self, response: &amp;EmbeddedResponse) -&gt; Result&lt;Vec&lt;u8, 256&gt;, postcard::Error&gt; {
+        // TODO: Serialize response to binary using postcard
+        unimplemented!()
+    }
+
+    pub fn deserialize_binary(&amp;self, data: &amp;[u8]) -&gt; Result&lt;EmbeddedCommand, postcard::Error&gt; {
+        // TODO: Deserialize command from binary
+        unimplemented!()
+    }
+
+    pub fn add_reading(&amp;mut self, temperature: Temperature, timestamp: u32) -&gt; Result&lt;(), &amp;'static str&gt; {
+        let reading = EmbeddedTemperatureReading::new(temperature, timestamp);
+        self.store.add_reading(reading)
+    }
+}
+
+// Error types for embedded systems
+#[derive(Debug, Clone, Copy)]
+pub enum EmbeddedError {
+    BufferFull,
+    InvalidSampleRate,
+    SensorTimeout,
+    InvalidCommand,
+    SerializationError,
+}
+
+impl EmbeddedError {
+    pub const fn error_code(&amp;self) -&gt; u8 {
+        match self {
+            EmbeddedError::BufferFull =&gt; 1,
+            EmbeddedError::InvalidSampleRate =&gt; 2,
+            EmbeddedError::SensorTimeout =&gt; 3,
+            EmbeddedError::InvalidCommand =&gt; 4,
+            EmbeddedError::SerializationError =&gt; 5,
+        }
+    }
+
+    pub const fn description(&amp;self) -&gt; &amp;'static str {
+        match self {
+            EmbeddedError::BufferFull =&gt; "Buffer full",
+            EmbeddedError::InvalidSampleRate =&gt; "Invalid sample rate",
+            EmbeddedError::SensorTimeout =&gt; "Sensor timeout",
+            EmbeddedError::InvalidCommand =&gt; "Invalid command",
+            EmbeddedError::SerializationError =&gt; "Serialization error",
+        }
+    }
+}
+
+// Utility function for creating fixed-capacity strings
+pub fn create_status_string(reading_count: u32, sample_rate: u32) -&gt; String&lt;128&gt; {
+    let mut status = String::new();
+    status.push_str("Readings: ").ok();
+    push_number(&amp;mut status, reading_count as i32);
+    status.push_str(", Rate: ").ok();
+    push_number(&amp;mut status, sample_rate as i32);
+    status.push_str(" Hz").ok();
+    status
+}
+
+fn push_number(s: &amp;mut String&lt;128&gt;, mut num: i32) {
+    // TODO: Implement number to string conversion without std::format!
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_embedded_store_basic_operations() {
+        // TODO: Test basic store operations
+    }
+
+    #[test]
+    fn test_embedded_store_circular_buffer() {
+        // TODO: Test circular buffer behavior when full
+    }
+
+    #[test]
+    fn test_const_configuration() {
+        // TODO: Test compile-time configuration
+    }
+
+    #[test]
+    fn test_protocol_binary_serialization() {
+        // TODO: Test binary protocol serialization
+    }
+
+    #[test]
+    fn test_error_handling() {
+        // TODO: Test error handling without std
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="success-criteria"><a class="header" href="#success-criteria">Success Criteria</a></h3>
+<ul>
+<li>All code works in <code>#![no_std]</code> environment</li>
+<li>Fixed-capacity storage behaves correctly when full</li>
+<li>Binary protocol serialization works without allocation</li>
+<li>Const functions provide zero-cost configuration</li>
+<li>Comprehensive error handling without std types</li>
+<li>All tests pass demonstrating embedded-ready functionality</li>
+</ul>
+<h3 id="extension-ideas"><a class="header" href="#extension-ideas">Extension Ideas</a></h3>
+<ol>
+<li><strong>Power Management</strong>: Add sleep modes and wake-on-interrupt</li>
+<li><strong>Watchdog Integration</strong>: System reset on hang detection</li>
+<li><strong>Interrupt Handlers</strong>: Safe interrupt-driven sensor reading</li>
+<li><strong>Memory Analysis</strong>: Verify stack and flash usage</li>
+<li><strong>Hardware Abstraction</strong>: Generic sensor traits for different platforms</li>
+</ol>
+<h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
+<ol>
+<li><strong>Library Layers</strong>: <code>core</code> for basics, <code>alloc</code> for heap, <code>std</code> for OS features</li>
+<li><strong>Fixed Capacity</strong>: Use heapless collections to avoid allocation failures</li>
+<li><strong>Const Functions</strong>: Compute configuration at compile time for zero overhead</li>
+<li><strong>State Machines</strong>: Explicit state management prevents invalid operations in resource-constrained environments</li>
+<li><strong>Error Handling</strong>: Custom error types with Result provide type-safe error handling without exceptions</li>
+<li><strong>Memory Patterns</strong>: Pools, ring buffers, and static allocation replace heap when needed</li>
+<li><strong>Interrupt Safety</strong>: Use <code>Mutex&lt;RefCell&lt;T&gt;&gt;</code> for interrupt-safe shared data</li>
+<li><strong>Binary Protocols</strong>: Compact serialization saves bandwidth and storage</li>
+</ol>
+<p><strong>Next</strong>: In Chapter 18, we’ll explore build systems, cross-compilation, and deployment strategies for getting our embedded code running on actual hardware.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../day3/16_file_io.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../day3/18_build_deploy.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../day3/16_file_io.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../day3/18_build_deploy.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
