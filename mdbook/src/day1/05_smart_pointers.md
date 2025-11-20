@@ -911,4 +911,13 @@ fn main() {
 }
 ```
 
+---
+
+## Additional Resources
+
+- **[Rust Container Cheat Sheet](https://cs140e.sergio.bz/notes/lec3/cheat-sheet.pdf)** by Ralph Levien - An excellent visual reference for Rust containers and smart pointers, including Vec, String, Box, Rc, Arc, RefCell, and more. Perfect for quick lookups and comparisons.
+- [The Rust Book - Smart Pointers](https://doc.rust-lang.org/book/ch15-00-smart-pointers.html)
+- [Rust by Example - Smart Pointers](https://doc.rust-lang.org/rust-by-example/std/box.html)
+- [RefCell and Interior Mutability](https://doc.rust-lang.org/book/ch15-05-interior-mutability.html)
+
 **Next Up:** In Day 2, we'll explore collections, traits, and generics - the tools that make Rust code both safe and expressive.

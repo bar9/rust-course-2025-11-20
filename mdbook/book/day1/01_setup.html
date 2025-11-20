@@ -278,7 +278,7 @@ cargo new --lib day1_library
 <div class="table-wrapper"><table><thead><tr><th>Issue</th><th>Solution</th></tr></thead><tbody>
 <tr><td>“rustc not found”</td><td>Restart terminal after installation</td></tr>
 <tr><td>Slow compilation</td><td>Enable sccache: <code>cargo install sccache</code></td></tr>
-<tr><td>Can’t debug</td><td>Install CodeLLDB extension in VS Code</td></tr>
+<tr><td>Can’t debug</td><td>Zed has built-in debugging support</td></tr>
 <tr><td>Windows linker errors</td><td>Install Visual Studio Build Tools</td></tr>
 </tbody></table>
 </div>
@@ -299,7 +299,7 @@ cargo new --lib day1_library
 <h3 id="exercise-13-first-debugging-session"><a class="header" href="#exercise-13-first-debugging-session">Exercise 1.3: First Debugging Session</a></h3>
 <ol>
 <li>Create a program with an intentional panic</li>
-<li>Set a breakpoint in VS Code</li>
+<li>Set a breakpoint in Zed</li>
 <li>Step through the code with the debugger</li>
 </ol>
 <h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
@@ -307,7 +307,7 @@ cargo new --lib day1_library
 <p>✅ Cargo handles dependencies, building, testing, and documentation</p>
 <p>✅ Debug vs Release builds have significant performance differences</p>
 <p>✅ The development experience is similar to modern .NET, better than typical C++</p>
-<p>✅ VS Code with rust-analyzer provides excellent IDE support</p>
+<p>✅ Zed with built-in rust-analyzer provides excellent IDE support</p>
 <hr />
 <p>Next up: <a href="./02_fundamentals.html">Chapter 2: Rust Fundamentals</a> - Let’s write some Rust!</p>
 
@@ -340,22 +340,6 @@ cargo new --lib day1_library
 
         </div>
 
-        <!-- Livereload script (if served using the cli tool) -->
-        <script>
-            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-            const socket = new WebSocket(wsAddress);
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload();
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
 
 
 

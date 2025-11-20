@@ -159,7 +159,7 @@ cargo new --lib day1_library
 |-------|----------|
 | "rustc not found" | Restart terminal after installation |
 | Slow compilation | Enable sccache: `cargo install sccache` |
-| Can't debug | Install CodeLLDB extension in VS Code |
+| Can't debug | Zed has built-in debugging support |
 | Windows linker errors | Install Visual Studio Build Tools |
 
 ## Exercises
@@ -177,7 +177,7 @@ Create a new project and explore these cargo commands:
 
 ### Exercise 1.3: First Debugging Session
 1. Create a program with an intentional panic
-2. Set a breakpoint in VS Code
+2. Set a breakpoint in Zed
 3. Step through the code with the debugger
 
 ## Key Takeaways
@@ -190,7 +190,7 @@ Create a new project and explore these cargo commands:
 
 ✅ The development experience is similar to modern .NET, better than typical C++
 
-✅ VS Code with rust-analyzer provides excellent IDE support
+✅ Zed with built-in rust-analyzer provides excellent IDE support
 
 ---
 
