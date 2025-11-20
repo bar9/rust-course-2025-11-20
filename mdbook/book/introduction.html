@@ -168,7 +168,7 @@
 </ul>
 <p>Each day is a mix of theory and exercises. day 1 and 2 feature exercises in a std environment (building cli applications on desktop). day 3 and transfer day feature no_std and building embedded applications on an ESP32C3 microcontroller.</p>
 <h1 id="this-repository"><a class="header" href="#this-repository">This repository</a></h1>
-<p>Contains the course slides/script as an mdbook and solutions to the exercises on the <code>solutions</code> branch. Will be updated before and during the course.</p>
+<p>Contains the course slides/script as an mdbook and solutions to the exercises in the <code>solutions</code> directory. Will be updated before and during the course.</p>
 <h1 id="installation-instructions-day-1-and-2"><a class="header" href="#installation-instructions-day-1-and-2">Installation Instructions Day 1 and 2</a></h1>
 <p>Please ensure the following software is installed on the device you bring to the course.</p>
 <p>If there are any questions or difficulties during the installation please don’t hesitate to contact the instructor (rolandbrand11@gmail.com).</p>
@@ -348,6 +348,22 @@ espflash flash target/riscv32imc-unknown-none-elf/release/test-esp32c3
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

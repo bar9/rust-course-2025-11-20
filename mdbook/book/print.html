@@ -166,7 +166,7 @@
 </ul>
 <p>Each day is a mix of theory and exercises. day 1 and 2 feature exercises in a std environment (building cli applications on desktop). day 3 and transfer day feature no_std and building embedded applications on an ESP32C3 microcontroller.</p>
 <h1 id="this-repository"><a class="header" href="#this-repository">This repository</a></h1>
-<p>Contains the course slides/script as an mdbook and solutions to the exercises on the <code>solutions</code> branch. Will be updated before and during the course.</p>
+<p>Contains the course slides/script as an mdbook and solutions to the exercises in the <code>solutions</code> directory. Will be updated before and during the course.</p>
 <h1 id="installation-instructions-day-1-and-2"><a class="header" href="#installation-instructions-day-1-and-2">Installation Instructions Day 1 and 2</a></h1>
 <p>Please ensure the following software is installed on the device you bring to the course.</p>
 <p>If there are any questions or difficulties during the installation please don’t hesitate to contact the instructor (rolandbrand11@gmail.com).</p>
@@ -345,23 +345,6 @@ cargo --version
 <tr><td><code>rustfmt</code></td><td>Formatter</td><td><code>clang-format</code></td><td><code>dotnet format</code></td></tr>
 </tbody></table>
 </div>
-<h3 id="setting-up-vs-code"><a class="header" href="#setting-up-vs-code">Setting Up VS Code</a></h3>
-<p>VS Code with rust-analyzer provides an excellent Rust development experience.</p>
-<ol>
-<li>Install VS Code</li>
-<li>Install the “rust-analyzer” extension (NOT the older “Rust” extension)</li>
-<li>Install “CodeLLDB” for debugging</li>
-</ol>
-<h4 id="essential-vs-code-settings"><a class="header" href="#essential-vs-code-settings">Essential VS Code Settings</a></h4>
-<p>Add to your <code>settings.json</code>:</p>
-<pre><code class="language-json">{
-    "rust-analyzer.cargo.features": "all",
-    "rust-analyzer.inlayHints.typeHints.enable": true,
-    "rust-analyzer.inlayHints.chainingHints.enable": true,
-    "rust-analyzer.inlayHints.parameterHints.enable": true,
-    "editor.formatOnSave": true
-}
-</code></pre>
 <h3 id="your-first-rust-project"><a class="header" href="#your-first-rust-project">Your First Rust Project</a></h3>
 <p>Let’s create a Hello World project to verify everything works:</p>
 <pre><code class="language-bash">cargo new hello_rust
@@ -14889,6 +14872,22 @@ where
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

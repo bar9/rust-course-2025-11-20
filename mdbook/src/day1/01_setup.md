@@ -32,26 +32,6 @@ cargo --version
 | `clippy` | Linter | `clang-tidy` | Code analyzers |
 | `rustfmt` | Formatter | `clang-format` | `dotnet format` |
 
-### Setting Up VS Code
-
-VS Code with rust-analyzer provides an excellent Rust development experience.
-
-1. Install VS Code
-2. Install the "rust-analyzer" extension (NOT the older "Rust" extension)
-3. Install "CodeLLDB" for debugging
-
-#### Essential VS Code Settings
-
-Add to your `settings.json`:
-```json
-{
-    "rust-analyzer.cargo.features": "all",
-    "rust-analyzer.inlayHints.typeHints.enable": true,
-    "rust-analyzer.inlayHints.chainingHints.enable": true,
-    "rust-analyzer.inlayHints.parameterHints.enable": true,
-    "editor.formatOnSave": true
-}
-```
 
 ### Your First Rust Project
 

@@ -9,7 +9,7 @@ This course is targeted at developers experienced in other procedural or object-
 Each day is a mix of theory and exercises. day 1 and 2 feature exercises in a std environment (building cli applications on desktop). day 3 and transfer day feature no_std and building embedded applications on an ESP32C3 microcontroller.
 
 # This repository
-Contains the course slides/script as an mdbook and solutions to the exercises on the `solutions` branch. Will be updated before and during the course.
+Contains the course slides/script as an mdbook and solutions to the exercises in the `solutions` directory. Will be updated before and during the course.
 
 # Installation Instructions Day 1 and 2
 Please ensure the following software is installed on the device you bring to the course.
