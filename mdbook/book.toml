@@ -3,7 +3,6 @@ title = "Rust Course 2025"
 description = "Interactive Rust programming course built with mdBook"
 authors = ["Roland Brand"]
 language = "en"
-multilingual = false
 src = "src"
 
 [build]
