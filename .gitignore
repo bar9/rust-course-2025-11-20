@@ -21,8 +21,8 @@ target
 #.idea/
 
 # Course participant solutions
-solutions/*/
-!solutions/.gitkeep
+mysolutions/*/
+!mysolutions/.gitkeep
 
 # Claude Code assistant file
 CLAUDE.md
