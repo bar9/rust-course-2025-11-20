@@ -565,9 +565,7 @@ pub mod parser {
 
 ---
 
-## Exercises
-
-### Exercise 1: Create a Library Management System
+## Exercise: Create a Library Management System
 
 Design a module structure for a library system:
 
@@ -625,87 +623,6 @@ fn main() {
 }
 ```
 
-### Exercise 2: Configuration Module
-
-Build a configuration system with environment-specific settings:
-
-```rust
-// TODO: Create a config module that:
-// - Has submodules for dev, test, and prod configurations
-// - Provides a unified interface to access config
-// - Uses visibility to hide implementation details
-
-pub mod config {
-    // TODO: Define Config struct
-    
-    mod development {
-        // TODO: Dev-specific settings
-    }
-    
-    mod production {
-        // TODO: Prod-specific settings
-    }
-    
-    mod test {
-        // TODO: Test-specific settings
-    }
-    
-    // TODO: Public function to get config based on environment
-    pub fn load() -> Config {
-        todo!()
-    }
-}
-
-fn main() {
-    let config = config::load();
-    // Use configuration
-}
-```
-
-### Exercise 3: Plugin Architecture
-
-Create a plugin system using modules:
-
-```rust
-// TODO: Design a plugin architecture where:
-// - Plugins implement a common trait
-// - Plugins are organized in separate modules
-// - A registry module manages all plugins
-// - Public API hides implementation details
-
-pub trait Plugin {
-    fn name(&self) -> &str;
-    fn execute(&self);
-}
-
-mod plugins {
-    // TODO: Create several plugin modules
-    
-    pub mod logger {
-        // TODO: Implement logging plugin
-    }
-    
-    pub mod metrics {
-        // TODO: Implement metrics plugin
-    }
-}
-
-pub mod registry {
-    use super::Plugin;
-    
-    pub struct PluginRegistry {
-        // TODO: Store plugins
-    }
-    
-    impl PluginRegistry {
-        // TODO: Methods to register and execute plugins
-    }
-}
-
-fn main() {
-    // TODO: Create registry, register plugins, execute them
-}
-```
 
 ---
 

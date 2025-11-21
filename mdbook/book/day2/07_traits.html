@@ -431,7 +431,9 @@ fn main() {
 <h2 id="supertraits-and-trait-inheritance"><a class="header" href="#supertraits-and-trait-inheritance">Supertraits and Trait Inheritance</a></h2>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// Supertrait example
+</span>use std::fmt::Debug;
+
+// Supertrait example
 trait Person {
     fn name(&amp;self) -&gt; &amp;str;
 }
@@ -442,6 +444,7 @@ trait Student: Person {
 }
 
 // Must implement both traits
+#[derive(Debug)]
 struct GradStudent {
     name: String,
     uni: String,
@@ -494,53 +497,7 @@ fn main() {
     println!("{:?}", mm2); // Millimeters(2000)
 }</code></pre></pre>
 <hr />
-<h2 id="exercises"><a class="header" href="#exercises">Exercises</a></h2>
-<h3 id="exercise-1-implement-a-comparable-trait"><a class="header" href="#exercise-1-implement-a-comparable-trait">Exercise 1: Implement a Comparable Trait</a></h3>
-<p>Create a custom trait for comparison and implement it for different types:</p>
-<pre><pre class="playground"><code class="language-rust">trait Comparable {
-    fn compare(&amp;self, other: &amp;Self) -&gt; Ordering;
-    
-    // Provide default implementations
-    fn is_greater(&amp;self, other: &amp;Self) -&gt; bool {
-        matches!(self.compare(other), Ordering::Greater)
-    }
-    
-    fn is_less(&amp;self, other: &amp;Self) -&gt; bool {
-        matches!(self.compare(other), Ordering::Less)
-    }
-}
-
-use std::cmp::Ordering;
-
-struct Person {
-    name: String,
-    age: u32,
-}
-
-impl Comparable for Person {
-    fn compare(&amp;self, other: &amp;Self) -&gt; Ordering {
-        // TODO: Implement - compare by age, then by name
-    }
-}
-
-struct Product {
-    name: String,
-    price: f64,
-}
-
-impl Comparable for Product {
-    fn compare(&amp;self, other: &amp;Self) -&gt; Ordering {
-        // TODO: Implement - compare by price
-    }
-}
-
-fn main() {
-    let p1 = Person { name: "Alice".to_string(), age: 30 };
-    let p2 = Person { name: "Bob".to_string(), age: 25 };
-    
-    println!("Is Alice older than Bob? {}", p1.is_greater(&amp;p2));
-}</code></pre></pre>
-<h3 id="exercise-2-trait-objects-with-multiple-behaviors"><a class="header" href="#exercise-2-trait-objects-with-multiple-behaviors">Exercise 2: Trait Objects with Multiple Behaviors</a></h3>
+<h2 id="exercise-trait-objects-with-multiple-behaviors"><a class="header" href="#exercise-trait-objects-with-multiple-behaviors">Exercise: Trait Objects with Multiple Behaviors</a></h2>
 <p>Build a plugin system using trait objects:</p>
 <pre><pre class="playground"><code class="language-rust">trait Plugin {
     fn name(&amp;self) -&gt; &amp;str;
@@ -590,45 +547,6 @@ fn main() {
     
     manager.run_all();
 }</code></pre></pre>
-<h3 id="exercise-3-custom-iterator-trait-implementation"><a class="header" href="#exercise-3-custom-iterator-trait-implementation">Exercise 3: Custom Iterator Trait Implementation</a></h3>
-<p>Create a trait that extends Iterator functionality:</p>
-<pre><pre class="playground"><code class="language-rust">trait FilterMap: Iterator {
-    fn filter_map_custom&lt;B, F&gt;(self, f: F) -&gt; FilterMapCustom&lt;Self, F&gt;
-    where
-        Self: Sized,
-        F: FnMut(Self::Item) -&gt; Option&lt;B&gt;,
-    {
-        FilterMapCustom { iter: self, f }
-    }
-}
-
-struct FilterMapCustom&lt;I, F&gt; {
-    iter: I,
-    f: F,
-}
-
-// TODO: Implement Iterator for FilterMapCustom
-
-// Implement FilterMap for all iterators
-impl&lt;I: Iterator&gt; FilterMap for I {}
-
-fn main() {
-    let numbers = vec![1, 2, 3, 4, 5, 6];
-    
-    // Use the custom filter_map
-    let result: Vec&lt;i32&gt; = numbers
-        .into_iter()
-        .filter_map_custom(|x| {
-            if x % 2 == 0 {
-                Some(x * x)
-            } else {
-                None
-            }
-        })
-        .collect();
-    
-    println!("Even squares: {:?}", result);
-}</code></pre></pre>
 <hr />
 <h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
 <ol>
@@ -672,6 +590,22 @@ fn main() {
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

@@ -526,59 +526,220 @@ fn with_trait_object(value: &amp;dyn Display) {
     println!("{}", value);
 }
 <span class="boring">}</span></code></pre></pre>
-<h2 id="exercises"><a class="header" href="#exercises">Exercises</a></h2>
-<h3 id="exercise-81-generic-queue"><a class="header" href="#exercise-81-generic-queue">Exercise 8.1: Generic Queue</a></h3>
-<p>Implement a generic queue with enqueue and dequeue operations:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct Queue&lt;T&gt; {
+<h2 id="exercise-generic-priority-queue-with-constraints"><a class="header" href="#exercise-generic-priority-queue-with-constraints">Exercise: Generic Priority Queue with Constraints</a></h2>
+<p>Create a priority queue system that demonstrates multiple generic programming concepts:</p>
+<pre><pre class="playground"><code class="language-rust">use std::fmt::{Debug, Display};
+use std::cmp::Ord;
+use std::marker::PhantomData;
+
+// Part 1: Basic generic queue with trait bounds
+#[derive(Debug)]
+struct PriorityQueue&lt;T&gt;
+where
+    T: Ord + Debug,
+{
     items: Vec&lt;T&gt;,
 }
 
-impl&lt;T&gt; Queue&lt;T&gt; {
+impl&lt;T&gt; PriorityQueue&lt;T&gt;
+where
+    T: Ord + Debug,
+{
     fn new() -&gt; Self {
-        // TODO: Implement
+        // TODO: Create a new empty priority queue
         todo!()
     }
-    
+
     fn enqueue(&amp;mut self, item: T) {
-        // TODO: Implement
+        // TODO: Add item and maintain sorted order (highest priority first)
+        // Hint: Use Vec::push() then Vec::sort()
         todo!()
     }
-    
+
     fn dequeue(&amp;mut self) -&gt; Option&lt;T&gt; {
-        // TODO: Implement
+        // TODO: Remove and return the highest priority item
+        // Hint: Use Vec::pop() since we keep items sorted
+        todo!()
+    }
+
+    fn peek(&amp;self) -&gt; Option&lt;&amp;T&gt; {
+        // TODO: Return reference to highest priority item without removing it
+        todo!()
+    }
+
+    fn len(&amp;self) -&gt; usize {
+        self.items.len()
+    }
+
+    fn is_empty(&amp;self) -&gt; bool {
+        self.items.is_empty()
+    }
+}
+
+// Part 2: Generic trait for items that can be prioritized
+trait Prioritized {
+    type Priority: Ord;
+
+    fn priority(&amp;self) -&gt; Self::Priority;
+}
+
+// Part 3: Advanced queue that works with any Prioritized type
+struct AdvancedQueue&lt;T&gt;
+where
+    T: Prioritized + Debug,
+{
+    items: Vec&lt;T&gt;,
+}
+
+impl&lt;T&gt; AdvancedQueue&lt;T&gt;
+where
+    T: Prioritized + Debug,
+{
+    fn new() -&gt; Self {
+        AdvancedQueue { items: Vec::new() }
+    }
+
+    fn enqueue(&amp;mut self, item: T) {
+        // TODO: Insert item in correct position based on priority
+        // Use binary search for efficient insertion
+        todo!()
+    }
+
+    fn dequeue(&amp;mut self) -&gt; Option&lt;T&gt; {
+        // TODO: Remove highest priority item
         todo!()
     }
 }
-<span class="boring">}</span></code></pre></pre>
-<h3 id="exercise-82-generic-min-function"><a class="header" href="#exercise-82-generic-min-function">Exercise 8.2: Generic Min Function</a></h3>
-<p>Write a generic function that returns the minimum of two values:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>fn min&lt;T&gt;(a: T, b: T) -&gt; T 
+
+// Part 4: Example types implementing Prioritized
+#[derive(Debug, Eq, PartialEq)]
+struct Task {
+    name: String,
+    urgency: u32,
+}
+
+impl Prioritized for Task {
+    type Priority = u32;
+
+    fn priority(&amp;self) -&gt; Self::Priority {
+        // TODO: Return the urgency level
+        todo!()
+    }
+}
+
+impl Ord for Task {
+    fn cmp(&amp;self, other: &amp;Self) -&gt; std::cmp::Ordering {
+        // TODO: Compare based on urgency (higher urgency = higher priority)
+        todo!()
+    }
+}
+
+impl PartialOrd for Task {
+    fn partial_cmp(&amp;self, other: &amp;Self) -&gt; Option&lt;std::cmp::Ordering&gt; {
+        Some(self.cmp(other))
+    }
+}
+
+// Part 5: Generic function with multiple trait bounds
+fn process_queue&lt;T, Q&gt;(queue: &amp;mut Q, max_items: usize) -&gt; Vec&lt;T&gt;
 where
-    T: /* What bound needed? */
+    T: Debug + Clone,
+    Q: QueueOperations&lt;T&gt;,
 {
-    // TODO: Implement
+    // TODO: Process up to max_items from the queue
+    // Return a vector of processed items
     todo!()
 }
-<span class="boring">}</span></code></pre></pre>
-<h3 id="exercise-83-builder-pattern-with-phantom-types"><a class="header" href="#exercise-83-builder-pattern-with-phantom-types">Exercise 8.3: Builder Pattern with Phantom Types</a></h3>
-<p>Create a type-safe builder for a <code>Request</code> that ensures headers are set before sending:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>struct NoHeaders;
-struct WithHeaders;
 
-struct RequestBuilder&lt;State&gt; {
-    url: String,
-    headers: Vec&lt;(String, String)&gt;,
-    _state: PhantomData&lt;State&gt;,
+// Part 6: Trait for queue operations (demonstrates trait design)
+trait QueueOperations&lt;T&gt; {
+    fn enqueue(&amp;mut self, item: T);
+    fn dequeue(&amp;mut self) -&gt; Option&lt;T&gt;;
+    fn len(&amp;self) -&gt; usize;
 }
 
-// TODO: Implement the builder pattern
-<span class="boring">}</span></code></pre></pre>
+// TODO: Implement QueueOperations for PriorityQueue&lt;T&gt;
+
+fn main() {
+    // Test basic priority queue with numbers
+    let mut num_queue = PriorityQueue::new();
+    num_queue.enqueue(5);
+    num_queue.enqueue(1);
+    num_queue.enqueue(10);
+    num_queue.enqueue(3);
+
+    println!("Number queue:");
+    while let Some(num) = num_queue.dequeue() {
+        println!("Processing: {}", num);
+    }
+
+    // Test with custom Task type
+    let mut task_queue = PriorityQueue::new();
+    task_queue.enqueue(Task { name: "Low".to_string(), urgency: 1 });
+    task_queue.enqueue(Task { name: "High".to_string(), urgency: 5 });
+    task_queue.enqueue(Task { name: "Medium".to_string(), urgency: 3 });
+
+    println!("\nTask queue:");
+    while let Some(task) = task_queue.dequeue() {
+        println!("Processing: {:?}", task);
+    }
+
+    // Test advanced queue with Prioritized trait
+    let mut advanced_queue = AdvancedQueue::new();
+    advanced_queue.enqueue(Task { name: "First".to_string(), urgency: 2 });
+    advanced_queue.enqueue(Task { name: "Second".to_string(), urgency: 4 });
+
+    println!("\nAdvanced queue:");
+    while let Some(task) = advanced_queue.dequeue() {
+        println!("Processing: {:?}", task);
+    }
+}</code></pre></pre>
+<p><strong>Implementation Guidelines:</strong></p>
+<ol>
+<li>
+<p><strong>PriorityQueue methods:</strong></p>
+<ul>
+<li><code>new()</code>: Return <code>PriorityQueue { items: Vec::new() }</code></li>
+<li><code>enqueue()</code>: Push item then sort with <code>self.items.sort()</code></li>
+<li><code>dequeue()</code>: Use <code>self.items.pop()</code> (gets highest after sorting)</li>
+<li><code>peek()</code>: Use <code>self.items.last()</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Task::priority():</strong></p>
+<ul>
+<li>Return <code>self.urgency</code></li>
+</ul>
+</li>
+<li>
+<p><strong>Task::cmp():</strong></p>
+<ul>
+<li>Use <code>self.urgency.cmp(&amp;other.urgency)</code></li>
+</ul>
+</li>
+<li>
+<p><strong>AdvancedQueue::enqueue():</strong></p>
+<ul>
+<li>Use <code>binary_search_by_key()</code> to find insertion point</li>
+<li>Use <code>insert()</code> to maintain sorted order</li>
+</ul>
+</li>
+<li>
+<p><strong>QueueOperations trait implementation:</strong></p>
+<ul>
+<li>Implement for <code>PriorityQueue&lt;T&gt;</code> by delegating to existing methods</li>
+</ul>
+</li>
+</ol>
+<p><strong>What this exercise teaches:</strong></p>
+<ul>
+<li><strong>Trait bounds</strong> (<code>Ord + Debug</code>) restrict generic types</li>
+<li><strong>Associated types</strong> in traits (<code>Priority</code>)</li>
+<li><strong>Complex where clauses</strong> for readable constraints</li>
+<li><strong>Generic trait implementation</strong> with multiple bounds</li>
+<li><strong>Real-world generic patterns</strong> beyond simple containers</li>
+<li><strong>Trait design</strong> for abstraction over different implementations</li>
+</ul>
 <h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
 <p>✅ <strong>Generics provide type safety without code duplication</strong> - Write once, use with many types</p>
 <p>✅ <strong>Trait bounds specify required functionality</strong> - More explicit than C++ templates</p>
@@ -618,6 +779,22 @@ struct RequestBuilder&lt;State&gt; {
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

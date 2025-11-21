@@ -558,8 +558,7 @@ mod tests {
 }
 <span class="boring">}</span></code></pre></pre>
 <hr />
-<h2 id="exercises"><a class="header" href="#exercises">Exercises</a></h2>
-<h3 id="exercise-1-build-a-configuration-parser"><a class="header" href="#exercise-1-build-a-configuration-parser">Exercise 1: Build a Configuration Parser</a></h3>
+<h2 id="exercise-build-a-configuration-parser"><a class="header" href="#exercise-build-a-configuration-parser">Exercise: Build a Configuration Parser</a></h2>
 <p>Create a robust configuration parser with proper error handling:</p>
 <pre><pre class="playground"><code class="language-rust">use std::collections::HashMap;
 use std::fs;
@@ -610,132 +609,6 @@ fn main() -&gt; Result&lt;(), ConfigError&gt; {
     println!("Starting server on {}:{}", host, port);
     Ok(())
 }</code></pre></pre>
-<h3 id="exercise-2-multi-error-handler"><a class="header" href="#exercise-2-multi-error-handler">Exercise 2: Multi-Error Handler</a></h3>
-<p>Build a system that can handle multiple error types elegantly:</p>
-<pre><pre class="playground"><code class="language-rust">use std::fs::File;
-use std::io::{self, Read};
-use std::num::ParseIntError;
-
-#[derive(Debug)]
-enum ProcessError {
-    FileError { path: String, error: io::Error },
-    ParseError { line: usize, error: ParseIntError },
-    ValidationError(String),
-}
-
-// TODO: Implement Display and Error traits
-
-struct DataProcessor {
-    errors: Vec&lt;ProcessError&gt;,
-}
-
-impl DataProcessor {
-    fn new() -&gt; Self {
-        DataProcessor { errors: Vec::new() }
-    }
-    
-    fn process_file(&amp;mut self, path: &amp;str) -&gt; Result&lt;Vec&lt;i32&gt;, ProcessError&gt; {
-        // TODO: Read file, parse each line as integer
-        // TODO: Collect all errors instead of failing on first
-        // TODO: Validate all numbers are positive
-        todo!()
-    }
-    
-    fn has_errors(&amp;self) -&gt; bool {
-        !self.errors.is_empty()
-    }
-    
-    fn report_errors(&amp;self) {
-        // TODO: Print all collected errors
-        todo!()
-    }
-}
-
-fn main() {
-    let mut processor = DataProcessor::new();
-    
-    match processor.process_file("numbers.txt") {
-        Ok(numbers) =&gt; println!("Processed {} numbers", numbers.len()),
-        Err(e) =&gt; eprintln!("Fatal error: {}", e),
-    }
-    
-    if processor.has_errors() {
-        processor.report_errors();
-    }
-}</code></pre></pre>
-<h3 id="exercise-3-result-chain-builder"><a class="header" href="#exercise-3-result-chain-builder">Exercise 3: Result Chain Builder</a></h3>
-<p>Create a builder pattern that properly handles errors at each step:</p>
-<pre><pre class="playground"><code class="language-rust">#[derive(Debug)]
-struct EmailBuilder {
-    to: Option&lt;String&gt;,
-    from: Option&lt;String&gt;,
-    subject: Option&lt;String&gt;,
-    body: Option&lt;String&gt;,
-}
-
-#[derive(Debug)]
-enum EmailError {
-    MissingField(&amp;'static str),
-    InvalidEmail(String),
-}
-
-// TODO: Implement builder methods that return Result
-impl EmailBuilder {
-    fn new() -&gt; Self {
-        EmailBuilder {
-            to: None,
-            from: None,
-            subject: None,
-            body: None,
-        }
-    }
-    
-    fn to(mut self, email: &amp;str) -&gt; Result&lt;Self, EmailError&gt; {
-        // TODO: Validate email format
-        todo!()
-    }
-    
-    fn from(mut self, email: &amp;str) -&gt; Result&lt;Self, EmailError&gt; {
-        // TODO: Validate email format
-        todo!()
-    }
-    
-    fn subject(mut self, subject: &amp;str) -&gt; Result&lt;Self, EmailError&gt; {
-        // TODO: Ensure subject is not empty
-        todo!()
-    }
-    
-    fn body(mut self, body: &amp;str) -&gt; Result&lt;Self, EmailError&gt; {
-        // TODO: Set body
-        todo!()
-    }
-    
-    fn build(self) -&gt; Result&lt;Email, EmailError&gt; {
-        // TODO: Ensure all required fields are set
-        todo!()
-    }
-}
-
-struct Email {
-    to: String,
-    from: String,
-    subject: String,
-    body: String,
-}
-
-fn main() {
-    let email_result = EmailBuilder::new()
-        .to("user@example.com")?
-        .from("sender@example.com")?
-        .subject("Hello")?
-        .body("This is the email body")?
-        .build();
-    
-    match email_result {
-        Ok(email) =&gt; println!("Email created successfully"),
-        Err(e) =&gt; eprintln!("Failed to create email: {:?}", e),
-    }
-}</code></pre></pre>
 <hr />
 <h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
 <ol>
@@ -758,7 +631,7 @@ fn main() {
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../day3/13_testing.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../day2/11_iterators.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -772,13 +645,29 @@ fn main() {
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../day3/13_testing.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../day2/11_iterators.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

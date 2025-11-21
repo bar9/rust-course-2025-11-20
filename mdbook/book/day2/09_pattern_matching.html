@@ -635,8 +635,7 @@ fn validate_user_input(input: &amp;str) -&gt; Result&lt;i32, &amp;'static str&gt
 }
 <span class="boring">}</span></code></pre></pre>
 <hr />
-<h2 id="exercises"><a class="header" href="#exercises">Exercises</a></h2>
-<h3 id="exercise-1-http-status-handler"><a class="header" href="#exercise-1-http-status-handler">Exercise 1: HTTP Status Handler</a></h3>
+<h2 id="exercise-http-status-handler"><a class="header" href="#exercise-http-status-handler">Exercise: HTTP Status Handler</a></h2>
 <p>Create a function that handles different HTTP status codes using pattern matching:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -664,74 +663,6 @@ fn handle_response(response: HttpResponse) -&gt; String {
     // - ServerError: "Error: Internal server error"
     // - Custom(code) where code &lt; 400: "Info: Status {code}"
     // - Custom(code) where code &gt;= 400: "Error: Status {code}"
-    todo!()
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="exercise-2-configuration-parser"><a class="header" href="#exercise-2-configuration-parser">Exercise 2: Configuration Parser</a></h3>
-<p>Parse a configuration string and handle various error cases:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>#[derive(Debug)]
-enum ConfigValue {
-    String(String),
-    Integer(i64),
-    Boolean(bool),
-    Array(Vec&lt;ConfigValue&gt;),
-}
-
-#[derive(Debug)]
-enum ParseError {
-    InvalidFormat,
-    InvalidNumber(String),
-    UnknownType,
-}
-
-// TODO: Implement this function
-fn parse_config_line(line: &amp;str) -&gt; Result&lt;(String, ConfigValue), ParseError&gt; {
-    // Parse lines in format: "key=value" or "key:type=value"
-    // Supported types: string, int, bool, array
-    // Examples:
-    // - "name=John" -&gt; ("name", ConfigValue::String("John"))
-    // - "port:int=8080" -&gt; ("port", ConfigValue::Integer(8080))
-    // - "debug:bool=true" -&gt; ("debug", ConfigValue::Boolean(true))
-    // - "tags:array=tag1,tag2,tag3" -&gt; ("tags", ConfigValue::Array([...]))
-    
-    todo!()
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="exercise-3-state-machine"><a class="header" href="#exercise-3-state-machine">Exercise 3: State Machine</a></h3>
-<p>Implement a simple state machine using pattern matching:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>#[derive(Debug, Clone)]
-enum State {
-    Idle,
-    Processing { progress: u8 },
-    Error { message: String, recoverable: bool },
-    Complete,
-}
-
-#[derive(Debug)]
-enum Event {
-    Start,
-    Progress(u8),
-    Error(String, bool),
-    Reset,
-    Finish,
-}
-
-// TODO: Implement state transitions
-fn transition_state(current: State, event: Event) -&gt; State {
-    // Implement these transitions:
-    // - Idle + Start -&gt; Processing { progress: 0 }
-    // - Processing + Progress(n) -&gt; Processing { progress: n }
-    // - Processing + Finish -&gt; Complete
-    // - Processing + Error(msg, recoverable) -&gt; Error { message: msg, recoverable }
-    // - Error { recoverable: true, .. } + Reset -&gt; Idle
-    // - Error { recoverable: false, .. } + Reset -&gt; Error (same state)
-    // - Complete + Reset -&gt; Idle
-    // - Any invalid transition keeps the current state
-    
     todo!()
 }
 <span class="boring">}</span></code></pre></pre>
@@ -778,6 +709,22 @@ fn transition_state(current: State, event: Event) -&gt; State {
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

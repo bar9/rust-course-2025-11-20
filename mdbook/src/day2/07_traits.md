@@ -305,6 +305,8 @@ fn main() {
 ## Supertraits and Trait Inheritance
 
 ```rust
+use std::fmt::Debug;
+
 // Supertrait example
 trait Person {
     fn name(&self) -> &str;
@@ -316,6 +318,7 @@ trait Student: Person {
 }
 
 // Must implement both traits
+#[derive(Debug)]
 struct GradStudent {
     name: String,
     uni: String,
@@ -376,59 +379,7 @@ fn main() {
 
 ---
 
-## Exercises
-
-### Exercise 1: Implement a Comparable Trait
-
-Create a custom trait for comparison and implement it for different types:
-
-```rust
-trait Comparable {
-    fn compare(&self, other: &Self) -> Ordering;
-    
-    // Provide default implementations
-    fn is_greater(&self, other: &Self) -> bool {
-        matches!(self.compare(other), Ordering::Greater)
-    }
-    
-    fn is_less(&self, other: &Self) -> bool {
-        matches!(self.compare(other), Ordering::Less)
-    }
-}
-
-use std::cmp::Ordering;
-
-struct Person {
-    name: String,
-    age: u32,
-}
-
-impl Comparable for Person {
-    fn compare(&self, other: &Self) -> Ordering {
-        // TODO: Implement - compare by age, then by name
-    }
-}
-
-struct Product {
-    name: String,
-    price: f64,
-}
-
-impl Comparable for Product {
-    fn compare(&self, other: &Self) -> Ordering {
-        // TODO: Implement - compare by price
-    }
-}
-
-fn main() {
-    let p1 = Person { name: "Alice".to_string(), age: 30 };
-    let p2 = Person { name: "Bob".to_string(), age: 25 };
-    
-    println!("Is Alice older than Bob? {}", p1.is_greater(&p2));
-}
-```
-
-### Exercise 2: Trait Objects with Multiple Behaviors
+## Exercise: Trait Objects with Multiple Behaviors
 
 Build a plugin system using trait objects:
 
@@ -480,50 +431,6 @@ fn main() {
     // manager.register(Box::new(...));
     
     manager.run_all();
-}
-```
-
-### Exercise 3: Custom Iterator Trait Implementation
-
-Create a trait that extends Iterator functionality:
-
-```rust
-trait FilterMap: Iterator {
-    fn filter_map_custom<B, F>(self, f: F) -> FilterMapCustom<Self, F>
-    where
-        Self: Sized,
-        F: FnMut(Self::Item) -> Option<B>,
-    {
-        FilterMapCustom { iter: self, f }
-    }
-}
-
-struct FilterMapCustom<I, F> {
-    iter: I,
-    f: F,
-}
-
-// TODO: Implement Iterator for FilterMapCustom
-
-// Implement FilterMap for all iterators
-impl<I: Iterator> FilterMap for I {}
-
-fn main() {
-    let numbers = vec![1, 2, 3, 4, 5, 6];
-    
-    // Use the custom filter_map
-    let result: Vec<i32> = numbers
-        .into_iter()
-        .filter_map_custom(|x| {
-            if x % 2 == 0 {
-                Some(x * x)
-            } else {
-                None
-            }
-        })
-        .collect();
-    
-    println!("Even squares: {:?}", result);
 }
 ```
 

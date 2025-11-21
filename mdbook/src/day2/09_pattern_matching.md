@@ -503,9 +503,7 @@ fn validate_user_input(input: &str) -> Result<i32, &'static str> {
 
 ---
 
-## Exercises
-
-### Exercise 1: HTTP Status Handler
+## Exercise: HTTP Status Handler
 Create a function that handles different HTTP status codes using pattern matching:
 
 ```rust
@@ -537,75 +535,6 @@ fn handle_response(response: HttpResponse) -> String {
 }
 ```
 
-### Exercise 2: Configuration Parser
-Parse a configuration string and handle various error cases:
-
-```rust
-#[derive(Debug)]
-enum ConfigValue {
-    String(String),
-    Integer(i64),
-    Boolean(bool),
-    Array(Vec<ConfigValue>),
-}
-
-#[derive(Debug)]
-enum ParseError {
-    InvalidFormat,
-    InvalidNumber(String),
-    UnknownType,
-}
-
-// TODO: Implement this function
-fn parse_config_line(line: &str) -> Result<(String, ConfigValue), ParseError> {
-    // Parse lines in format: "key=value" or "key:type=value"
-    // Supported types: string, int, bool, array
-    // Examples:
-    // - "name=John" -> ("name", ConfigValue::String("John"))
-    // - "port:int=8080" -> ("port", ConfigValue::Integer(8080))
-    // - "debug:bool=true" -> ("debug", ConfigValue::Boolean(true))
-    // - "tags:array=tag1,tag2,tag3" -> ("tags", ConfigValue::Array([...]))
-    
-    todo!()
-}
-```
-
-### Exercise 3: State Machine
-Implement a simple state machine using pattern matching:
-
-```rust
-#[derive(Debug, Clone)]
-enum State {
-    Idle,
-    Processing { progress: u8 },
-    Error { message: String, recoverable: bool },
-    Complete,
-}
-
-#[derive(Debug)]
-enum Event {
-    Start,
-    Progress(u8),
-    Error(String, bool),
-    Reset,
-    Finish,
-}
-
-// TODO: Implement state transitions
-fn transition_state(current: State, event: Event) -> State {
-    // Implement these transitions:
-    // - Idle + Start -> Processing { progress: 0 }
-    // - Processing + Progress(n) -> Processing { progress: n }
-    // - Processing + Finish -> Complete
-    // - Processing + Error(msg, recoverable) -> Error { message: msg, recoverable }
-    // - Error { recoverable: true, .. } + Reset -> Idle
-    // - Error { recoverable: false, .. } + Reset -> Error (same state)
-    // - Complete + Reset -> Idle
-    // - Any invalid transition keeps the current state
-    
-    todo!()
-}
-```
 
 ---
 

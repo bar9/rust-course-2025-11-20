@@ -374,38 +374,110 @@ config! {
 }
 ```
 
-## Try It Yourself
+## Exercise: Create Useful Macros
 
-### Exercise 1: Math Operations
-Create a macro that handles different math operations:
+Create macros that demonstrate different macro patterns and use cases:
+
+### Part 1: Math Operations Macro
+
+Create a macro that handles basic math operations:
+
 ```rust
-// Should work like:
-let result = math!(5 + 3);
-let result = math!(10 - 2);
-let result = math!(4 * 6);
+// TODO: Implement a math! macro that can handle different operations
+// Usage examples:
+// math!(5 + 3) -> 8
+// math!(10 - 2) -> 8
+// math!(4 * 6) -> 24
+// math!(15 / 3) -> 5
+
+macro_rules! math {
+    // TODO: Add patterns for different operations
+}
+
+fn main() {
+    println!("5 + 3 = {}", math!(5 + 3));
+    println!("10 - 2 = {}", math!(10 - 2));
+    println!("4 * 6 = {}", math!(4 * 6));
+    println!("15 / 3 = {}", math!(15 / 3));
+}
 ```
 
-### Exercise 2: Struct Builder
-Create a macro that builds structs with optional fields:
+### Part 2: HashMap Creation Macro
+
+Create a macro for easy HashMap creation:
+
 ```rust
-// Should generate:
-build_struct!(Person {
-    name: String,
-    age?: u32,
-    email?: String
-});
+use std::collections::HashMap;
+
+// TODO: Implement a hashmap! macro for easy HashMap creation
+// Usage: hashmap!("key1" => "value1", "key2" => "value2")
+
+macro_rules! hashmap {
+    // TODO: Add pattern for key => value pairs
+}
+
+fn main() {
+    let ages = hashmap!(
+        "Alice" => 30,
+        "Bob" => 25,
+        "Carol" => 35
+    );
+
+    println!("Alice is {} years old", ages["Alice"]);
+}
 ```
 
-### Exercise 3: Test Generator
-Create a macro that generates multiple similar tests:
+### Part 3: Struct Generation Macro
+
+Create a macro that generates simple structs:
+
 ```rust
-// Should generate test functions
-generate_tests!(
-    test_add: add(2, 3) == 5,
-    test_sub: sub(5, 2) == 3,
-    test_mul: mul(3, 4) == 12
-);
+// TODO: Implement a make_struct! macro that generates structs
+// Usage: make_struct!(Person, name: String, age: u32);
+
+macro_rules! make_struct {
+    // TODO: Add pattern for struct name and fields
+}
+
+// This should generate:
+// struct Person {
+//     name: String,
+//     age: u32,
+// }
+//
+// impl Person {
+//     fn new(name: String, age: u32) -> Self {
+//         Person { name, age }
+//     }
+// }
+
+fn main() {
+    make_struct!(Person, name: String, age: u32);
+
+    let person = Person::new("Alice".to_string(), 25);
+    println!("{} is {} years old", person.name, person.age);
+}
 ```
+
+**Implementation Hints:**
+
+1. **Math macro:**
+   - Use patterns like `($a:expr + $b:expr) => { $a + $b }`
+   - Handle different operators with separate arms
+
+2. **HashMap macro:**
+   - Use repetition: `($($key:expr => $value:expr),* $(,)?)`
+   - Create HashMap and insert each key-value pair
+
+3. **Struct macro:**
+   - Use `($name:ident, $($field:ident: $type:ty),*)` pattern
+   - Generate both struct and impl with new() method
+
+**What you'll learn:**
+- **Pattern matching** in macros with different fragment types
+- **Repetition patterns** with `*` and `+`
+- **Code generation** for common Rust patterns
+- **Macro hygiene** and identifier creation
 
 ## Best Practices
 

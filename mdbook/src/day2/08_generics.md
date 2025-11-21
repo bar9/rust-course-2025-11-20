@@ -400,62 +400,207 @@ fn with_trait_object(value: &dyn Display) {
 }
 ```
 
-## Exercises
+## Exercise: Generic Priority Queue with Constraints
 
-### Exercise 8.1: Generic Queue
-Implement a generic queue with enqueue and dequeue operations:
+Create a priority queue system that demonstrates multiple generic programming concepts:
 
 ```rust
-struct Queue<T> {
+use std::fmt::{Debug, Display};
+use std::cmp::Ord;
+use std::marker::PhantomData;
+
+// Part 1: Basic generic queue with trait bounds
+#[derive(Debug)]
+struct PriorityQueue<T>
+where
+    T: Ord + Debug,
+{
     items: Vec<T>,
 }
 
-impl<T> Queue<T> {
+impl<T> PriorityQueue<T>
+where
+    T: Ord + Debug,
+{
     fn new() -> Self {
-        // TODO: Implement
+        // TODO: Create a new empty priority queue
         todo!()
     }
-    
+
     fn enqueue(&mut self, item: T) {
-        // TODO: Implement
+        // TODO: Add item and maintain sorted order (highest priority first)
+        // Hint: Use Vec::push() then Vec::sort()
         todo!()
     }
-    
+
     fn dequeue(&mut self) -> Option<T> {
-        // TODO: Implement
+        // TODO: Remove and return the highest priority item
+        // Hint: Use Vec::pop() since we keep items sorted
+        todo!()
+    }
+
+    fn peek(&self) -> Option<&T> {
+        // TODO: Return reference to highest priority item without removing it
+        todo!()
+    }
+
+    fn len(&self) -> usize {
+        self.items.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.items.is_empty()
+    }
+}
+
+// Part 2: Generic trait for items that can be prioritized
+trait Prioritized {
+    type Priority: Ord;
+
+    fn priority(&self) -> Self::Priority;
+}
+
+// Part 3: Advanced queue that works with any Prioritized type
+struct AdvancedQueue<T>
+where
+    T: Prioritized + Debug,
+{
+    items: Vec<T>,
+}
+
+impl<T> AdvancedQueue<T>
+where
+    T: Prioritized + Debug,
+{
+    fn new() -> Self {
+        AdvancedQueue { items: Vec::new() }
+    }
+
+    fn enqueue(&mut self, item: T) {
+        // TODO: Insert item in correct position based on priority
+        // Use binary search for efficient insertion
+        todo!()
+    }
+
+    fn dequeue(&mut self) -> Option<T> {
+        // TODO: Remove highest priority item
         todo!()
     }
 }
-```
 
-### Exercise 8.2: Generic Min Function
-Write a generic function that returns the minimum of two values:
+// Part 4: Example types implementing Prioritized
+#[derive(Debug, Eq, PartialEq)]
+struct Task {
+    name: String,
+    urgency: u32,
+}
 
-```rust
-fn min<T>(a: T, b: T) -> T 
+impl Prioritized for Task {
+    type Priority = u32;
+
+    fn priority(&self) -> Self::Priority {
+        // TODO: Return the urgency level
+        todo!()
+    }
+}
+
+impl Ord for Task {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // TODO: Compare based on urgency (higher urgency = higher priority)
+        todo!()
+    }
+}
+
+impl PartialOrd for Task {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+// Part 5: Generic function with multiple trait bounds
+fn process_queue<T, Q>(queue: &mut Q, max_items: usize) -> Vec<T>
 where
-    T: /* What bound needed? */
+    T: Debug + Clone,
+    Q: QueueOperations<T>,
 {
-    // TODO: Implement
+    // TODO: Process up to max_items from the queue
+    // Return a vector of processed items
     todo!()
 }
-```
 
-### Exercise 8.3: Builder Pattern with Phantom Types
-Create a type-safe builder for a `Request` that ensures headers are set before sending:
-
-```rust
-struct NoHeaders;
-struct WithHeaders;
-
-struct RequestBuilder<State> {
-    url: String,
-    headers: Vec<(String, String)>,
-    _state: PhantomData<State>,
+// Part 6: Trait for queue operations (demonstrates trait design)
+trait QueueOperations<T> {
+    fn enqueue(&mut self, item: T);
+    fn dequeue(&mut self) -> Option<T>;
+    fn len(&self) -> usize;
 }
 
-// TODO: Implement the builder pattern
+// TODO: Implement QueueOperations for PriorityQueue<T>
+
+fn main() {
+    // Test basic priority queue with numbers
+    let mut num_queue = PriorityQueue::new();
+    num_queue.enqueue(5);
+    num_queue.enqueue(1);
+    num_queue.enqueue(10);
+    num_queue.enqueue(3);
+
+    println!("Number queue:");
+    while let Some(num) = num_queue.dequeue() {
+        println!("Processing: {}", num);
+    }
+
+    // Test with custom Task type
+    let mut task_queue = PriorityQueue::new();
+    task_queue.enqueue(Task { name: "Low".to_string(), urgency: 1 });
+    task_queue.enqueue(Task { name: "High".to_string(), urgency: 5 });
+    task_queue.enqueue(Task { name: "Medium".to_string(), urgency: 3 });
+
+    println!("\nTask queue:");
+    while let Some(task) = task_queue.dequeue() {
+        println!("Processing: {:?}", task);
+    }
+
+    // Test advanced queue with Prioritized trait
+    let mut advanced_queue = AdvancedQueue::new();
+    advanced_queue.enqueue(Task { name: "First".to_string(), urgency: 2 });
+    advanced_queue.enqueue(Task { name: "Second".to_string(), urgency: 4 });
+
+    println!("\nAdvanced queue:");
+    while let Some(task) = advanced_queue.dequeue() {
+        println!("Processing: {:?}", task);
+    }
+}
 ```
+
+**Implementation Guidelines:**
+
+1. **PriorityQueue methods:**
+   - `new()`: Return `PriorityQueue { items: Vec::new() }`
+   - `enqueue()`: Push item then sort with `self.items.sort()`
+   - `dequeue()`: Use `self.items.pop()` (gets highest after sorting)
+   - `peek()`: Use `self.items.last()`
+
+2. **Task::priority():**
+   - Return `self.urgency`
+
+3. **Task::cmp():**
+   - Use `self.urgency.cmp(&other.urgency)`
+
+4. **AdvancedQueue::enqueue():**
+   - Use `binary_search_by_key()` to find insertion point
+   - Use `insert()` to maintain sorted order
+
+5. **QueueOperations trait implementation:**
+   - Implement for `PriorityQueue<T>` by delegating to existing methods
+
+**What this exercise teaches:**
+- **Trait bounds** (`Ord + Debug`) restrict generic types
+- **Associated types** in traits (`Priority`)
+- **Complex where clauses** for readable constraints
+- **Generic trait implementation** with multiple bounds
+- **Real-world generic patterns** beyond simple containers
+- **Trait design** for abstraction over different implementations
 
 ## Key Takeaways
 

@@ -388,90 +388,151 @@ for (key, value) in changes {
 }
 <span class="boring">}</span></code></pre></pre>
 <hr />
-<h2 id="exercise-build-a-cache-system"><a class="header" href="#exercise-build-a-cache-system">Exercise: Build a Cache System</a></h2>
-<p>Create an LRU (Least Recently Used) cache with expiration:</p>
-<pre><pre class="playground"><code class="language-rust">use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+<h2 id="exercise-student-grade-management-system"><a class="header" href="#exercise-student-grade-management-system">Exercise: Student Grade Management System</a></h2>
+<p>Create a system that manages student grades using HashMap and HashSet to practice collections operations and the Entry API:</p>
+<pre><pre class="playground"><code class="language-rust">use std::collections::{HashMap, HashSet};
 
-struct CacheEntry&lt;V&gt; {
-    value: V,
-    last_accessed: Instant,
-    expires_at: Option&lt;Instant&gt;,
+#[derive(Debug)]
+struct GradeBook {
+    // Student name -&gt; HashMap of (subject -&gt; grade)
+    grades: HashMap&lt;String, HashMap&lt;String, f64&gt;&gt;,
+    // Set of all subjects offered
+    subjects: HashSet&lt;String&gt;,
 }
 
-struct LRUCache&lt;K: Clone + Eq + std::hash::Hash, V&gt; {
-    capacity: usize,
-    cache: HashMap&lt;K, CacheEntry&lt;V&gt;&gt;,
-    access_order: VecDeque&lt;K&gt;,
-}
-
-impl&lt;K: Clone + Eq + std::hash::Hash, V: Clone&gt; LRUCache&lt;K, V&gt; {
-    fn new(capacity: usize) -&gt; Self {
-        LRUCache {
-            capacity,
-            cache: HashMap::new(),
-            access_order: VecDeque::new(),
+impl GradeBook {
+    fn new() -&gt; Self {
+        GradeBook {
+            grades: HashMap::new(),
+            subjects: HashSet::new(),
         }
     }
-    
-    fn get(&amp;mut self, key: &amp;K) -&gt; Option&lt;&amp;V&gt; {
-        // TODO: Check if key exists
-        // TODO: Check if entry is expired (remove if expired)
-        // TODO: Update last_accessed time
-        // TODO: Move key to end of access_order (most recently used)
-        // TODO: Return the value
+
+    fn add_subject(&amp;mut self, subject: String) {
+        // TODO: Add subject to the subjects set
         todo!()
     }
-    
-    fn insert(&amp;mut self, key: K, value: V, ttl: Option&lt;Duration&gt;) {
-        // TODO: If at capacity, remove least recently used item
-        // TODO: Create cache entry with expiration if ttl provided
-        // TODO: Add to cache and access_order
+
+    fn add_grade(&amp;mut self, student: String, subject: String, grade: f64) {
+        // TODO: Add a grade for a student in a subject
+        // Hints:
+        // 1. Add subject to subjects set
+        // 2. Use entry() API to get or create the student's grade map
+        // 3. Insert the grade for the subject
         todo!()
     }
-    
-    fn remove(&amp;mut self, key: &amp;K) -&gt; Option&lt;V&gt; {
-        // TODO: Remove from cache and access_order
-        // TODO: Return the value if it existed
+
+    fn get_student_average(&amp;self, student: &amp;str) -&gt; Option&lt;f64&gt; {
+        // TODO: Calculate average grade for a student across all their subjects
+        // Return None if student doesn't exist
+        // Hint: Use .values() and iterator methods
         todo!()
     }
-    
-    fn clear_expired(&amp;mut self) {
-        // TODO: Remove all expired entries
+
+    fn get_subject_average(&amp;self, subject: &amp;str) -&gt; Option&lt;f64&gt; {
+        // TODO: Calculate average grade for a subject across all students
+        // Return None if no students have grades in this subject
         todo!()
     }
-    
-    fn stats(&amp;self) -&gt; (usize, usize) {
-        // Return (current_size, capacity)
-        (self.cache.len(), self.capacity)
+
+    fn get_students_in_subject(&amp;self, subject: &amp;str) -&gt; Vec&lt;&amp;String&gt; {
+        // TODO: Return list of students who have a grade in the given subject
+        // Hint: Filter students who have this subject in their grade map
+        todo!()
+    }
+
+    fn get_top_students(&amp;self, n: usize) -&gt; Vec&lt;(String, f64)&gt; {
+        // TODO: Return top N students by average grade
+        // Format: Vec&lt;(student_name, average_grade)&gt;
+        // Hint: Calculate averages, collect into Vec, sort, and take top N
+        todo!()
+    }
+
+    fn remove_student(&amp;mut self, student: &amp;str) -&gt; bool {
+        // TODO: Remove a student and all their grades
+        // Return true if student existed, false otherwise
+        todo!()
+    }
+
+    fn list_subjects(&amp;self) -&gt; Vec&lt;&amp;String&gt; {
+        // TODO: Return all subjects as a sorted vector
+        todo!()
     }
 }
 
 fn main() {
-    let mut cache = LRUCache::new(3);
-    
-    // Test basic operations
-    cache.insert("user:1", "Alice", Some(Duration::from_secs(60)));
-    cache.insert("user:2", "Bob", None);  // No expiration
-    cache.insert("user:3", "Charlie", Some(Duration::from_secs(5)));
-    
-    // Access user:1 to make it most recently used
-    println!("Got: {:?}", cache.get(&amp;"user:1"));
-    
-    // Add one more - should evict user:2 (least recently used)
-    cache.insert("user:4", "David", None);
-    
-    // Try to get user:2 - should be None (evicted)
-    println!("User 2 (should be evicted): {:?}", cache.get(&amp;"user:2"));
-    
-    let (size, capacity) = cache.stats();
-    println!("Cache stats - Size: {}/{}", size, capacity);
+    let mut gradebook = GradeBook::new();
+
+    // Add subjects
+    gradebook.add_subject("Math".to_string());
+    gradebook.add_subject("English".to_string());
+    gradebook.add_subject("Science".to_string());
+
+    // Add grades for students
+    gradebook.add_grade("Alice".to_string(), "Math".to_string(), 95.0);
+    gradebook.add_grade("Alice".to_string(), "English".to_string(), 87.0);
+    gradebook.add_grade("Bob".to_string(), "Math".to_string(), 82.0);
+    gradebook.add_grade("Bob".to_string(), "Science".to_string(), 91.0);
+    gradebook.add_grade("Charlie".to_string(), "English".to_string(), 78.0);
+    gradebook.add_grade("Charlie".to_string(), "Science".to_string(), 85.0);
+
+    // Test the methods
+    if let Some(avg) = gradebook.get_student_average("Alice") {
+        println!("Alice's average: {:.2}", avg);
+    }
+
+    if let Some(avg) = gradebook.get_subject_average("Math") {
+        println!("Math class average: {:.2}", avg);
+    }
+
+    let math_students = gradebook.get_students_in_subject("Math");
+    println!("Students in Math: {:?}", math_students);
+
+    let top_students = gradebook.get_top_students(2);
+    println!("Top 2 students: {:?}", top_students);
+
+    println!("All subjects: {:?}", gradebook.list_subjects());
 }</code></pre></pre>
-<p><strong>Hints:</strong></p>
+<p><strong>Implementation Hints:</strong></p>
+<ol>
+<li>
+<p><strong>add_grade() method:</strong></p>
 <ul>
-<li>Use <code>VecDeque::retain()</code> to keep only non-expired keys</li>
-<li>HashMap’s <code>entry()</code> API is useful for get-or-insert patterns</li>
-<li>Remember to update both the HashMap and VecDeque when modifying</li>
+<li>Use <code>self.grades.entry(student).or_insert_with(HashMap::new)</code></li>
+<li>Then insert the grade: <code>.insert(subject, grade)</code></li>
+</ul>
+</li>
+<li>
+<p><strong>get_student_average():</strong></p>
+<ul>
+<li>Use <code>self.grades.get(student)?</code> to get the student’s grades</li>
+<li>Use <code>.values().sum::&lt;f64&gt;() / values.len() as f64</code></li>
+</ul>
+</li>
+<li>
+<p><strong>get_subject_average():</strong></p>
+<ul>
+<li>Iterate through all students: <code>self.grades.iter()</code></li>
+<li>Filter students who have this subject: <code>filter_map(|(_, grades)| grades.get(subject))</code></li>
+<li>Calculate average from the filtered grades</li>
+</ul>
+</li>
+<li>
+<p><strong>get_top_students():</strong></p>
+<ul>
+<li>Use <code>map()</code> to convert students to (name, average) pairs</li>
+<li>Use <code>collect::&lt;Vec&lt;_&gt;&gt;()</code> and <code>sort_by()</code> with float comparison</li>
+<li>Use <code>take(n)</code> to get top N</li>
+</ul>
+</li>
+</ol>
+<p><strong>What you’ll learn:</strong></p>
+<ul>
+<li>HashMap’s Entry API for efficient insertions</li>
+<li>HashSet for tracking unique values</li>
+<li>Nested HashMap structures</li>
+<li>Iterator methods for data processing</li>
+<li>Working with Option types from HashMap lookups</li>
 </ul>
 <hr />
 <h2 id="key-takeaways"><a class="header" href="#key-takeaways">Key Takeaways</a></h2>
@@ -514,6 +575,22 @@ fn main() {
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

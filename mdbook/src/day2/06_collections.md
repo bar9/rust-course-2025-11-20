@@ -244,94 +244,142 @@ for (key, value) in changes {
 
 ---
 
-## Exercise: Build a Cache System
+## Exercise: Student Grade Management System
 
-Create an LRU (Least Recently Used) cache with expiration:
+Create a system that manages student grades using HashMap and HashSet to practice collections operations and the Entry API:
 
 ```rust
-use std::collections::{HashMap, VecDeque};
-use std::time::{Duration, Instant};
+use std::collections::{HashMap, HashSet};
 
-struct CacheEntry<V> {
-    value: V,
-    last_accessed: Instant,
-    expires_at: Option<Instant>,
+#[derive(Debug)]
+struct GradeBook {
+    // Student name -> HashMap of (subject -> grade)
+    grades: HashMap<String, HashMap<String, f64>>,
+    // Set of all subjects offered
+    subjects: HashSet<String>,
 }
 
-struct LRUCache<K: Clone + Eq + std::hash::Hash, V> {
-    capacity: usize,
-    cache: HashMap<K, CacheEntry<V>>,
-    access_order: VecDeque<K>,
-}
-
-impl<K: Clone + Eq + std::hash::Hash, V: Clone> LRUCache<K, V> {
-    fn new(capacity: usize) -> Self {
-        LRUCache {
-            capacity,
-            cache: HashMap::new(),
-            access_order: VecDeque::new(),
+impl GradeBook {
+    fn new() -> Self {
+        GradeBook {
+            grades: HashMap::new(),
+            subjects: HashSet::new(),
         }
     }
-    
-    fn get(&mut self, key: &K) -> Option<&V> {
-        // TODO: Check if key exists
-        // TODO: Check if entry is expired (remove if expired)
-        // TODO: Update last_accessed time
-        // TODO: Move key to end of access_order (most recently used)
-        // TODO: Return the value
+
+    fn add_subject(&mut self, subject: String) {
+        // TODO: Add subject to the subjects set
         todo!()
     }
-    
-    fn insert(&mut self, key: K, value: V, ttl: Option<Duration>) {
-        // TODO: If at capacity, remove least recently used item
-        // TODO: Create cache entry with expiration if ttl provided
-        // TODO: Add to cache and access_order
+
+    fn add_grade(&mut self, student: String, subject: String, grade: f64) {
+        // TODO: Add a grade for a student in a subject
+        // Hints:
+        // 1. Add subject to subjects set
+        // 2. Use entry() API to get or create the student's grade map
+        // 3. Insert the grade for the subject
         todo!()
     }
-    
-    fn remove(&mut self, key: &K) -> Option<V> {
-        // TODO: Remove from cache and access_order
-        // TODO: Return the value if it existed
+
+    fn get_student_average(&self, student: &str) -> Option<f64> {
+        // TODO: Calculate average grade for a student across all their subjects
+        // Return None if student doesn't exist
+        // Hint: Use .values() and iterator methods
         todo!()
     }
-    
-    fn clear_expired(&mut self) {
-        // TODO: Remove all expired entries
+
+    fn get_subject_average(&self, subject: &str) -> Option<f64> {
+        // TODO: Calculate average grade for a subject across all students
+        // Return None if no students have grades in this subject
         todo!()
     }
-    
-    fn stats(&self) -> (usize, usize) {
-        // Return (current_size, capacity)
-        (self.cache.len(), self.capacity)
+
+    fn get_students_in_subject(&self, subject: &str) -> Vec<&String> {
+        // TODO: Return list of students who have a grade in the given subject
+        // Hint: Filter students who have this subject in their grade map
+        todo!()
+    }
+
+    fn get_top_students(&self, n: usize) -> Vec<(String, f64)> {
+        // TODO: Return top N students by average grade
+        // Format: Vec<(student_name, average_grade)>
+        // Hint: Calculate averages, collect into Vec, sort, and take top N
+        todo!()
+    }
+
+    fn remove_student(&mut self, student: &str) -> bool {
+        // TODO: Remove a student and all their grades
+        // Return true if student existed, false otherwise
+        todo!()
+    }
+
+    fn list_subjects(&self) -> Vec<&String> {
+        // TODO: Return all subjects as a sorted vector
+        todo!()
     }
 }
 
 fn main() {
-    let mut cache = LRUCache::new(3);
-    
-    // Test basic operations
-    cache.insert("user:1", "Alice", Some(Duration::from_secs(60)));
-    cache.insert("user:2", "Bob", None);  // No expiration
-    cache.insert("user:3", "Charlie", Some(Duration::from_secs(5)));
-    
-    // Access user:1 to make it most recently used
-    println!("Got: {:?}", cache.get(&"user:1"));
-    
-    // Add one more - should evict user:2 (least recently used)
-    cache.insert("user:4", "David", None);
-    
-    // Try to get user:2 - should be None (evicted)
-    println!("User 2 (should be evicted): {:?}", cache.get(&"user:2"));
-    
-    let (size, capacity) = cache.stats();
-    println!("Cache stats - Size: {}/{}", size, capacity);
+    let mut gradebook = GradeBook::new();
+
+    // Add subjects
+    gradebook.add_subject("Math".to_string());
+    gradebook.add_subject("English".to_string());
+    gradebook.add_subject("Science".to_string());
+
+    // Add grades for students
+    gradebook.add_grade("Alice".to_string(), "Math".to_string(), 95.0);
+    gradebook.add_grade("Alice".to_string(), "English".to_string(), 87.0);
+    gradebook.add_grade("Bob".to_string(), "Math".to_string(), 82.0);
+    gradebook.add_grade("Bob".to_string(), "Science".to_string(), 91.0);
+    gradebook.add_grade("Charlie".to_string(), "English".to_string(), 78.0);
+    gradebook.add_grade("Charlie".to_string(), "Science".to_string(), 85.0);
+
+    // Test the methods
+    if let Some(avg) = gradebook.get_student_average("Alice") {
+        println!("Alice's average: {:.2}", avg);
+    }
+
+    if let Some(avg) = gradebook.get_subject_average("Math") {
+        println!("Math class average: {:.2}", avg);
+    }
+
+    let math_students = gradebook.get_students_in_subject("Math");
+    println!("Students in Math: {:?}", math_students);
+
+    let top_students = gradebook.get_top_students(2);
+    println!("Top 2 students: {:?}", top_students);
+
+    println!("All subjects: {:?}", gradebook.list_subjects());
 }
 ```
 
-**Hints:**
-- Use `VecDeque::retain()` to keep only non-expired keys
-- HashMap's `entry()` API is useful for get-or-insert patterns
-- Remember to update both the HashMap and VecDeque when modifying
+**Implementation Hints:**
+
+1. **add_grade() method:**
+   - Use `self.grades.entry(student).or_insert_with(HashMap::new)`
+   - Then insert the grade: `.insert(subject, grade)`
+
+2. **get_student_average():**
+   - Use `self.grades.get(student)?` to get the student's grades
+   - Use `.values().sum::<f64>() / values.len() as f64`
+
+3. **get_subject_average():**
+   - Iterate through all students: `self.grades.iter()`
+   - Filter students who have this subject: `filter_map(|(_, grades)| grades.get(subject))`
+   - Calculate average from the filtered grades
+
+4. **get_top_students():**
+   - Use `map()` to convert students to (name, average) pairs
+   - Use `collect::<Vec<_>>()` and `sort_by()` with float comparison
+   - Use `take(n)` to get top N
+
+**What you'll learn:**
+- HashMap's Entry API for efficient insertions
+- HashSet for tracking unique values
+- Nested HashMap structures
+- Iterator methods for data processing
+- Working with Option types from HashMap lookups
 
 ---
 
