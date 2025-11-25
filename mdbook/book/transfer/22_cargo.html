@@ -1,0 +1,705 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Cargo &amp; Dependency Management - Rust Course 2025</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Interactive Rust programming course built with mdBook">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Rust Course 2025</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/transfer/22_cargo.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="cargo--dependency-management"><a class="header" href="#cargo--dependency-management">Cargo &amp; Dependency Management</a></h1>
+<p>Modern software development relies heavily on dependencies, and managing them correctly is crucial for reproducible builds, security, and maintainability. Coming from C++, .NET, or other ecosystems, Rust’s Cargo provides a refreshingly coherent approach to dependency management.</p>
+<h2 id="chapter-overview"><a class="header" href="#chapter-overview">Chapter Overview</a></h2>
+<p>This chapter covers the critical aspects of dependency management in Rust:</p>
+<ul>
+<li><strong>Transitive dependency pinning</strong> and version resolution</li>
+<li><strong>Cargo.lock</strong> files and when to commit them</li>
+<li><strong>Reproducible builds</strong> guarantees and limitations</li>
+<li><strong>Semantic versioning</strong> strategies and best practices</li>
+<li><strong>Alternative registries</strong> and private repositories</li>
+<li><strong>Workspace management</strong> for multi-crate projects</li>
+</ul>
+<hr />
+<h2 id="1-how-cargo-resolves-dependencies"><a class="header" href="#1-how-cargo-resolves-dependencies">1. How Cargo Resolves Dependencies</a></h2>
+<h3 id="semantic-versioning-and-caret-requirements"><a class="header" href="#semantic-versioning-and-caret-requirements">Semantic Versioning and Caret Requirements</a></h3>
+<p>Cargo uses semantic versioning (SemVer) by default, with caret requirements:</p>
+<pre><code class="language-toml">[dependencies]
+serde = "1.0"        # Actually means "^1.0" - compatible with 1.x.y
+tokio = "1.21.2"     # Compatible with 1.21.2 to 1.x.y (but not 2.0)
+</code></pre>
+<p><strong>Key SemVer rules:</strong></p>
+<ul>
+<li><strong>Major version</strong> (1.x.y → 2.x.y): Breaking changes</li>
+<li><strong>Minor version</strong> (1.1.x → 1.2.x): Backward-compatible features</li>
+<li><strong>Patch version</strong> (1.1.1 → 1.1.2): Bug fixes only</li>
+</ul>
+<h3 id="version-requirement-operators"><a class="header" href="#version-requirement-operators">Version Requirement Operators</a></h3>
+<pre><code class="language-toml">[dependencies]
+# Exact version
+exact = "=1.0.0"
+
+# Range requirements
+range = "&gt;=1.2, &lt;1.5"
+
+# Wildcard
+wildcard = "1.0.*"
+
+# Tilde requirements (patch-level compatible)
+patch_only = "~1.0.0"  # 1.0.0 to 1.0.x
+
+# Caret requirements (default - backwards compatible)
+default = "^1.0.0"     # 1.0.0 to 1.x.y
+</code></pre>
+<h3 id="transitive-dependency-resolution"><a class="header" href="#transitive-dependency-resolution">Transitive Dependency Resolution</a></h3>
+<p>Cargo builds a dependency graph and resolves versions using a <strong>maximum version strategy</strong>:</p>
+<pre><code>Your Project
+├── crate-a = "1.0"
+│   └── shared = "2.1"    # Transitive dependency
+└── crate-b = "2.0"
+    └── shared = "2.3"    # Same dependency, different version requirement
+</code></pre>
+<p><strong>Resolution:</strong> Cargo picks <code>shared = "2.3"</code> (highest compatible version).</p>
+<hr />
+<h2 id="2-cargolock-the-version-lockfile"><a class="header" href="#2-cargolock-the-version-lockfile">2. Cargo.lock: The Version Lockfile</a></h2>
+<h3 id="what-cargolock-contains"><a class="header" href="#what-cargolock-contains">What Cargo.lock Contains</a></h3>
+<pre><code class="language-toml"># This file is automatically generated by Cargo.
+# It is not intended for manual editing.
+version = 3
+
+[[package]]
+name = "proc-macro2"
+version = "1.0.47"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
+dependencies = [
+ "unicode-ident",
+]
+
+[[package]]
+name = "quote"
+version = "1.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbe448f377a7d6961e30f5955f9b8d106c3f5e449d493ee1b125c1d43c2b5179"
+dependencies = [
+ "proc-macro2",
+]
+</code></pre>
+<h3 id="when-to-commit-cargolock"><a class="header" href="#when-to-commit-cargolock">When to Commit Cargo.lock</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Project Type</th><th>Commit Cargo.lock?</th><th>Rationale</th></tr></thead><tbody>
+<tr><td><strong>Binary/Application</strong></td><td>✅ <strong>Yes</strong></td><td>Ensures reproducible builds across environments</td></tr>
+<tr><td><strong>Library</strong></td><td>❌ <strong>No</strong></td><td>Allows downstream crates flexibility in version selection</td></tr>
+<tr><td><strong>Workspace root</strong></td><td>✅ <strong>Yes</strong></td><td>Pins versions for all workspace members</td></tr>
+</tbody></table>
+</div>
+<p><strong>Exception for libraries:</strong> Consider committing if you have specific CI/testing requirements.</p>
+<h3 id="cargolock-and-cicd"><a class="header" href="#cargolock-and-cicd">Cargo.lock and CI/CD</a></h3>
+<pre><code class="language-yaml"># GitHub Actions example
+- name: Cache dependencies
+  uses: actions/cache@v3
+  with:
+    path: |
+      ~/.cargo/registry
+      ~/.cargo/git
+      target/
+    key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+</code></pre>
+<p>The <code>Cargo.lock</code> hash ensures cache invalidation when dependencies change.</p>
+<hr />
+<h2 id="3-reproducible-builds-in-cargo"><a class="header" href="#3-reproducible-builds-in-cargo">3. Reproducible Builds in Cargo</a></h2>
+<h3 id="what-cargo-guarantees"><a class="header" href="#what-cargo-guarantees">What Cargo Guarantees</a></h3>
+<p>✅ <strong>Guaranteed reproducible:</strong></p>
+<ul>
+<li>Same <code>Cargo.lock</code> → same dependency versions</li>
+<li>Same Rust compiler version → same compilation behavior</li>
+<li>Same target platform → same binary output</li>
+</ul>
+<p>❌ <strong>Not automatically guaranteed:</strong></p>
+<ul>
+<li>Compiler version differences</li>
+<li>Different target architectures</li>
+<li>System library differences (for <code>sys</code> crates)</li>
+</ul>
+<h3 id="ensuring-reproducibility"><a class="header" href="#ensuring-reproducibility">Ensuring Reproducibility</a></h3>
+<pre><code class="language-toml"># rust-toolchain.toml - pins compiler version
+[toolchain]
+channel = "1.70.0"
+components = ["rustfmt", "clippy"]
+targets = ["x86_64-unknown-linux-gnu"]
+</code></pre>
+<pre><code class="language-dockerfile"># Dockerfile with pinned Rust version
+FROM rust:1.70.0-slim as builder
+WORKDIR /app
+COPY Cargo.lock Cargo.toml ./
+# Pre-build dependencies for faster rebuilds
+RUN mkdir src &amp;&amp; echo "fn main() {}" &gt; src/main.rs &amp;&amp; cargo build --release
+COPY . .
+RUN cargo build --release
+</code></pre>
+<h3 id="the---locked-flag"><a class="header" href="#the---locked-flag">The <code>--locked</code> Flag</a></h3>
+<pre><code class="language-bash"># CI builds should use --locked to prevent dependency updates
+cargo build --release --locked
+
+# Fails if Cargo.lock is out of sync with Cargo.toml
+cargo check --locked
+</code></pre>
+<hr />
+<h2 id="4-dependency-update-strategies"><a class="header" href="#4-dependency-update-strategies">4. Dependency Update Strategies</a></h2>
+<h3 id="manual-updates"><a class="header" href="#manual-updates">Manual Updates</a></h3>
+<pre><code class="language-bash"># Update all dependencies within semver constraints
+cargo update
+
+# Update specific dependency
+cargo update -p serde
+
+# Update to specific version
+cargo update -p tokio --precise 1.21.0
+</code></pre>
+<h3 id="automated-dependency-management"><a class="header" href="#automated-dependency-management">Automated Dependency Management</a></h3>
+<p><strong>Dependabot configuration (<code>.github/dependabot.yml</code>):</strong></p>
+<pre><code class="language-yaml">version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      aws:
+        patterns:
+          - "aws-*"
+      tokio:
+        patterns:
+          - "tokio*"
+</code></pre>
+<p><strong>Renovate configuration:</strong></p>
+<pre><code class="language-json">{
+  "extends": ["config:base"],
+  "cargo": {
+    "rangeStrategy": "pin"
+  }
+}
+</code></pre>
+<h3 id="semantic-versioning-strategy"><a class="header" href="#semantic-versioning-strategy">Semantic Versioning Strategy</a></h3>
+<pre><code class="language-toml"># Conservative: Pin major versions
+serde = "1.0.144"
+
+# Moderate: Allow minor updates
+tokio = "~1.21.0"
+
+# Aggressive: Allow patch updates
+uuid = "^1.0.0"
+</code></pre>
+<hr />
+<h2 id="5-alternative-registries-and-private-dependencies"><a class="header" href="#5-alternative-registries-and-private-dependencies">5. Alternative Registries and Private Dependencies</a></h2>
+<h3 id="using-alternative-registries"><a class="header" href="#using-alternative-registries">Using Alternative Registries</a></h3>
+<pre><code class="language-toml"># .cargo/config.toml
+[registries]
+my-company = { index = "https://github.com/my-company/crate-index" }
+
+[source.crates-io]
+replace-with = "my-company"
+</code></pre>
+<pre><code class="language-toml"># In Cargo.toml
+[dependencies]
+serde = "1.0"  # from crates.io
+internal-lib = { version = "2.0", registry = "my-company" }
+</code></pre>
+<h3 id="git-dependencies"><a class="header" href="#git-dependencies">Git Dependencies</a></h3>
+<pre><code class="language-toml">[dependencies]
+# Git repository
+my-lib = { git = "https://github.com/user/my-lib" }
+
+# Specific branch
+my-lib = { git = "https://github.com/user/my-lib", branch = "feature" }
+
+# Specific tag
+my-lib = { git = "https://github.com/user/my-lib", tag = "v1.0.0" }
+
+# Specific commit
+my-lib = { git = "https://github.com/user/my-lib", rev = "abc123" }
+</code></pre>
+<h3 id="path-dependencies"><a class="header" href="#path-dependencies">Path Dependencies</a></h3>
+<pre><code class="language-toml">[dependencies]
+# Local path dependency
+shared-utils = { path = "../shared-utils" }
+
+# Conditional dependencies
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+</code></pre>
+<hr />
+<h2 id="6-workspace-management"><a class="header" href="#6-workspace-management">6. Workspace Management</a></h2>
+<h3 id="workspace-configuration"><a class="header" href="#workspace-configuration">Workspace Configuration</a></h3>
+<pre><code class="language-toml"># Cargo.toml in workspace root
+[workspace]
+members = [
+    "web-server",
+    "database",
+    "shared-models",
+]
+exclude = ["legacy-code"]
+
+# Shared workspace dependencies
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.47", features = ["full"] }
+uuid = "1.0"
+
+# Shared configuration
+[workspace.package]
+authors = ["Your Team &lt;team@company.com&gt;"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+</code></pre>
+<pre><code class="language-toml"># Member crate Cargo.toml
+[package]
+name = "web-server"
+version = "0.1.0"
+# Inherit workspace configuration
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Use workspace dependencies
+serde.workspace = true
+tokio.workspace = true
+# Local workspace dependencies
+shared-models = { path = "../shared-models" }
+</code></pre>
+<h3 id="workspace-commands"><a class="header" href="#workspace-commands">Workspace Commands</a></h3>
+<pre><code class="language-bash"># Build entire workspace
+cargo build
+
+# Build specific package
+cargo build -p web-server
+
+# Run tests across workspace
+cargo test
+
+# Update dependencies for workspace
+cargo update
+</code></pre>
+<hr />
+<h2 id="7-security-and-audit"><a class="header" href="#7-security-and-audit">7. Security and Audit</a></h2>
+<h3 id="dependency-auditing"><a class="header" href="#dependency-auditing">Dependency Auditing</a></h3>
+<pre><code class="language-bash"># Install cargo-audit
+cargo install cargo-audit
+
+# Audit dependencies for known vulnerabilities
+cargo audit
+
+# Fix vulnerabilities (updates Cargo.lock)
+cargo audit fix
+</code></pre>
+<h3 id="supply-chain-security"><a class="header" href="#supply-chain-security">Supply Chain Security</a></h3>
+<pre><code class="language-toml"># .cargo/config.toml - require signatures for some registries
+[registries.secure-registry]
+index = "https://secure-registry.example.com/"
+protocol = "sparse"
+</code></pre>
+<p><strong>CI/CD security checks:</strong></p>
+<pre><code class="language-yaml">- name: Security audit
+  run: |
+    cargo install cargo-audit
+    cargo audit
+
+- name: Check for vulnerabilities
+  run: |
+    cargo install cargo-deny
+    cargo deny check
+</code></pre>
+<hr />
+<h2 id="8-performance-and-optimization"><a class="header" href="#8-performance-and-optimization">8. Performance and Optimization</a></h2>
+<h3 id="dependency-features"><a class="header" href="#dependency-features">Dependency Features</a></h3>
+<pre><code class="language-toml"># Minimize dependencies by disabling default features
+[dependencies]
+tokio = { version = "1.47", default-features = false, features = ["rt"] }
+serde = { version = "1.0", features = ["derive"] }
+</code></pre>
+<h3 id="build-performance"><a class="header" href="#build-performance">Build Performance</a></h3>
+<pre><code class="language-toml"># .cargo/config.toml - optimize builds
+[build]
+jobs = 4                    # Parallel build jobs
+rustflags = ["-C", "target-cpu=native"]
+
+[profile.dev]
+debug = 1                   # Reduce debug info for faster builds
+incremental = true
+
+[profile.release]
+codegen-units = 1          # Better optimization
+lto = true                 # Link-time optimization
+</code></pre>
+<h3 id="dependency-caching"><a class="header" href="#dependency-caching">Dependency Caching</a></h3>
+<pre><code class="language-dockerfile"># Multi-stage Docker build optimizing dependency caching
+FROM rust:1.70 as planner
+WORKDIR /app
+RUN cargo install cargo-chef
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM rust:1.70 as cacher
+WORKDIR /app
+RUN cargo install cargo-chef
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+FROM rust:1.70 as builder
+WORKDIR /app
+COPY --from=cacher /app/target target
+COPY . .
+RUN cargo build --release
+</code></pre>
+<hr />
+<h2 id="9-migration-from-other-package-managers"><a class="header" href="#9-migration-from-other-package-managers">9. Migration from Other Package Managers</a></h2>
+<h3 id="from-npmpackagejson"><a class="header" href="#from-npmpackagejson">From npm/package.json</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>npm</th><th>Cargo</th></tr></thead><tbody>
+<tr><td><code>package.json</code></td><td><code>Cargo.toml</code></td></tr>
+<tr><td><code>package-lock.json</code></td><td><code>Cargo.lock</code></td></tr>
+<tr><td><code>npm install</code></td><td><code>cargo build</code></td></tr>
+<tr><td><code>npm update</code></td><td><code>cargo update</code></td></tr>
+<tr><td><code>devDependencies</code></td><td><code>[dev-dependencies]</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="from-nuget-net"><a class="header" href="#from-nuget-net">From NuGet (.NET)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>NuGet</th><th>Cargo</th></tr></thead><tbody>
+<tr><td><code>*.csproj</code></td><td><code>Cargo.toml</code></td></tr>
+<tr><td><code>packages.lock.json</code></td><td><code>Cargo.lock</code></td></tr>
+<tr><td>Package Source</td><td>Registry</td></tr>
+<tr><td><code>dotnet restore</code></td><td><code>cargo fetch</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="from-maven-java"><a class="header" href="#from-maven-java">From Maven (Java)</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Maven</th><th>Cargo</th></tr></thead><tbody>
+<tr><td><code>pom.xml</code></td><td><code>Cargo.toml</code></td></tr>
+<tr><td>Repository</td><td>Registry</td></tr>
+<tr><td><code>mvn dependency:tree</code></td><td><code>cargo tree</code></td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="10-best-practices-summary"><a class="header" href="#10-best-practices-summary">10. Best Practices Summary</a></h2>
+<h3 id="version-management"><a class="header" href="#version-management">Version Management</a></h3>
+<p>✅ <strong>Do:</strong></p>
+<ul>
+<li>Use semantic versioning consistently</li>
+<li>Commit <code>Cargo.lock</code> for applications</li>
+<li>Pin Rust version with <code>rust-toolchain.toml</code></li>
+<li>Regular dependency audits</li>
+</ul>
+<p>❌ <strong>Don’t:</strong></p>
+<ul>
+<li>Use exact versions unless necessary</li>
+<li>Ignore security advisories</li>
+<li>Mix different versioning strategies</li>
+</ul>
+<h3 id="workspace-organization"><a class="header" href="#workspace-organization">Workspace Organization</a></h3>
+<p>✅ <strong>Do:</strong></p>
+<ul>
+<li>Use workspaces for multi-crate projects</li>
+<li>Share common dependencies</li>
+<li>Keep workspace configuration minimal</li>
+</ul>
+<p>❌ <strong>Don’t:</strong></p>
+<ul>
+<li>Create overly complex workspace hierarchies</li>
+<li>Mix library and application concerns</li>
+</ul>
+<h3 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h3>
+<p>✅ <strong>Do:</strong></p>
+<ul>
+<li>Cache dependencies effectively</li>
+<li>Use <code>--locked</code> flag in CI</li>
+<li>Run security audits automatically</li>
+</ul>
+<p>❌ <strong>Don’t:</strong></p>
+<ul>
+<li>Allow dependency updates in production builds</li>
+<li>Skip vulnerability checks</li>
+</ul>
+<hr />
+<h2 id="practical-exercise-dependency-management-setup"><a class="header" href="#practical-exercise-dependency-management-setup">Practical Exercise: Dependency Management Setup</a></h2>
+<p>Create a robust dependency management setup for a web service:</p>
+<pre><code class="language-toml"># Cargo.toml
+[package]
+name = "web-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+axum = "0.8"
+
+# Async runtime
+tokio = { version = "1.47", features = ["full"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres"] }
+
+# Error handling
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[dev-dependencies]
+# Testing
+tokio-test = "0.4"
+</code></pre>
+<pre><code class="language-yaml"># .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.70.0
+        override: true
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Build
+      run: cargo build --locked
+    - name: Test
+      run: cargo test --locked
+    - name: Security audit
+      run: |
+        cargo install cargo-audit
+        cargo audit
+</code></pre>
+<p>This setup provides:</p>
+<ul>
+<li>Reproducible builds with pinned dependencies</li>
+<li>Efficient CI caching</li>
+<li>Security auditing</li>
+<li>Clear dependency versioning strategy</li>
+</ul>
+<hr />
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p>Cargo’s dependency management system provides powerful tools for maintaining reproducible, secure builds. Key takeaways:</p>
+<ul>
+<li><strong>Understand SemVer</strong>: Use appropriate version constraints for your needs</li>
+<li><strong>Commit Cargo.lock</strong> for applications, not libraries</li>
+<li><strong>Pin environments</strong>: Use <code>rust-toolchain.toml</code> and <code>--locked</code> in CI</li>
+<li><strong>Audit regularly</strong>: Use <code>cargo audit</code> and automated security scanning</li>
+<li><strong>Organize wisely</strong>: Leverage workspaces for multi-crate projects</li>
+</ul>
+<p>Coming from other ecosystems, Cargo’s approach might feel restrictive at first, but this strictness enables the reliability and safety that Rust is known for in production environments.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../day3/18_complete_system.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../transfer/23_codecov.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../day3/18_complete_system.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../transfer/23_codecov.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

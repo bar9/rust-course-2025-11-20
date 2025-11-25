@@ -1,0 +1,585 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Integration &amp; Deployment - Rust Course 2025</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="Interactive Rust programming course built with mdBook">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Rust Course 2025</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/day3/17_integration_deployment.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="chapter-17-integration--deployment"><a class="header" href="#chapter-17-integration--deployment">Chapter 17: Integration &amp; Deployment</a></h1>
+<h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
+<p>By the end of this chapter, you’ll be able to:</p>
+<ul>
+<li>Integrate all components into a complete temperature monitoring system</li>
+<li>Configure build optimization for embedded deployment</li>
+<li>Flash and debug applications on ESP32-C3 hardware</li>
+<li>Implement basic error handling and recovery</li>
+</ul>
+<h2 id="complete-system-integration"><a class="header" href="#complete-system-integration">Complete System Integration</a></h2>
+<p>Over the previous chapters, we’ve built:</p>
+<ul>
+<li><strong>Chapter 13</strong>: Hardware interaction with ESP32-C3 and temperature sensor</li>
+<li><strong>Chapter 14</strong>: Embedded data structures with no_std foundations</li>
+<li><strong>Chapter 15</strong>: Comprehensive testing strategy for embedded code</li>
+<li><strong>Chapter 16</strong>: JSON communication and structured data protocols</li>
+</ul>
+<p>Now let’s integrate everything into a working system using simple blocking patterns.</p>
+<h3 id="simplified-system-architecture"><a class="header" href="#simplified-system-architecture">Simplified System Architecture</a></h3>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                   ESP32-C3 System                      │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │              Main Loop                          │   │
+│  │                                                 │   │
+│  │  1. Read Temperature                            │   │
+│  │  2. Store in Buffer                             │   │
+│  │  3. Update LED Status                           │   │
+│  │  4. Output JSON (every 5 readings)             │   │
+│  │  5. Delay 1 second                              │   │
+│  │  6. Repeat                                      │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │Temperature  │  │   LED       │  │    JSON     │     │
+│  │Buffer       │  │ Controller  │  │  Output     │     │
+│  └─────────────┘  └─────────────┘  └─────────────┘     │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │              USB Serial Output                  │   │
+│  │  Status Messages | Readings | Statistics        │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+</code></pre>
+<h2 id="complete-temperature-monitor-implementation"><a class="header" href="#complete-temperature-monitor-implementation">Complete Temperature Monitor Implementation</a></h2>
+<h3 id="project-setup"><a class="header" href="#project-setup">Project Setup</a></h3>
+<p>First, let’s create the complete <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[package]
+name = "esp32-temp-monitor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# ESP32-C3 Hardware Abstraction Layer
+esp-hal = { version = "0.22", features = ["esp32c3"] }
+esp-backtrace = { version = "0.18", features = ["esp32c3", "println"] }
+esp-println = { version = "0.16", features = ["esp32c3"] }
+
+# Embedded utilities
+embedded-hal = "1.0"
+nb = "1.0"
+
+# Data structures for no_std
+heapless = { version = "0.8", features = ["serde"] }
+
+# JSON serialization
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde-json-core = "0.5"
+
+[profile.dev]
+# Debug optimizations for faster flashing
+debug = true
+opt-level = "s"
+
+[profile.release]
+# Release optimizations for production
+opt-level = "s"
+debug = true
+lto = true
+codegen-units = 1
+</code></pre>
+<h3 id="main-system-implementation"><a class="header" href="#main-system-implementation">Main System Implementation</a></h3>
+<pre><pre class="playground"><code class="language-rust">// main.rs
+#![no_std]
+#![no_main]
+
+use esp_backtrace as _;
+use esp_hal::{
+    clock::ClockControl,
+    delay::Delay,
+    gpio::{Io, Level, Output},
+    peripherals::Peripherals,
+    prelude::*,
+    system::SystemControl,
+};
+use esp_println::println;
+
+// Import our modules
+mod temperature;
+mod communication;
+
+use temperature::TemperatureBuffer;
+use communication::TemperatureComm;
+
+const BUFFER_SIZE: usize = 32;
+const SAMPLE_RATE_MS: u32 = 1000;
+const JSON_OUTPUT_INTERVAL: u32 = 5;
+
+// Mock temperature sensor for this example
+struct MockTemperatureSensor {
+    reading_count: u32,
+}
+
+impl MockTemperatureSensor {
+    fn new() -&gt; Self {
+        Self { reading_count: 0 }
+    }
+
+    fn read_celsius(&amp;mut self) -&gt; f32 {
+        self.reading_count += 1;
+        let base_temp = 23.0;
+
+        // Simple variation pattern for demo
+        let variation = ((self.reading_count % 20) as f32) * 0.1 - 1.0;
+        base_temp + variation
+    }
+}
+
+#[entry]
+fn main() -&gt; ! {
+    println!("🌡️ ESP32-C3 Temperature Monitor Starting...");
+
+    // Initialize hardware
+    let peripherals = Peripherals::take();
+    let system = SystemControl::new(peripherals.SYSTEM);
+    let clocks = ClockControl::max(system.clock_control).freeze();
+
+    // Setup GPIO for LED
+    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut led = Output::new(io.pins.gpio8, Level::Low);
+
+    // Initialize delay
+    let delay = Delay::new(&amp;clocks);
+
+    // Initialize components
+    let mut temp_sensor = MockTemperatureSensor::new();
+    let mut temp_buffer = TemperatureBuffer::&lt;BUFFER_SIZE&gt;::new();
+    let mut comm = TemperatureComm::new();
+    let mut reading_count = 0u32;
+    let mut system_time_ms = 0u32;
+
+    println!("🚀 System initialized. Starting main loop...");
+    println!("📊 Buffer capacity: {} readings", BUFFER_SIZE);
+    println!("⏱️  Sample rate: {} ms", SAMPLE_RATE_MS);
+    println!();
+
+    loop {
+        // 1. Read temperature
+        let celsius = temp_sensor.read_celsius();
+        let temperature = temperature::Temperature::from_celsius(celsius);
+        temp_buffer.push(temperature);
+        reading_count += 1;
+        system_time_ms += SAMPLE_RATE_MS;
+
+        // 2. Update LED based on temperature
+        if temperature.is_overheating() {
+            led.set_high();
+            println!("🔴 OVERHEATING: {:.1}°C", celsius);
+        } else if reading_count % 10 == 0 {
+            led.toggle();
+        }
+
+        // 3. Output basic reading
+        println!("📊 Reading #{}: {:.1}°C", reading_count, celsius);
+
+        // 4. JSON output every N readings
+        if reading_count % JSON_OUTPUT_INTERVAL == 0 {
+            // Output current reading as JSON
+            if let Ok(reading_json) = comm.reading_json(&amp;temp_buffer, system_time_ms) {
+                println!("JSON_READING: {}", reading_json);
+            }
+
+            // Output statistics
+            if let Some(stats) = temp_buffer.stats() {
+                if let Ok(stats_json) = comm.stats_json(&amp;stats, system_time_ms) {
+                    println!("JSON_STATS: {}", stats_json);
+                }
+            }
+
+            // Output system status
+            if let Ok(status_json) = comm.status_json(
+                system_time_ms,
+                1, // sample rate: 1 Hz
+                35.0, // threshold
+                temp_buffer.len() as u8
+            ) {
+                println!("JSON_STATUS: {}", status_json);
+            }
+        }
+
+        // 5. Show periodic summary
+        if reading_count % 10 == 0 {
+            if let Some(stats) = temp_buffer.stats() {
+                println!(
+                    "📈 Summary: {} readings, avg={:.1}°C, range={:.1}-{:.1}°C",
+                    stats.count, stats.avg_celsius,
+                    stats.min_celsius, stats.max_celsius
+                );
+            }
+        }
+
+        // 6. Simple delay
+        delay.delay_ms(SAMPLE_RATE_MS);
+    }
+}
+
+#[panic_handler]
+fn panic(info: &amp;core::panic::PanicInfo) -&gt; ! {
+    println!("💥 PANIC: {}", info);
+    loop {}
+}</code></pre></pre>
+<h2 id="build-configuration"><a class="header" href="#build-configuration">Build Configuration</a></h2>
+<h3 id="optimized-build-settings"><a class="header" href="#optimized-build-settings">Optimized Build Settings</a></h3>
+<pre><code class="language-toml"># .cargo/config.toml
+[build]
+target = "riscv32imc-unknown-none-elf"
+
+[target.riscv32imc-unknown-none-elf]
+runner = "probe-rs run --chip esp32c3"
+
+[env]
+ESP_IDF_VERSION = "5.1"
+</code></pre>
+<h3 id="build-commands"><a class="header" href="#build-commands">Build Commands</a></h3>
+<pre><code class="language-bash"># Development build
+cargo build
+
+# Release build with optimizations
+cargo build --release
+
+# Flash and monitor
+cargo run --release
+
+# Check size
+cargo size --release
+</code></pre>
+<h2 id="production-deployment"><a class="header" href="#production-deployment">Production Deployment</a></h2>
+<h3 id="build-optimizations"><a class="header" href="#build-optimizations">Build Optimizations</a></h3>
+<p>The release profile is configured for optimal embedded performance:</p>
+<pre><code class="language-toml">[profile.release]
+opt-level = "s"        # Optimize for size
+debug = true           # Keep debug symbols for debugging
+lto = true            # Link-time optimization
+codegen-units = 1     # Better optimization
+</code></pre>
+<h3 id="memory-usage"><a class="header" href="#memory-usage">Memory Usage</a></h3>
+<p>Check your binary size:</p>
+<pre><code class="language-bash">$ cargo size --release
+   text    data     bss     dec     hex filename
+  45234    1028    2076   48338    bcd2 esp32-temp-monitor
+</code></pre>
+<h3 id="basic-error-handling"><a class="header" href="#basic-error-handling">Basic Error Handling</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Enhanced main loop with error handling
+loop {
+    // Temperature reading with error handling
+    let celsius = match temp_sensor.read_celsius() {
+        Ok(temp) =&gt; temp,
+        Err(_) =&gt; {
+            println!("❌ Sensor read error, using last known value");
+            continue;
+        }
+    };
+
+    // JSON serialization with error handling
+    if reading_count % JSON_OUTPUT_INTERVAL == 0 {
+        match comm.reading_json(&amp;temp_buffer, system_time_ms) {
+            Ok(json) =&gt; println!("JSON_READING: {}", json),
+            Err(_) =&gt; println!("❌ JSON serialization error"),
+        }
+    }
+
+    delay.delay_ms(SAMPLE_RATE_MS);
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="hardware-debugging"><a class="header" href="#hardware-debugging">Hardware Debugging</a></h3>
+<pre><code class="language-bash"># Flash with debugging enabled
+probe-rs run --chip esp32c3 target/riscv32imc-unknown-none-elf/release/esp32-temp-monitor
+
+# Monitor serial output
+screen /dev/cu.usbmodem* 115200
+
+# Alternative: Use probe-rs for both
+probe-rs run --chip esp32c3 target/riscv32imc-unknown-none-elf/release/esp32-temp-monitor
+</code></pre>
+<h2 id="testing-the-complete-system"><a class="header" href="#testing-the-complete-system">Testing the Complete System</a></h2>
+<h3 id="expected-output"><a class="header" href="#expected-output">Expected Output</a></h3>
+<pre><code>🌡️ ESP32-C3 Temperature Monitor Starting...
+🚀 System initialized. Starting main loop...
+📊 Buffer capacity: 32 readings
+⏱️  Sample rate: 1000 ms
+
+📊 Reading #1: 23.0°C
+📊 Reading #2: 23.1°C
+📊 Reading #3: 23.2°C
+📊 Reading #4: 23.3°C
+📊 Reading #5: 23.4°C
+
+JSON_READING: {"Reading":{"temperature":{"celsius_tenths":234},"timestamp_ms":5000}}
+JSON_STATS: {"Stats":{"count":5,"min_celsius":23.0,"max_celsius":23.4,"avg_celsius":23.2,"timestamp_ms":5000}}
+JSON_STATUS: {"Status":{"uptime_ms":5000,"sample_rate_hz":1,"threshold_celsius":35.0,"buffer_usage":5}}
+
+📊 Reading #6: 23.5°C
+...
+📈 Summary: 10 readings, avg=23.5°C, range=23.0-23.9°C
+</code></pre>
+<h3 id="performance-characteristics"><a class="header" href="#performance-characteristics">Performance Characteristics</a></h3>
+<ul>
+<li><strong>Memory usage</strong>: ~5KB RAM for the complete system</li>
+<li><strong>CPU usage</strong>: Minimal, mostly sleeping</li>
+<li><strong>Sample rate</strong>: Stable 1Hz timing</li>
+<li><strong>JSON output</strong>: Every 5 seconds with statistics</li>
+</ul>
+<h2 id="exercise-deploy-your-complete-system"><a class="header" href="#exercise-deploy-your-complete-system">Exercise: Deploy Your Complete System</a></h2>
+<ol>
+<li><strong>Build the complete system</strong>:</li>
+</ol>
+<pre><code class="language-bash">cargo build --release
+</code></pre>
+<ol start="2">
+<li><strong>Flash to your ESP32-C3</strong>:</li>
+</ol>
+<pre><code class="language-bash">cargo run --release
+</code></pre>
+<ol start="3">
+<li>
+<p><strong>Verify the output</strong> - You should see:</p>
+<ul>
+<li>Regular temperature readings</li>
+<li>JSON output every 5 readings</li>
+<li>LED blinking every 10 readings</li>
+<li>Overheating detection if temperature &gt; 35°C</li>
+</ul>
+</li>
+<li>
+<p><strong>Test the system</strong>:</p>
+<ul>
+<li>Monitor for several minutes</li>
+<li>Verify consistent timing</li>
+<li>Check JSON format validity</li>
+</ul>
+</li>
+</ol>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p>You’ve now built a complete embedded temperature monitoring system that:</p>
+<p>✅ <strong>Reads temperature</strong> from the ESP32-C3’s built-in sensor
+✅ <strong>Stores data</strong> efficiently in a circular buffer
+✅ <strong>Provides visual feedback</strong> through LED patterns
+✅ <strong>Outputs structured JSON</strong> for external integration
+✅ <strong>Implements error handling</strong> for robust operation
+✅ <strong>Optimizes for embedded constraints</strong> (memory, power, size)</p>
+<p>The system demonstrates key embedded Rust concepts:</p>
+<ul>
+<li><strong>no_std programming</strong> with heapless data structures</li>
+<li><strong>Resource management</strong> without dynamic allocation</li>
+<li><strong>Hardware abstraction</strong> with safe, zero-cost interfaces</li>
+<li><strong>Structured data handling</strong> with serde in embedded contexts</li>
+<li><strong>Production deployment</strong> with optimized builds</li>
+</ul>
+<p>This foundation prepares you for building more complex embedded systems with Rust’s safety, performance, and expressiveness.</p>
+<hr />
+<p><strong>Next</strong>: <a href="./18_complete_system.html">Chapter 18: Complete System Demo</a></p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../day3/16_data_communication.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../day3/18_complete_system.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../day3/16_data_communication.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../day3/18_complete_system.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

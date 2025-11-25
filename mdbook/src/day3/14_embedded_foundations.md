@@ -1,0 +1,704 @@
+# Chapter 14: Embedded Foundations - no_std from the Start
+
+## Learning Objectives
+By the end of this chapter, you'll be able to:
+- Understand the difference between `core`, `alloc`, and `std` libraries
+- Create temperature data structures that work in embedded environments
+- Use heapless collections for fixed-capacity storage
+- Implement const functions for compile-time configuration
+- Build a circular buffer for continuous sensor data collection
+- Calculate statistics without dynamic allocation
+
+## Building on Chapter 13
+
+In the last chapter, we read individual temperature values from the ESP32-C3. Now we need to:
+1. **Store multiple readings** for trend analysis
+2. **Calculate statistics** like average and min/max
+3. **Manage memory carefully** in our 320KB RAM environment
+4. **Do this efficiently** without heap allocation
+
+This is where embedded programming differs from desktop development - we need to think about every byte of memory!
+
+## Understanding no_std: The Embedded Reality
+
+### Why no_std?
+
+Desktop programs can use:
+- **Unlimited memory** (well, gigabytes via virtual memory)
+- **Dynamic allocation** (`Vec`, `HashMap`, `String`)
+- **Operating system services** (files, network, threads)
+
+Embedded programs must work with:
+- **Fixed memory** (320KB RAM total on ESP32-C3)
+- **No heap allocator** (or very limited heap)
+- **No operating system** (we *are* the operating system!)
+
+```rust
+// ❌ This won't work in no_std embedded
+use std::collections::HashMap;
+use std::vec::Vec;
+
+fn desktop_approach() {
+    let mut readings = Vec::new();           // Heap allocation
+    let mut sensors = HashMap::new();        // Dynamic sizing
+    readings.push(23.5);                     // Can grow infinitely
+    sensors.insert("temp1", 24.1);          // Hash table overhead
+}
+
+// ✅ This is the embedded way
+use heapless::Vec;
+use heapless::FnvIndexMap;
+
+fn embedded_approach() {
+    let mut readings: Vec<f32, 32> = Vec::new();              // Fixed capacity
+    let mut sensors: FnvIndexMap<&str, f32, 8> = FnvIndexMap::new(); // Known limits
+    readings.push(23.5).ok();               // Handles full buffer
+    sensors.insert("temp1", 24.1).ok();     // Graceful failure
+}
+```
+
+### The Three-Layer Architecture
+
+Rust's libraries are organized in layers:
+
+```
+┌─────────────────────────────────────┐
+│               std                   │
+│   File I/O, networking, threads,    │  ← Desktop applications
+│   HashMap, process management       │
+├─────────────────────────────────────┤
+│               alloc                 │
+│   Vec, String, Box, Rc,             │  ← Embedded with heap
+│   heap-allocated collections       │
+├─────────────────────────────────────┤
+│               core                  │
+│   Option, Result, Iterator,         │  ← Minimal embedded
+│   basic traits, no allocation      │
+└─────────────────────────────────────┘
+```
+
+**For our ESP32-C3 project, we'll use `core` + `heapless` collections.**
+
+## Creating an Embedded Temperature Type
+
+Let's build a temperature type designed for embedded use:
+
+```rust
+#![no_std]
+
+use core::fmt;
+
+/// Temperature reading optimized for embedded systems
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Temperature {
+    // Store as i16 to save memory (16-bit vs 32-bit f32)
+    // Resolution: 0.1°C, Range: -3276.8°C to +3276.7°C
+    // More than enough for ESP32-C3's typical -40°C to +125°C range
+    celsius_tenths: i16,
+}
+
+impl Temperature {
+    /// Create temperature from Celsius value
+    pub const fn from_celsius(celsius: f32) -> Self {
+        Self {
+            celsius_tenths: (celsius * 10.0) as i16,
+        }
+    }
+
+    /// Create temperature from raw ESP32 sensor reading
+    pub const fn from_sensor_raw(raw_value: u16) -> Self {
+        // ESP32-C3 temperature sensor specific conversion
+        // This is a simplified conversion - real implementation depends on calibration
+        let celsius = (raw_value as f32 - 1000.0) / 10.0;
+        Self::from_celsius(celsius)
+    }
+
+    /// Get temperature as Celsius f32
+    pub fn celsius(&self) -> f32 {
+        self.celsius_tenths as f32 / 10.0
+    }
+
+    /// Get temperature as Fahrenheit f32
+    pub fn fahrenheit(&self) -> f32 {
+        self.celsius() * 9.0 / 5.0 + 32.0
+    }
+
+    /// Check if temperature is within normal range
+    pub const fn is_normal_range(&self) -> bool {
+        // Normal room temperature: 15-35°C
+        self.celsius_tenths >= 150 && self.celsius_tenths <= 350
+    }
+
+    /// Check if temperature is too high (potential overheating)
+    pub const fn is_overheating(&self) -> bool {
+        self.celsius_tenths > 500  // > 50°C
+    }
+}
+
+// Implement Display for serial output
+impl fmt::Display for Temperature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:.1}°C", self.celsius())
+    }
+}
+
+// Example usage in embedded code
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_temperature_creation() {
+        let temp = Temperature::from_celsius(23.5);
+        assert_eq!(temp.celsius(), 23.5);
+        assert_eq!(temp.fahrenheit(), 74.3);
+        assert!(temp.is_normal_range());
+        assert!(!temp.is_overheating());
+    }
+
+    #[test]
+    fn test_memory_efficiency() {
+        // Temperature struct should be small
+        assert_eq!(core::mem::size_of::<Temperature>(), 2); // Just 2 bytes!
+    }
+}
+```
+
+### Why This Design?
+
+**Memory Efficiency:**
+- `i16` (2 bytes) instead of `f32` (4 bytes) saves 50% memory
+- 0.1°C resolution is more than adequate for most applications
+- Fits in CPU registers for fast operations
+
+**Const Functions:**
+- `const fn from_celsius()` - Computed at compile time
+- `const fn is_normal_range()` - Zero runtime cost
+- Perfect for configuration and thresholds
+
+**No Heap Usage:**
+- Copy trait means values are stack-allocated
+- No hidden allocations or indirection
+
+## Heapless Collections for Sensor Data
+
+Now let's store multiple temperature readings efficiently:
+
+```rust
+use heapless::Vec;
+use heapless::pool::{Pool, Node};
+
+/// Fixed-capacity temperature buffer for embedded systems
+pub struct TemperatureBuffer<const N: usize> {
+    readings: Vec<Temperature, N>,
+    total_readings: u32,  // Track total for statistics
+}
+
+impl<const N: usize> TemperatureBuffer<N> {
+    /// Create new buffer with compile-time capacity
+    pub const fn new() -> Self {
+        Self {
+            readings: Vec::new(),
+            total_readings: 0,
+        }
+    }
+
+    /// Add a temperature reading (circular buffer behavior)
+    pub fn push(&mut self, temperature: Temperature) {
+        if self.readings.len() < N {
+            // Buffer not full yet - just add
+            self.readings.push(temperature).ok();
+        } else {
+            // Buffer full - use circular indexing (more efficient than remove(0))
+            let oldest_index = (self.total_readings as usize) % N;
+            self.readings[oldest_index] = temperature;
+        }
+        self.total_readings += 1;
+    }
+
+    /// Get current number of readings
+    pub fn len(&self) -> usize {
+        self.readings.len()
+    }
+
+    /// Check if buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.readings.is_empty()
+    }
+
+    /// Get buffer capacity
+    pub const fn capacity(&self) -> usize {
+        N
+    }
+
+    /// Get the latest reading
+    pub fn latest(&self) -> Option<Temperature> {
+        self.readings.last().copied()
+    }
+
+    /// Get the oldest reading in buffer
+    pub fn oldest(&self) -> Option<Temperature> {
+        self.readings.first().copied()
+    }
+
+    /// Calculate average temperature
+    pub fn average(&self) -> Option<Temperature> {
+        if self.readings.is_empty() {
+            return None;
+        }
+
+        let sum: i32 = self.readings.iter()
+            .map(|t| t.celsius_tenths as i32)
+            .sum();
+
+        let avg_tenths = sum / self.readings.len() as i32;
+        Some(Temperature { celsius_tenths: avg_tenths as i16 })
+    }
+
+    /// Find minimum temperature in buffer
+    pub fn min(&self) -> Option<Temperature> {
+        self.readings.iter()
+            .min_by_key(|t| t.celsius_tenths)
+            .copied()
+    }
+
+    /// Find maximum temperature in buffer
+    pub fn max(&self) -> Option<Temperature> {
+        self.readings.iter()
+            .max_by_key(|t| t.celsius_tenths)
+            .copied()
+    }
+
+    /// Get total readings processed (including overwritten ones)
+    pub fn total_readings(&self) -> u32 {
+        self.total_readings
+    }
+
+    /// Clear all readings
+    pub fn clear(&mut self) {
+        self.readings.clear();
+        self.total_readings = 0;
+    }
+
+    /// Get statistics summary
+    pub fn stats(&self) -> Option<TemperatureStats> {
+        if self.readings.is_empty() {
+            return None;
+        }
+
+        Some(TemperatureStats {
+            count: self.readings.len(),
+            total_count: self.total_readings,
+            average: self.average()?,
+            min: self.min()?,
+            max: self.max()?,
+        })
+    }
+}
+
+/// Statistics summary for temperature readings
+#[derive(Debug, Clone, Copy)]
+pub struct TemperatureStats {
+    pub count: usize,           // Current readings in buffer
+    pub total_count: u32,       // Total readings ever processed
+    pub average: Temperature,
+    pub min: Temperature,
+    pub max: Temperature,
+}
+
+impl fmt::Display for TemperatureStats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f,
+            "Stats: {} readings (total: {}), Avg: {}, Min: {}, Max: {}",
+            self.count, self.total_count, self.average, self.min, self.max
+        )
+    }
+}
+```
+
+### Understanding Heapless Collections
+
+**Key Differences from std:**
+
+| Feature | std::Vec | heapless::Vec |
+|---------|----------|---------------|
+| Capacity | Dynamic (grows) | Fixed at compile time |
+| Memory | Heap allocated | Stack or static |
+| Failure | Panic on OOM | Returns Result |
+| Performance | Allocation overhead | Zero allocation |
+
+**When to Use Each Pattern:**
+
+```rust
+// ✅ Use const generics for compile-time capacity
+type SmallBuffer = TemperatureBuffer<16>;   // 16 readings max
+type LargeBuffer = TemperatureBuffer<128>;  // 128 readings max
+
+// ✅ Handle full buffer gracefully
+let mut buffer = TemperatureBuffer::<10>::new();
+for i in 0..20 {
+    let temp = Temperature::from_celsius(20.0 + i as f32);
+    buffer.push(temp); // Automatically overwrites oldest when full
+}
+
+// ✅ Check capacity and adjust behavior
+if buffer.len() >= buffer.capacity() {
+    esp_println::println!("Buffer full, overwriting oldest data");
+}
+```
+
+## Const Configuration for Embedded Systems
+
+Embedded systems benefit from compile-time configuration:
+
+```rust
+/// System configuration computed at compile time
+pub struct SystemConfig;
+
+impl SystemConfig {
+    /// ESP32-C3 system clock frequency
+    pub const CLOCK_HZ: u32 = 160_000_000; // 160 MHz
+
+    /// Temperature monitoring configuration
+    pub const TEMP_SAMPLE_RATE_HZ: u32 = 1;  // 1 reading per second
+    pub const TEMP_BUFFER_SIZE: usize = 60;  // 1 minute of readings
+    pub const TEMP_HIGH_THRESHOLD: f32 = 35.0; // 35°C warning threshold
+    pub const TEMP_CRITICAL_THRESHOLD: f32 = 50.0; // 50°C critical threshold
+
+    /// Calculate timer interval for sampling rate
+    pub const fn sample_interval_ms() -> u32 {
+        1000 / Self::TEMP_SAMPLE_RATE_HZ
+    }
+
+    /// Create temperature thresholds at compile time
+    pub const fn high_threshold() -> Temperature {
+        Temperature::from_celsius(Self::TEMP_HIGH_THRESHOLD)
+    }
+
+    pub const fn critical_threshold() -> Temperature {
+        Temperature::from_celsius(Self::TEMP_CRITICAL_THRESHOLD)
+    }
+
+    /// Validate buffer size is reasonable
+    pub const fn validate_buffer_size() -> bool {
+        // Buffer should hold 1-300 seconds of data
+        Self::TEMP_BUFFER_SIZE >= Self::TEMP_SAMPLE_RATE_HZ as usize &&
+        Self::TEMP_BUFFER_SIZE <= (Self::TEMP_SAMPLE_RATE_HZ * 300) as usize
+    }
+}
+
+// Compile-time assertions (will fail at compile time if invalid)
+const _: () = assert!(SystemConfig::validate_buffer_size());
+const _: () = assert!(SystemConfig::TEMP_SAMPLE_RATE_HZ > 0);
+const _: () = assert!(SystemConfig::TEMP_BUFFER_SIZE > 0);
+
+// Pre-computed constants (zero runtime cost)
+pub const SAMPLE_INTERVAL: u32 = SystemConfig::sample_interval_ms();
+pub const HIGH_TEMP: Temperature = SystemConfig::high_threshold();
+pub const CRITICAL_TEMP: Temperature = SystemConfig::critical_threshold();
+```
+
+## Integrating with ESP32-C3 Hardware
+
+Let's update our temperature monitor to use these new data structures:
+
+```rust
+#![no_std]
+#![no_main]
+
+use esp_backtrace as _;
+use esp_hal::{
+    clock::ClockControl,
+    delay::Delay,
+    gpio::{Io, Level, Output},
+    peripherals::Peripherals,
+    prelude::*,
+    system::SystemControl,
+    temperature_sensor::{TemperatureSensor, TempSensorConfig},
+};
+
+// Our embedded temperature types
+mod temperature;
+use temperature::{Temperature, TemperatureBuffer, SystemConfig, SAMPLE_INTERVAL};
+
+#[entry]
+fn main() -> ! {
+    let peripherals = Peripherals::take();
+    let system = SystemControl::new(peripherals.SYSTEM);
+    let clocks = ClockControl::max(system.clock_control).freeze();
+    let delay = Delay::new(&clocks);
+
+    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut led = Output::new(io.pins.gpio8, Level::Low);
+
+    let temp_sensor_config = TempSensorConfig::default();
+    let mut temp_sensor = TemperatureSensor::new(
+        peripherals.TEMP_SENSOR,
+        temp_sensor_config
+    );
+
+    // Create fixed-capacity temperature buffer
+    let mut temp_buffer = TemperatureBuffer::<{ SystemConfig::TEMP_BUFFER_SIZE }>::new();
+
+    esp_println::println!("ESP32-C3 Temperature Monitor with Data Storage");
+    esp_println::println!("Sample rate: {} Hz", SystemConfig::TEMP_SAMPLE_RATE_HZ);
+    esp_println::println!("Buffer capacity: {} readings", temp_buffer.capacity());
+    esp_println::println!("High threshold: {}", SystemConfig::high_threshold());
+    esp_println::println!();
+
+    loop {
+        // Read temperature
+        let celsius = temp_sensor.read_celsius();
+        let temperature = Temperature::from_celsius(celsius);
+
+        // Store in buffer
+        temp_buffer.push(temperature);
+
+        // LED status based on temperature
+        if temperature.is_overheating() {
+            // Rapid blink for overheating
+            for _ in 0..3 {
+                led.set_high();
+                delay.delay_millis(100);
+                led.set_low();
+                delay.delay_millis(100);
+            }
+        } else if !temperature.is_normal_range() {
+            // Double blink for out of normal range
+            led.set_high();
+            delay.delay_millis(150);
+            led.set_low();
+            delay.delay_millis(100);
+            led.set_high();
+            delay.delay_millis(150);
+            led.set_low();
+        } else {
+            // Single blink for normal
+            led.set_high();
+            delay.delay_millis(200);
+            led.set_low();
+        }
+
+        // Print current reading
+        esp_println::println!("Reading #{}: {}",
+            temp_buffer.total_readings(),
+            temperature
+        );
+
+        // Print statistics every 10 readings
+        if temp_buffer.total_readings() % 10 == 0 {
+            if let Some(stats) = temp_buffer.stats() {
+                esp_println::println!("{}", stats);
+                esp_println::println!("Memory: Buffer using {} of {} slots",
+                    temp_buffer.len(), temp_buffer.capacity());
+                esp_println::println!();
+            }
+        }
+
+        // Wait for next sample
+        delay.delay_millis(SAMPLE_INTERVAL);
+    }
+}
+```
+
+## Exercise: Temperature Data Collection System
+
+**Time Budget: 30 minutes**
+
+Build an embedded data collection system that stores and analyzes temperature readings.
+
+### Requirements
+
+1. **Temperature Type**: Create efficient embedded temperature representation
+2. **Circular Buffer**: Fixed-capacity storage with automatic oldest-data replacement
+3. **Statistics**: Real-time calculation of min, max, average
+4. **Configuration**: Compile-time system parameters
+5. **Memory Efficiency**: Minimize RAM usage while maintaining functionality
+
+### Starting Project Structure
+
+Create new module files:
+
+```rust
+// src/temperature.rs
+#![no_std]
+
+use core::fmt;
+use heapless::Vec;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Temperature {
+    // TODO: Implement memory-efficient temperature storage
+}
+
+impl Temperature {
+    pub const fn from_celsius(celsius: f32) -> Self {
+        // TODO: Convert f32 to efficient internal representation
+        unimplemented!()
+    }
+
+    pub fn celsius(&self) -> f32 {
+        // TODO: Convert back to f32
+        unimplemented!()
+    }
+
+    pub const fn is_overheating(&self) -> bool {
+        // TODO: Check if temperature > 50°C
+        unimplemented!()
+    }
+}
+
+pub struct TemperatureBuffer<const N: usize> {
+    // TODO: Implement fixed-capacity circular buffer
+}
+
+impl<const N: usize> TemperatureBuffer<N> {
+    pub const fn new() -> Self {
+        // TODO: Initialize empty buffer
+        unimplemented!()
+    }
+
+    pub fn push(&mut self, temperature: Temperature) {
+        // TODO: Add reading with circular buffer behavior
+        unimplemented!()
+    }
+
+    pub fn stats(&self) -> Option<TemperatureStats> {
+        // TODO: Calculate min, max, average
+        unimplemented!()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TemperatureStats {
+    pub count: usize,
+    pub average: Temperature,
+    pub min: Temperature,
+    pub max: Temperature,
+}
+```
+
+```rust
+// src/main.rs
+#![no_std]
+#![no_main]
+
+mod temperature;
+use temperature::{Temperature, TemperatureBuffer};
+
+#[entry]
+fn main() -> ! {
+    // TODO: Initialize hardware (from Chapter 13)
+
+    // TODO: Create temperature buffer with capacity 20
+
+    loop {
+        // TODO: Read temperature sensor
+
+        // TODO: Store in buffer
+
+        // TODO: Display statistics every 5 readings
+
+        // TODO: LED status based on temperature
+
+        // TODO: Wait 2 seconds between readings
+    }
+}
+```
+
+### Implementation Tasks
+
+1. **Efficient Temperature Type** (8 minutes):
+   - Use `i16` to store temperature * 10 (0.1°C resolution)
+   - Implement `from_celsius()` and `celsius()` conversion
+   - Add `is_overheating()` check for > 50°C
+   - Implement `Display` trait for printing
+
+2. **Circular Buffer Implementation** (12 minutes):
+   - Use `heapless::Vec<Temperature, N>` for storage
+   - Implement `push()` with oldest-data replacement when full
+   - Track total readings processed
+   - Add `len()`, `capacity()`, `latest()` methods
+
+3. **Statistics Calculation** (8 minutes):
+   - Implement `min()`, `max()`, `average()` functions
+   - Create `TemperatureStats` struct
+   - Handle empty buffer case gracefully
+   - Efficient integer-based calculations
+
+4. **Integration Testing** (2 minutes):
+   - Build and flash to ESP32-C3
+   - Verify buffer behavior and statistics
+   - Test with temperature changes
+
+### Expected Output
+
+```
+ESP32-C3 Temperature Monitor with Data Storage
+Sample rate: 1 Hz
+Buffer capacity: 20 readings
+
+Reading #1: 24.3°C
+Reading #2: 24.5°C
+Reading #3: 24.1°C
+Reading #4: 24.8°C
+Reading #5: 25.2°C
+Stats: 5 readings, Avg: 24.6°C, Min: 24.1°C, Max: 25.2°C
+Memory: Buffer using 5 of 20 slots
+
+...
+
+Reading #25: 24.7°C
+Stats: 20 readings, Avg: 24.4°C, Min: 23.8°C, Max: 25.3°C
+Memory: Buffer using 20 of 20 slots (circular mode active)
+```
+
+### Success Criteria
+
+- [ ] Temperature stored efficiently in 2 bytes per reading
+- [ ] Buffer correctly implements circular behavior when full
+- [ ] Statistics calculated accurately without floating-point overhead
+- [ ] LED indicates overheating condition
+- [ ] Memory usage is predictable and bounded
+- [ ] No heap allocation or dynamic memory
+
+### Extension Challenges
+
+1. **Compile-time Configuration**: Move buffer size and thresholds to const
+2. **Temperature Trends**: Track if temperature is rising or falling
+3. **Alarm Conditions**: Multiple threshold levels with different LED patterns
+4. **Data Persistence**: Retain readings across ESP32 resets (use RTC memory)
+5. **Memory Analysis**: Measure actual RAM usage of data structures
+
+### Understanding Memory Usage
+
+```rust
+// Check memory footprint of your types
+const TEMP_SIZE: usize = core::mem::size_of::<Temperature>();
+const BUFFER_SIZE: usize = core::mem::size_of::<TemperatureBuffer<20>>();
+const STATS_SIZE: usize = core::mem::size_of::<TemperatureStats>();
+
+esp_println::println!("Memory usage:");
+esp_println::println!("  Temperature: {} bytes", TEMP_SIZE);
+esp_println::println!("  Buffer (20 readings): {} bytes", BUFFER_SIZE);
+esp_println::println!("  Stats: {} bytes", STATS_SIZE);
+esp_println::println!("  Total: {} bytes", BUFFER_SIZE + STATS_SIZE);
+```
+
+Target: Less than 100 bytes total for 20 temperature readings + metadata.
+
+## Key Takeaways
+
+✅ **Memory Efficiency**: Using `i16` instead of `f32` saves 50% memory without losing precision
+
+✅ **Fixed Allocation**: `heapless::Vec` provides dynamic behavior with static memory
+
+✅ **Const Configuration**: Compile-time parameters eliminate runtime overhead
+
+✅ **Circular Buffers**: Essential pattern for continuous data collection in embedded systems
+
+✅ **Statistical Processing**: Can calculate aggregates efficiently without external libraries
+
+✅ **Type Safety**: Rust's type system prevents common embedded errors like buffer overflows
+
+**Next**: In Chapter 15, we'll add proper testing strategies for embedded code, including how to test no_std code on desktop and validate hardware behavior.
