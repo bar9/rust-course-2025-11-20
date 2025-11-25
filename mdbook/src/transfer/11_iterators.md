@@ -1,1 +1,0 @@
-# Iterators & Functional Programming
