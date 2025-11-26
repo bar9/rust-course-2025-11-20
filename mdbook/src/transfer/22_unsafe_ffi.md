@@ -1,4 +1,4 @@
-# Chapter 24: Unsafe Rust & FFI with Bindgen
+# Chapter 22: Unsafe Rust & FFI with Bindgen
 
 ## Learning Objectives
 - Understand when and why to use unsafe Rust

@@ -1,4 +1,4 @@
-# Chapter 23: Traits vs OOP - From Inheritance to Composition
+# Chapter 26: Traits vs OOP - From Inheritance to Composition
 ## Mastering Zero-Cost Serialization with Trait-Based Design
 
 ### Serialization Paradigm Comparison

@@ -1,4 +1,4 @@
-# Memory Management Paradigm Shift
+# Chapter 23: Memory Management Paradigm Shift
 
 Transitioning from C++ RAII patterns or .NET garbage collection to Rust's ownership system represents one of the most significant paradigm shifts for experienced developers. This chapter provides concrete examples and migration strategies to help you think in terms of ownership rather than manual memory management or garbage collection.
 

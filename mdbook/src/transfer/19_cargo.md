@@ -1,4 +1,4 @@
-# Cargo & Dependency Management
+# Chapter 19: Cargo & Dependency Management
 
 Modern software development relies heavily on dependencies, and managing them correctly is crucial for reproducible builds, security, and maintainability. Coming from C++, .NET, or other ecosystems, Rust's Cargo provides a refreshingly coherent approach to dependency management.
 

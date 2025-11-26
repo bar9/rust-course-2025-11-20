@@ -6144,1058 +6144,10 @@ fn main() {
 <li><strong>Prefer iterators</strong> over manual loops for clarity and safety</li>
 </ol>
 <p><strong>Next Up:</strong> In Chapter 12, we’ll explore modules and visibility - essential for organizing larger Rust projects and creating clean APIs.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-12-macros--code-generation"><a class="header" href="#chapter-12-macros--code-generation">Chapter 12: Macros &amp; Code Generation</a></h1>
-<h2 id="learning-objectives-10"><a class="header" href="#learning-objectives-10">Learning Objectives</a></h2>
-<ul>
-<li>Understand declarative macros with <code>macro_rules!</code></li>
-<li>Master pattern matching syntax variants</li>
-<li>Learn procedural macros basics</li>
-<li>Generate code at compile time</li>
-</ul>
-<h2 id="what-are-macros"><a class="header" href="#what-are-macros">What are Macros?</a></h2>
-<p>Macros are code that writes other code (metaprogramming). They run at compile time, generating Rust code that gets compiled normally.</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// This macro call
-println!("Hello, {}!", "world");
-
-// Expands to something like this
-::std::io::_print(::std::fmt::Arguments::new_v1(
-    &amp;["Hello, ", "!\n"],
-    &amp;[::std::fmt::ArgumentV1::new("world", ::std::fmt::Display::fmt)]
-));
-<span class="boring">}</span></code></pre></pre>
-<h2 id="declarative-macros-with-macro_rules"><a class="header" href="#declarative-macros-with-macro_rules">Declarative Macros with <code>macro_rules!</code></a></h2>
-<h3 id="basic-syntax"><a class="header" href="#basic-syntax">Basic Syntax</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! say_hello {
-    () =&gt; {
-        println!("Hello!");
-    };
-}
-
-say_hello!(); // Prints: Hello!
-<span class="boring">}</span></code></pre></pre>
-<h3 id="pattern-matching-types"><a class="header" href="#pattern-matching-types">Pattern Matching Types</a></h3>
-<h4 id="1-item---items-like-functions-structs-modules"><a class="header" href="#1-item---items-like-functions-structs-modules">1. <code>item</code> - Items like functions, structs, modules</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! create_function {
-    ($func_name:ident) =&gt; {
-        fn $func_name() {
-            println!("You called {}!", stringify!($func_name));
-        }
-    };
-}
-
-create_function!(foo);
-foo(); // Prints: You called foo!
-<span class="boring">}</span></code></pre></pre>
-<h4 id="2-block---code-blocks"><a class="header" href="#2-block---code-blocks">2. <code>block</code> - Code blocks</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! time_it {
-    ($block:block) =&gt; {
-        let start = std::time::Instant::now();
-        $block
-        println!("Took: {:?}", start.elapsed());
-    };
-}
-
-time_it!({
-    std::thread::sleep(std::time::Duration::from_millis(100));
-    println!("Work done!");
-});
-<span class="boring">}</span></code></pre></pre>
-<h4 id="3-stmt---statements"><a class="header" href="#3-stmt---statements">3. <code>stmt</code> - Statements</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! debug_stmt {
-    ($stmt:stmt) =&gt; {
-        println!("Executing: {}", stringify!($stmt));
-        $stmt
-    };
-}
-
-debug_stmt!(let x = 42;);
-<span class="boring">}</span></code></pre></pre>
-<h4 id="4-expr---expressions"><a class="header" href="#4-expr---expressions">4. <code>expr</code> - Expressions</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! double {
-    ($e:expr) =&gt; {
-        $e * 2
-    };
-}
-
-let result = double!(5 + 3); // 16
-<span class="boring">}</span></code></pre></pre>
-<h4 id="5-ty---types"><a class="header" href="#5-ty---types">5. <code>ty</code> - Types</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! create_struct {
-    ($name:ident, $field_type:ty) =&gt; {
-        struct $name {
-            value: $field_type,
-        }
-    };
-}
-
-create_struct!(MyStruct, i32);
-<span class="boring">}</span></code></pre></pre>
-<h4 id="6-ident---identifiers"><a class="header" href="#6-ident---identifiers">6. <code>ident</code> - Identifiers</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! getter {
-    ($field:ident) =&gt; {
-        fn $field(&amp;self) -&gt; &amp;str {
-            &amp;self.$field
-        }
-    };
-}
-<span class="boring">}</span></code></pre></pre>
-<h4 id="7-path---paths-like-stdvecvec"><a class="header" href="#7-path---paths-like-stdvecvec">7. <code>path</code> - Paths like <code>std::vec::Vec</code></a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! use_type {
-    ($path:path) =&gt; {
-        let _instance: $path = Default::default();
-    };
-}
-
-use_type!(std::collections::HashMap&lt;String, i32&gt;);
-<span class="boring">}</span></code></pre></pre>
-<h4 id="8-literal---literal-values"><a class="header" href="#8-literal---literal-values">8. <code>literal</code> - Literal values</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! print_literal {
-    ($lit:literal) =&gt; {
-        println!("Literal: {}", $lit);
-    };
-}
-
-print_literal!("hello");
-print_literal!(42);
-<span class="boring">}</span></code></pre></pre>
-<h4 id="9-tt---token-trees-any-valid-tokens"><a class="header" href="#9-tt---token-trees-any-valid-tokens">9. <code>tt</code> - Token trees (any valid tokens)</a></h4>
-<pre><pre class="playground"><code class="language-rust">macro_rules! capture_tokens {
-    ($($tt:tt)*) =&gt; {
-        println!("Tokens: {}", stringify!($($tt)*));
-    };
-}
-
-capture_tokens!(fn main() { println!("anything"); });</code></pre></pre>
-<h3 id="repetition-patterns"><a class="header" href="#repetition-patterns">Repetition Patterns</a></h3>
-<h4 id="---zero-or-more-repetitions"><a class="header" href="#---zero-or-more-repetitions"><code>*</code> - Zero or more repetitions</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! print_all {
-    ($($item:expr),*) =&gt; {
-        $(
-            println!("{}", $item);
-        )*
-    };
-}
-
-print_all!(1, 2, 3, "hello");
-<span class="boring">}</span></code></pre></pre>
-<h4 id="---one-or-more-repetitions"><a class="header" href="#---one-or-more-repetitions"><code>+</code> - One or more repetitions</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! sum {
-    ($first:expr $(, $rest:expr)+) =&gt; {
-        $first $(+ $rest)+
-    };
-}
-
-let result = sum!(1, 2, 3, 4); // 10
-<span class="boring">}</span></code></pre></pre>
-<h4 id="---zero-or-one-repetition"><a class="header" href="#---zero-or-one-repetition"><code>?</code> - Zero or one repetition</a></h4>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! optional_print {
-    ($msg:expr $(, $extra:expr)?) =&gt; {
-        print!("{}", $msg);
-        $(print!(" {}", $extra);)?
-        println!();
-    };
-}
-
-optional_print!("Hello");           // Hello
-optional_print!("Hello", "World");  // Hello World
-<span class="boring">}</span></code></pre></pre>
-<h3 id="multiple-pattern-arms"><a class="header" href="#multiple-pattern-arms">Multiple Pattern Arms</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! calculate {
-    (add $a:expr, $b:expr) =&gt; {
-        $a + $b
-    };
-    (multiply $a:expr, $b:expr) =&gt; {
-        $a * $b
-    };
-    (power $base:expr, $exp:expr) =&gt; {
-        $base.pow($exp)
-    };
-}
-
-let sum = calculate!(add 5, 3);        // 8
-let product = calculate!(multiply 4, 7); // 28
-let power = calculate!(power 2, 3);    // 8
-<span class="boring">}</span></code></pre></pre>
-<h3 id="practical-example-hashmap-creation"><a class="header" href="#practical-example-hashmap-creation">Practical Example: HashMap Creation</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! hashmap {
-    ($($key:expr =&gt; $value:expr),* $(,)?) =&gt; {
-        {
-            let mut map = std::collections::HashMap::new();
-            $(
-                map.insert($key, $value);
-            )*
-            map
-        }
-    };
-}
-
-let ages = hashmap! {
-    "Alice" =&gt; 30,
-    "Bob" =&gt; 25,
-    "Carol" =&gt; 35,
-};
-<span class="boring">}</span></code></pre></pre>
-<h2 id="procedural-macros"><a class="header" href="#procedural-macros">Procedural Macros</a></h2>
-<p>Procedural macros are more powerful but complex. They operate on token streams.</p>
-<h3 id="function-like-macros"><a class="header" href="#function-like-macros">Function-like Macros</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// In Cargo.toml:
-// [lib]
-// proc-macro = true
-
-use proc_macro::TokenStream;
-
-#[proc_macro]
-pub fn make_answer(_item: TokenStream) -&gt; TokenStream {
-    "fn answer() -&gt; u32 { 42 }".parse().unwrap()
-}
-
-// Usage:
-make_answer!();
-println!("{}", answer()); // 42
-<span class="boring">}</span></code></pre></pre>
-<h3 id="derive-macros"><a class="header" href="#derive-macros">Derive Macros</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>#[proc_macro_derive(HelloMacro)]
-pub fn hello_macro_derive(input: TokenStream) -&gt; TokenStream {
-    // Parse the input tokens into a syntax tree
-    let ast = syn::parse(input).unwrap();
-    impl_hello_macro(&amp;ast)
-}
-
-// Usage:
-#[derive(HelloMacro)]
-struct Pancakes;
-
-Pancakes::hello_macro(); // Hello, Macro! My name is Pancakes!
-<span class="boring">}</span></code></pre></pre>
-<h3 id="attribute-macros"><a class="header" href="#attribute-macros">Attribute Macros</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>#[proc_macro_attribute]
-pub fn route(args: TokenStream, input: TokenStream) -&gt; TokenStream {
-    // Transform the function based on arguments
-    input // Simplified
-}
-
-// Usage:
-#[route(GET, "/")]
-fn index() -&gt; String {
-    "Hello World".to_string()
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="debugging-macros"><a class="header" href="#debugging-macros">Debugging Macros</a></h2>
-<h3 id="cargo-expand"><a class="header" href="#cargo-expand"><code>cargo expand</code></a></h3>
-<pre><code class="language-bash"># Install cargo-expand
-cargo install cargo-expand
-
-# Expand macros in your code
-cargo expand
-</code></pre>
-<h3 id="debug-printing"><a class="header" href="#debug-printing">Debug Printing</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! debug_macro {
-    ($($tt:tt)*) =&gt; {
-        println!("Macro input: {}", stringify!($($tt)*));
-        // Your actual macro logic here
-    };
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="common-patterns-2"><a class="header" href="#common-patterns-2">Common Patterns</a></h2>
-<h3 id="creating-dsls-domain-specific-languages"><a class="header" href="#creating-dsls-domain-specific-languages">Creating DSLs (Domain Specific Languages)</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! html {
-    ($tag:ident { $($content:tt)* }) =&gt; {
-        format!("&lt;{0}&gt;{1}&lt;/{0}&gt;", stringify!($tag), html!($($content)*))
-    };
-    ($text:literal) =&gt; {
-        $text.to_string()
-    };
-    ($($content:tt)*) =&gt; {
-        format!("{}", stringify!($($content)*))
-    };
-}
-
-let page = html! {
-    html {
-        body {
-            h1 { "Welcome" }
-            p { "Hello World" }
-        }
-    }
-};
-<span class="boring">}</span></code></pre></pre>
-<h3 id="configuration-macros"><a class="header" href="#configuration-macros">Configuration Macros</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>macro_rules! config {
-    ($($key:ident: $value:expr),*) =&gt; {
-        struct Config {
-            $(pub $key: String,)*
-        }
-
-        impl Default for Config {
-            fn default() -&gt; Self {
-                Config {
-                    $($key: $value.to_string(),)*
-                }
-            }
-        }
-    };
-}
-
-config! {
-    host: "localhost",
-    port: "8080",
-    debug: "true"
-}
-<span class="boring">}</span></code></pre></pre>
-<h2 id="exercise-create-useful-macros"><a class="header" href="#exercise-create-useful-macros">Exercise: Create Useful Macros</a></h2>
-<p>Create macros that demonstrate different macro patterns and use cases:</p>
-<h3 id="part-1-math-operations-macro"><a class="header" href="#part-1-math-operations-macro">Part 1: Math Operations Macro</a></h3>
-<p>Create a macro that handles basic math operations:</p>
-<pre><pre class="playground"><code class="language-rust">// TODO: Implement a math! macro that can handle different operations
-// Usage examples:
-// math!(5 + 3) -&gt; 8
-// math!(10 - 2) -&gt; 8
-// math!(4 * 6) -&gt; 24
-// math!(15 / 3) -&gt; 5
-
-macro_rules! math {
-    // TODO: Add patterns for different operations
-}
-
-fn main() {
-    println!("5 + 3 = {}", math!(5 + 3));
-    println!("10 - 2 = {}", math!(10 - 2));
-    println!("4 * 6 = {}", math!(4 * 6));
-    println!("15 / 3 = {}", math!(15 / 3));
-}</code></pre></pre>
-<h3 id="part-2-hashmap-creation-macro"><a class="header" href="#part-2-hashmap-creation-macro">Part 2: HashMap Creation Macro</a></h3>
-<p>Create a macro for easy HashMap creation:</p>
-<pre><pre class="playground"><code class="language-rust">use std::collections::HashMap;
-
-// TODO: Implement a hashmap! macro for easy HashMap creation
-// Usage: hashmap!("key1" =&gt; "value1", "key2" =&gt; "value2")
-
-macro_rules! hashmap {
-    // TODO: Add pattern for key =&gt; value pairs
-}
-
-fn main() {
-    let ages = hashmap!(
-        "Alice" =&gt; 30,
-        "Bob" =&gt; 25,
-        "Carol" =&gt; 35
-    );
-
-    println!("Alice is {} years old", ages["Alice"]);
-}</code></pre></pre>
-<h3 id="part-3-struct-generation-macro"><a class="header" href="#part-3-struct-generation-macro">Part 3: Struct Generation Macro</a></h3>
-<p>Create a macro that generates simple structs:</p>
-<pre><pre class="playground"><code class="language-rust">// TODO: Implement a make_struct! macro that generates structs
-// Usage: make_struct!(Person, name: String, age: u32);
-
-macro_rules! make_struct {
-    // TODO: Add pattern for struct name and fields
-}
-
-// This should generate:
-// struct Person {
-//     name: String,
-//     age: u32,
-// }
-//
-// impl Person {
-//     fn new(name: String, age: u32) -&gt; Self {
-//         Person { name, age }
-//     }
-// }
-
-fn main() {
-    make_struct!(Person, name: String, age: u32);
-
-    let person = Person::new("Alice".to_string(), 25);
-    println!("{} is {} years old", person.name, person.age);
-}</code></pre></pre>
-<p><strong>Implementation Hints:</strong></p>
-<ol>
-<li>
-<p><strong>Math macro:</strong></p>
-<ul>
-<li>Use patterns like <code>($a:expr + $b:expr) =&gt; { $a + $b }</code></li>
-<li>Handle different operators with separate arms</li>
-</ul>
-</li>
-<li>
-<p><strong>HashMap macro:</strong></p>
-<ul>
-<li>Use repetition: <code>($($key:expr =&gt; $value:expr),* $(,)?)</code></li>
-<li>Create HashMap and insert each key-value pair</li>
-</ul>
-</li>
-<li>
-<p><strong>Struct macro:</strong></p>
-<ul>
-<li>Use <code>($name:ident, $($field:ident: $type:ty),*)</code> pattern</li>
-<li>Generate both struct and impl with new() method</li>
-</ul>
-</li>
-</ol>
-<p><strong>What you’ll learn:</strong></p>
-<ul>
-<li><strong>Pattern matching</strong> in macros with different fragment types</li>
-<li><strong>Repetition patterns</strong> with <code>*</code> and <code>+</code></li>
-<li><strong>Code generation</strong> for common Rust patterns</li>
-<li><strong>Macro hygiene</strong> and identifier creation</li>
-</ul>
-<h2 id="best-practices-1"><a class="header" href="#best-practices-1">Best Practices</a></h2>
-<ul>
-<li><strong>Use declarative macros</strong> for simple code generation</li>
-<li><strong>Prefer functions</strong> when macros aren’t necessary</li>
-<li><strong>Test macro expansions</strong> with <code>cargo expand</code></li>
-<li><strong>Document macro usage</strong> clearly</li>
-<li><strong>Handle edge cases</strong> in pattern matching</li>
-<li><strong>Use meaningful names</strong> for macro parameters</li>
-</ul>
-<h2 id="when-to-use-macros"><a class="header" href="#when-to-use-macros">When to Use Macros</a></h2>
-<p>✅ <strong>Good for:</strong></p>
-<ul>
-<li>Reducing boilerplate code</li>
-<li>Creating DSLs</li>
-<li>Code that needs to run at compile time</li>
-<li>When you need the exact tokens/identifiers</li>
-</ul>
-<p>❌ <strong>Avoid for:</strong></p>
-<ul>
-<li>Simple calculations (use functions)</li>
-<li>Type conversions (use traits)</li>
-<li>Logic that can be runtime</li>
-</ul>
-<hr />
-<p>Next: <a href="day2/./24_unsafe_ffi.html">Chapter 24: Unsafe Rust &amp; FFI with Bindgen</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-12-modules-and-visibility"><a class="header" href="#chapter-12-modules-and-visibility">Chapter 12: Modules and Visibility</a></h1>
-<h2 id="organizing-rust-projects-at-scale"><a class="header" href="#organizing-rust-projects-at-scale">Organizing Rust Projects at Scale</a></h2>
-<h3 id="learning-objectives-11"><a class="header" href="#learning-objectives-11">Learning Objectives</a></h3>
-<p>By the end of this chapter, you’ll be able to:</p>
-<ul>
-<li>Structure Rust projects with modules and submodules</li>
-<li>Control visibility with <code>pub</code> and privacy rules</li>
-<li>Use the <code>use</code> keyword effectively for imports</li>
-<li>Organize code across multiple files</li>
-<li>Design clean module APIs with proper encapsulation</li>
-<li>Apply the module system to build maintainable projects</li>
-<li>Understand path resolution and the module tree</li>
-</ul>
-<hr />
-<h2 id="module-basics"><a class="header" href="#module-basics">Module Basics</a></h2>
-<h3 id="defining-modules"><a class="header" href="#defining-modules">Defining Modules</a></h3>
-<pre><pre class="playground"><code class="language-rust">// Modules can be defined inline
-mod network {
-    pub fn connect() {
-        println!("Connecting to network...");
-    }
-    
-    fn internal_function() {
-        // Private by default - not accessible outside this module
-        println!("Internal network operation");
-    }
-}
-
-mod database {
-    pub struct Connection {
-        // Fields are private by default
-        host: String,
-        port: u16,
-    }
-    
-    impl Connection {
-        // Public constructor
-        pub fn new(host: String, port: u16) -&gt; Self {
-            Connection { host, port }
-        }
-        
-        // Public method
-        pub fn execute(&amp;self, query: &amp;str) {
-            println!("Executing: {}", query);
-        }
-        
-        // Private method
-        fn validate_query(&amp;self, query: &amp;str) -&gt; bool {
-            !query.is_empty()
-        }
-    }
-}
-
-fn main() {
-    network::connect();
-    // network::internal_function(); // Error: private function
-    
-    let conn = database::Connection::new("localhost".to_string(), 5432);
-    conn.execute("SELECT * FROM users");
-    // println!("{}", conn.host); // Error: private field
-}</code></pre></pre>
-<h3 id="module-hierarchy"><a class="header" href="#module-hierarchy">Module Hierarchy</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>mod front_of_house {
-    pub mod hosting {
-        pub fn add_to_waitlist() {
-            println!("Added to waitlist");
-        }
-        
-        fn seat_at_table() {
-            println!("Seated at table");
-        }
-    }
-    
-    mod serving {
-        fn take_order() {}
-        fn serve_order() {}
-        fn take_payment() {}
-    }
-}
-
-// Using paths to access nested modules
-pub fn eat_at_restaurant() {
-    // Absolute path
-    crate::front_of_house::hosting::add_to_waitlist();
-    
-    // Relative path
-    front_of_house::hosting::add_to_waitlist();
-}
-<span class="boring">}</span></code></pre></pre>
-<hr />
-<h2 id="the-use-keyword"><a class="header" href="#the-use-keyword">The <code>use</code> Keyword</a></h2>
-<h3 id="basic-imports"><a class="header" href="#basic-imports">Basic Imports</a></h3>
-<pre><pre class="playground"><code class="language-rust">mod math {
-    pub fn add(a: i32, b: i32) -&gt; i32 {
-        a + b
-    }
-    
-    pub fn multiply(a: i32, b: i32) -&gt; i32 {
-        a * b
-    }
-    
-    pub mod advanced {
-        pub fn power(base: i32, exp: u32) -&gt; i32 {
-            base.pow(exp)
-        }
-    }
-}
-
-// Bring functions into scope
-use math::add;
-use math::multiply;
-use math::advanced::power;
-
-// Group imports
-use math::{add, multiply};
-
-// Import everything from a module
-use math::advanced::*;
-
-fn main() {
-    let sum = add(2, 3);        // No need for math:: prefix
-    let product = multiply(4, 5);
-    let result = power(2, 10);
-}</code></pre></pre>
-<h3 id="re-exporting-with-pub-use"><a class="header" href="#re-exporting-with-pub-use">Re-exporting with <code>pub use</code></a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>mod shapes {
-    pub mod circle {
-        pub struct Circle {
-            pub radius: f64,
-        }
-        
-        impl Circle {
-            pub fn area(&amp;self) -&gt; f64 {
-                std::f64::consts::PI * self.radius * self.radius
-            }
-        }
-    }
-    
-    pub mod rectangle {
-        pub struct Rectangle {
-            pub width: f64,
-            pub height: f64,
-        }
-        
-        impl Rectangle {
-            pub fn area(&amp;self) -&gt; f64 {
-                self.width * self.height
-            }
-        }
-    }
-}
-
-// Re-export to flatten the hierarchy
-pub use shapes::circle::Circle;
-pub use shapes::rectangle::Rectangle;
-
-// Now users can do:
-// use your_crate::{Circle, Rectangle};
-// Instead of:
-// use your_crate::shapes::circle::Circle;
-<span class="boring">}</span></code></pre></pre>
-<hr />
-<h2 id="file-based-modules"><a class="header" href="#file-based-modules">File-based Modules</a></h2>
-<h3 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h3>
-<pre><code>src/
-├── main.rs
-├── lib.rs
-├── network/
-│   ├── mod.rs
-│   ├── client.rs
-│   └── server.rs
-└── utils.rs
-</code></pre>
-<h3 id="main-module-file-srcmainrs-or-srclibrs"><a class="header" href="#main-module-file-srcmainrs-or-srclibrs">Main Module File (src/main.rs or src/lib.rs)</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/lib.rs
-pub mod network;  // Looks for network/mod.rs or network.rs
-pub mod utils;    // Looks for utils.rs
-
-// Re-export commonly used items
-pub use network::client::Client;
-pub use network::server::Server;
-<span class="boring">}</span></code></pre></pre>
-<h3 id="module-directory-srcnetworkmodrs"><a class="header" href="#module-directory-srcnetworkmodrs">Module Directory (src/network/mod.rs)</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/network/mod.rs
-pub mod client;
-pub mod server;
-
-// Common network functionality
-pub struct Config {
-    pub timeout: u64,
-    pub retry_count: u32,
-}
-
-impl Config {
-    pub fn default() -&gt; Self {
-        Config {
-            timeout: 30,
-            retry_count: 3,
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="submodule-files"><a class="header" href="#submodule-files">Submodule Files</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/network/client.rs
-use super::Config;  // Access parent module
-
-pub struct Client {
-    config: Config,
-    connected: bool,
-}
-
-impl Client {
-    pub fn new(config: Config) -&gt; Self {
-        Client {
-            config,
-            connected: false,
-        }
-    }
-    
-    pub fn connect(&amp;mut self) -&gt; Result&lt;(), String&gt; {
-        // Connection logic
-        self.connected = true;
-        Ok(())
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/network/server.rs
-use super::Config;
-
-pub struct Server {
-    config: Config,
-    listening: bool,
-}
-
-impl Server {
-    pub fn new(config: Config) -&gt; Self {
-        Server {
-            config,
-            listening: false,
-        }
-    }
-    
-    pub fn listen(&amp;mut self, port: u16) -&gt; Result&lt;(), String&gt; {
-        println!("Listening on port {}", port);
-        self.listening = true;
-        Ok(())
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<hr />
-<h2 id="visibility-rules"><a class="header" href="#visibility-rules">Visibility Rules</a></h2>
-<h3 id="privacy-boundaries"><a class="header" href="#privacy-boundaries">Privacy Boundaries</a></h3>
-<pre><pre class="playground"><code class="language-rust">mod outer {
-    pub fn public_function() {
-        println!("Public function");
-    }
-    
-    fn private_function() {
-        println!("Private function");
-    }
-    
-    pub mod inner {
-        pub fn inner_public() {
-            // Can access parent's private items
-            super::private_function();
-        }
-        
-        pub(super) fn visible_to_parent() {
-            println!("Only visible to parent module");
-        }
-        
-        pub(crate) fn visible_in_crate() {
-            println!("Visible throughout the crate");
-        }
-    }
-}
-
-fn main() {
-    outer::public_function();
-    outer::inner::inner_public();
-    // outer::inner::visible_to_parent(); // Error: not visible here
-    outer::inner::visible_in_crate(); // OK: we're in the same crate
-}</code></pre></pre>
-<h3 id="struct-field-visibility"><a class="header" href="#struct-field-visibility">Struct Field Visibility</a></h3>
-<pre><pre class="playground"><code class="language-rust">mod back_of_house {
-    pub struct Breakfast {
-        pub toast: String,      // Public field
-        seasonal_fruit: String, // Private field
-    }
-    
-    impl Breakfast {
-        pub fn summer(toast: &amp;str) -&gt; Breakfast {
-            Breakfast {
-                toast: String::from(toast),
-                seasonal_fruit: String::from("peaches"),
-            }
-        }
-    }
-    
-    // All fields must be public for tuple struct to be constructable
-    pub struct Color(pub u8, pub u8, pub u8);
-}
-
-fn main() {
-    let mut meal = back_of_house::Breakfast::summer("Rye");
-    meal.toast = String::from("Wheat");  // OK: public field
-    // meal.seasonal_fruit = String::from("strawberries"); // Error: private
-    
-    let color = back_of_house::Color(255, 0, 0);  // OK: all fields public
-}</code></pre></pre>
-<hr />
-<h2 id="module-design-patterns"><a class="header" href="#module-design-patterns">Module Design Patterns</a></h2>
-<h3 id="api-design-with-modules"><a class="header" href="#api-design-with-modules">API Design with Modules</a></h3>
-<pre><pre class="playground"><code class="language-rust">// A well-designed module API
-pub mod database {
-    // Re-export the main types users need
-    pub use self::connection::Connection;
-    pub use self::error::{Error, Result};
-    
-    mod connection {
-        use super::error::Result;
-        
-        pub struct Connection {
-            // Implementation details hidden
-            url: String,
-        }
-        
-        impl Connection {
-            pub fn open(url: &amp;str) -&gt; Result&lt;Self&gt; {
-                Ok(Connection {
-                    url: url.to_string(),
-                })
-            }
-            
-            pub fn execute(&amp;self, query: &amp;str) -&gt; Result&lt;()&gt; {
-                // Implementation
-                Ok(())
-            }
-        }
-    }
-    
-    mod error {
-        use std::fmt;
-        
-        #[derive(Debug)]
-        pub struct Error {
-            message: String,
-        }
-        
-        impl fmt::Display for Error {
-            fn fmt(&amp;self, f: &amp;mut fmt::Formatter) -&gt; fmt::Result {
-                write!(f, "Database error: {}", self.message)
-            }
-        }
-        
-        impl std::error::Error for Error {}
-        
-        pub type Result&lt;T&gt; = std::result::Result&lt;T, Error&gt;;
-    }
-}
-
-// Clean usage
-use database::{Connection, Result};
-
-fn main() -&gt; Result&lt;()&gt; {
-    let conn = Connection::open("postgres://localhost/mydb")?;
-    conn.execute("SELECT * FROM users")?;
-    Ok(())
-}</code></pre></pre>
-<h3 id="builder-pattern-with-modules"><a class="header" href="#builder-pattern-with-modules">Builder Pattern with Modules</a></h3>
-<pre><pre class="playground"><code class="language-rust">pub mod request {
-    pub struct Request {
-        url: String,
-        method: Method,
-        headers: Vec&lt;(String, String)&gt;,
-    }
-    
-    #[derive(Clone)]
-    pub enum Method {
-        GET,
-        POST,
-        PUT,
-        DELETE,
-    }
-    
-    pub struct RequestBuilder {
-        url: Option&lt;String&gt;,
-        method: Method,
-        headers: Vec&lt;(String, String)&gt;,
-    }
-    
-    impl RequestBuilder {
-        pub fn new() -&gt; Self {
-            RequestBuilder {
-                url: None,
-                method: Method::GET,
-                headers: Vec::new(),
-            }
-        }
-        
-        pub fn url(mut self, url: &amp;str) -&gt; Self {
-            self.url = Some(url.to_string());
-            self
-        }
-        
-        pub fn method(mut self, method: Method) -&gt; Self {
-            self.method = method;
-            self
-        }
-        
-        pub fn header(mut self, key: &amp;str, value: &amp;str) -&gt; Self {
-            self.headers.push((key.to_string(), value.to_string()));
-            self
-        }
-        
-        pub fn build(self) -&gt; Result&lt;Request, &amp;'static str&gt; {
-            let url = self.url.ok_or("URL is required")?;
-            Ok(Request {
-                url,
-                method: self.method,
-                headers: self.headers,
-            })
-        }
-    }
-    
-    impl Request {
-        pub fn builder() -&gt; RequestBuilder {
-            RequestBuilder::new()
-        }
-        
-        pub fn send(&amp;self) -&gt; Result&lt;Response, &amp;'static str&gt; {
-            // Send request logic
-            Ok(Response { status: 200 })
-        }
-    }
-    
-    pub struct Response {
-        pub status: u16,
-    }
-}
-
-use request::{Request, Method};
-
-fn main() {
-    let response = Request::builder()
-        .url("https://api.example.com/data")
-        .method(Method::POST)
-        .header("Content-Type", "application/json")
-        .build()
-        .unwrap()
-        .send()
-        .unwrap();
-    
-    println!("Response status: {}", response.status);
-}</code></pre></pre>
-<hr />
-<h2 id="common-patterns-and-best-practices"><a class="header" href="#common-patterns-and-best-practices">Common Patterns and Best Practices</a></h2>
-<h3 id="prelude-pattern"><a class="header" href="#prelude-pattern">Prelude Pattern</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Create a prelude module for commonly used items
-pub mod prelude {
-    pub use crate::error::{Error, Result};
-    pub use crate::config::Config;
-    pub use crate::client::Client;
-    pub use crate::server::Server;
-}
-
-// Users can import everything they need with one line:
-// use your_crate::prelude::*;
-<span class="boring">}</span></code></pre></pre>
-<h3 id="internal-module-pattern"><a class="header" href="#internal-module-pattern">Internal Module Pattern</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>pub mod parser {
-    // Public API
-    pub fn parse(input: &amp;str) -&gt; Result&lt;Expression, Error&gt; {
-        let tokens = internal::tokenize(input)?;
-        internal::build_ast(tokens)
-    }
-    
-    pub struct Expression {
-        // ...
-    }
-    
-    pub struct Error {
-        // ...
-    }
-    
-    // Implementation details in internal module
-    mod internal {
-        use super::*;
-        
-        pub(super) fn tokenize(input: &amp;str) -&gt; Result&lt;Vec&lt;Token&gt;, Error&gt; {
-            // ...
-        }
-        
-        pub(super) fn build_ast(tokens: Vec&lt;Token&gt;) -&gt; Result&lt;Expression, Error&gt; {
-            // ...
-        }
-        
-        struct Token {
-            // Private implementation detail
-        }
-    }
-}
-<span class="boring">}</span></code></pre></pre>
-<hr />
-<h2 id="exercise-create-a-library-management-system"><a class="header" href="#exercise-create-a-library-management-system">Exercise: Create a Library Management System</a></h2>
-<p>Design a module structure for a library system:</p>
-<pre><pre class="playground"><code class="language-rust">// TODO: Create the following module structure:
-// - books module with Book struct and methods
-// - members module with Member struct  
-// - loans module for managing book loans
-// - Use proper visibility modifiers
-
-mod books {
-    pub struct Book {
-        // TODO: Add fields (some public, some private)
-    }
-    
-    impl Book {
-        // TODO: Add constructor and methods
-    }
-}
-
-mod members {
-    pub struct Member {
-        // TODO: Add fields
-    }
-    
-    impl Member {
-        // TODO: Add methods
-    }
-}
-
-mod loans {
-    use super::books::Book;
-    use super::members::Member;
-    
-    pub struct Loan {
-        // TODO: Reference a Book and Member
-    }
-    
-    impl Loan {
-        // TODO: Implement loan management
-    }
-}
-
-pub mod library {
-    // TODO: Create a public API that uses the above modules
-    // Re-export necessary types
-}
-
-fn main() {
-    // TODO: Use the library module to:
-    // 1. Create some books
-    // 2. Register members
-    // 3. Create loans
-    // 4. Return books
-}</code></pre></pre>
-<hr />
-<h2 id="key-takeaways-11"><a class="header" href="#key-takeaways-11">Key Takeaways</a></h2>
-<ol>
-<li><strong>Modules organize code</strong> into logical units with clear boundaries</li>
-<li><strong>Privacy by default</strong> - items are private unless marked <code>pub</code></li>
-<li><strong>The <code>use</code> keyword</strong> brings items into scope for convenience</li>
-<li><strong>File structure mirrors module structure</strong> for large projects</li>
-<li><strong><code>pub use</code> for re-exports</strong> creates clean public APIs</li>
-<li><strong>Visibility modifiers</strong> (<code>pub(crate)</code>, <code>pub(super)</code>) provide fine-grained control</li>
-<li><strong>Module design</strong> should hide implementation details and expose minimal APIs</li>
-<li><strong>Prelude pattern</strong> simplifies imports for users of your crate</li>
-</ol>
-<p><strong>Congratulations!</strong> You’ve completed Day 2 of the Rust course. You now have a solid understanding of Rust’s advanced features including traits, generics, error handling, iterators, and module organization. These concepts form the foundation for building robust, maintainable Rust applications.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="macros--code-generation"><a class="header" href="#macros--code-generation">Macros &amp; Code Generation</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="modules--visibility"><a class="header" href="#modules--visibility">Modules &amp; Visibility</a></h1>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-13-hardware-hello---esp32-c3-basics"><a class="header" href="#chapter-13-hardware-hello---esp32-c3-basics">Chapter 13: Hardware Hello - ESP32-C3 Basics</a></h1>
-<h2 id="learning-objectives-12"><a class="header" href="#learning-objectives-12">Learning Objectives</a></h2>
+<h2 id="learning-objectives-10"><a class="header" href="#learning-objectives-10">Learning Objectives</a></h2>
 <p>By the end of this chapter, you’ll be able to:</p>
 <ul>
 <li>Set up ESP32-C3 development environment</li>
@@ -7346,14 +6298,13 @@ fn main() -&gt; ! {
 
 use esp_backtrace as _;
 use esp_hal::{
-    adc::{Adc, AdcConfig, Attenuation, ADC},
     clock::ClockControl,
     delay::Delay,
     gpio::{Io, Level, Output},
     peripherals::Peripherals,
     prelude::*,
     system::SystemControl,
-    temperature_sensor::{TemperatureSensor, TempSensorConfig},
+    tsens::{TemperatureSensor, Config},
 };
 
 #[entry]
@@ -7368,11 +6319,10 @@ fn main() -&gt; ! {
     let mut led = Output::new(io.pins.gpio8, Level::Low);
 
     // Initialize the built-in temperature sensor
-    let temp_sensor_config = TempSensorConfig::default();
     let mut temp_sensor = TemperatureSensor::new(
-        peripherals.TEMP_SENSOR,
-        temp_sensor_config
-    );
+        peripherals.TSENS,
+        Config::default()
+    ).unwrap();
 
     esp_println::println!("ESP32-C3 Temperature Monitor");
     esp_println::println!("Built-in sensor initialized");
@@ -7382,8 +6332,12 @@ fn main() -&gt; ! {
     let mut reading_count = 0;
 
     loop {
+        // Stabilization delay (recommended by ESP-HAL docs)
+        delay.delay_micros(200);
+
         // Read temperature from built-in sensor
-        let temp_celsius = temp_sensor.read_celsius();
+        let temperature = temp_sensor.get_temperature();
+        let temp_celsius = temperature.to_celsius();
         reading_count += 1;
 
         // Show reading with LED blink pattern
@@ -7422,8 +6376,9 @@ fn main() -&gt; ! {
 <h3 id="understanding-temperature-sensor-code"><a class="header" href="#understanding-temperature-sensor-code">Understanding Temperature Sensor Code</a></h3>
 <p><strong>New Concepts:</strong></p>
 <ul>
-<li><code>TemperatureSensor</code> - Hardware abstraction for built-in sensor</li>
-<li><code>read_celsius()</code> - Direct temperature reading in Celsius</li>
+<li><code>tsens::TemperatureSensor</code> - Hardware abstraction for built-in sensor (requires <code>unstable</code> feature)</li>
+<li><code>get_temperature()</code> - Returns Temperature struct</li>
+<li><code>to_celsius()</code> - Converts to Celsius value</li>
 <li><strong>No external wiring</strong> - Sensor is built into the chip!</li>
 </ul>
 <p><strong>Data Flow:</strong></p>
@@ -7435,7 +6390,7 @@ fn main() -&gt; ! {
 <li>High temp (&gt;30°C): Double rapid blink</li>
 </ul>
 <h2 id="building-and-running-on-hardware"><a class="header" href="#building-and-running-on-hardware">Building and Running on Hardware</a></h2>
-<h3 id="project-structure-1"><a class="header" href="#project-structure-1">Project Structure</a></h3>
+<h3 id="project-structure"><a class="header" href="#project-structure">Project Structure</a></h3>
 <p>Create a new embedded project:</p>
 <pre><code class="language-bash">cargo new --bin temp_monitor
 cd temp_monitor
@@ -7448,7 +6403,7 @@ edition = "2021"
 
 [dependencies]
 esp-backtrace = "0.18"
-esp-hal = { version = "0.22", features = ["esp32c3"] }
+esp-hal = { version = "0.22", features = ["esp32c3", "unstable"] }
 esp-println = { version = "0.16", features = ["esp32c3"] }
 
 [profile.dev]
@@ -7704,7 +6659,7 @@ Reading #11: Temperature = 24.9°C
 <li>Values outside this range might indicate calibration issues</li>
 <li>Warm the chip gently with your finger to test responsiveness</li>
 </ul>
-<h2 id="key-takeaways-12"><a class="header" href="#key-takeaways-12">Key Takeaways</a></h2>
+<h2 id="key-takeaways-11"><a class="header" href="#key-takeaways-11">Key Takeaways</a></h2>
 <p>✅ <strong>Hardware First</strong>: Starting with real hardware creates immediate engagement and practical learning</p>
 <p>✅ <strong>Built-in Sensors</strong>: ESP32-C3’s temperature sensor eliminates external component complexity</p>
 <p>✅ <strong>Embedded Patterns</strong>: <code>#[no_std]</code>, <code>#[no_main]</code>, and <code>loop</code> are fundamental embedded concepts</p>
@@ -7713,7 +6668,7 @@ Reading #11: Temperature = 24.9°C
 <p>✅ <strong>Immediate Feedback</strong>: LED status and serial output provide instant verification of functionality</p>
 <p><strong>Next</strong>: In Chapter 14, we’ll build proper data structures for storing and processing these temperature readings using embedded-friendly <code>no_std</code> patterns.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-14-embedded-foundations---no_std-from-the-start"><a class="header" href="#chapter-14-embedded-foundations---no_std-from-the-start">Chapter 14: Embedded Foundations - no_std from the Start</a></h1>
-<h2 id="learning-objectives-13"><a class="header" href="#learning-objectives-13">Learning Objectives</a></h2>
+<h2 id="learning-objectives-11"><a class="header" href="#learning-objectives-11">Learning Objectives</a></h2>
 <p>By the end of this chapter, you’ll be able to:</p>
 <ul>
 <li>Understand the difference between <code>core</code>, <code>alloc</code>, and <code>std</code> libraries</li>
@@ -7916,9 +6871,9 @@ impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
             // Buffer not full yet - just add
             self.readings.push(temperature).ok();
         } else {
-            // Buffer full - replace oldest (FIFO)
-            self.readings.remove(0);
-            self.readings.push(temperature).ok();
+            // Buffer full - use circular indexing (more efficient than remove(0))
+            let oldest_index = (self.total_readings as usize) % N;
+            self.readings[oldest_index] = temperature;
         }
         self.total_readings += 1;
     }
@@ -8389,7 +7344,7 @@ esp_println::println!("  Stats: {} bytes", STATS_SIZE);
 esp_println::println!("  Total: {} bytes", BUFFER_SIZE + STATS_SIZE);
 <span class="boring">}</span></code></pre></pre>
 <p>Target: Less than 100 bytes total for 20 temperature readings + metadata.</p>
-<h2 id="key-takeaways-13"><a class="header" href="#key-takeaways-13">Key Takeaways</a></h2>
+<h2 id="key-takeaways-12"><a class="header" href="#key-takeaways-12">Key Takeaways</a></h2>
 <p>✅ <strong>Memory Efficiency</strong>: Using <code>i16</code> instead of <code>f32</code> saves 50% memory without losing precision</p>
 <p>✅ <strong>Fixed Allocation</strong>: <code>heapless::Vec</code> provides dynamic behavior with static memory</p>
 <p>✅ <strong>Const Configuration</strong>: Compile-time parameters eliminate runtime overhead</p>
@@ -8398,7 +7353,7 @@ esp_println::println!("  Total: {} bytes", BUFFER_SIZE + STATS_SIZE);
 <p>✅ <strong>Type Safety</strong>: Rust’s type system prevents common embedded errors like buffer overflows</p>
 <p><strong>Next</strong>: In Chapter 15, we’ll add proper testing strategies for embedded code, including how to test no_std code on desktop and validate hardware behavior.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-15-testing-embedded-code"><a class="header" href="#chapter-15-testing-embedded-code">Chapter 15: Testing Embedded Code</a></h1>
-<h2 id="learning-objectives-14"><a class="header" href="#learning-objectives-14">Learning Objectives</a></h2>
+<h2 id="learning-objectives-12"><a class="header" href="#learning-objectives-12">Learning Objectives</a></h2>
 <p>By the end of this chapter, you’ll be able to:</p>
 <ul>
 <li>Test no_std code on your desktop using conditional compilation</li>
@@ -8413,7 +7368,7 @@ esp_println::println!("  Total: {} bytes", BUFFER_SIZE + STATS_SIZE);
 <p><strong>Hardware Dependencies:</strong></p>
 <ul>
 <li>Code runs on ESP32-C3, but tests run on desktop</li>
-<li>No access to GPIO, sensors, or timers in test environment</li>
+<li>No access to GPIO, sensors, or timers in the test environment</li>
 <li>Different target architectures (RISC-V vs x86/ARM)</li>
 </ul>
 <p><strong>Resource Constraints:</strong></p>
@@ -8546,12 +7501,13 @@ impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
 
         #[cfg(not(test))]
         {
-            // In embedded, handle fixed capacity
-            if self.readings.len() &gt;= N {
-                self.readings.remove(0);
+            // In embedded, handle fixed capacity with circular buffer
+            if self.readings.len() &lt; N {
                 self.readings.push(temperature).ok();
             } else {
-                self.readings.push(temperature).ok();
+                // Use circular indexing (O(1) vs remove(0) which is O(n))
+                let oldest_index = (self.total_readings as usize) % N;
+                self.readings[oldest_index] = temperature;
             }
         }
 
@@ -9221,7 +8177,7 @@ pub fn validate_hardware() {
     esp_println::println!("✅ Hardware validation passed");
 }
 <span class="boring">}</span></code></pre></pre>
-<h2 id="key-takeaways-14"><a class="header" href="#key-takeaways-14">Key Takeaways</a></h2>
+<h2 id="key-takeaways-13"><a class="header" href="#key-takeaways-13">Key Takeaways</a></h2>
 <p>✅ <strong>Conditional Compilation</strong>: Use <code>#[cfg(test)]</code> to test no_std code on desktop</p>
 <p>✅ <strong>Hardware Abstraction</strong>: Create traits to mock hardware dependencies</p>
 <p>✅ <strong>Test Structure</strong>: Unit tests for logic, integration tests for workflows</p>
@@ -9230,7 +8186,7 @@ pub fn validate_hardware() {
 <p>✅ <strong>Performance Testing</strong>: Verify memory usage and timing in tests</p>
 <p><strong>Next</strong>: In Chapter 16, we’ll add communication capabilities to send our temperature data in structured formats like JSON and binary protocols.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-16-data--communication"><a class="header" href="#chapter-16-data--communication">Chapter 16: Data &amp; Communication</a></h1>
-<h2 id="learning-objectives-15"><a class="header" href="#learning-objectives-15">Learning Objectives</a></h2>
+<h2 id="learning-objectives-13"><a class="header" href="#learning-objectives-13">Learning Objectives</a></h2>
 <p>By the end of this chapter, you’ll be able to:</p>
 <ul>
 <li>Use Serde for serialization in no_std embedded environments</li>
@@ -9267,7 +8223,7 @@ pub fn validate_hardware() {
 </span>// Cargo.toml dependencies
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde-json-core = "0.5"  # no_std JSON support
+serde-json-core = "0.6"  # no_std JSON support
 postcard = { version = "1.0", default-features = false }  # Binary serialization
 heapless = "0.8"
 <span class="boring">}</span></code></pre></pre>
@@ -9999,7 +8955,7 @@ impl HttpClient {
 <pre><code class="language-toml"># Add to Cargo.toml
 [dependencies]
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde-json-core = "0.5"
+serde-json-core = "0.6"
 heapless = "0.8"
 </code></pre>
 </li>
@@ -10126,7 +9082,7 @@ while True:
         except json.JSONDecodeError:
             print(f"Invalid JSON: {json_data}")
 </code></pre>
-<h2 id="key-takeaways-15"><a class="header" href="#key-takeaways-15">Key Takeaways</a></h2>
+<h2 id="key-takeaways-14"><a class="header" href="#key-takeaways-14">Key Takeaways</a></h2>
 <p>✅ <strong>Serde in no_std</strong>: Powerful serialization without heap allocation using serde-json-core</p>
 <p>✅ <strong>Structured Communication</strong>: JSON for interoperability, binary for efficiency</p>
 <p>✅ <strong>Command/Response Pattern</strong>: Essential for interactive embedded systems</p>
@@ -10135,7 +9091,7 @@ while True:
 <p>✅ <strong>IoT Ready</strong>: Foundation for WiFi, HTTP, and cloud integration</p>
 <p><strong>Next</strong>: In Chapter 17, we’ll add async capabilities using Embassy to handle multiple tasks concurrently while maintaining real-time performance.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-17-integration--deployment"><a class="header" href="#chapter-17-integration--deployment">Chapter 17: Integration &amp; Deployment</a></h1>
-<h2 id="learning-objectives-16"><a class="header" href="#learning-objectives-16">Learning Objectives</a></h2>
+<h2 id="learning-objectives-14"><a class="header" href="#learning-objectives-14">Learning Objectives</a></h2>
 <p>By the end of this chapter, you’ll be able to:</p>
 <ul>
 <li>Integrate all components into a complete temperature monitoring system</li>
@@ -10188,7 +9144,7 @@ edition = "2021"
 
 [dependencies]
 # ESP32-C3 Hardware Abstraction Layer
-esp-hal = { version = "0.22", features = ["esp32c3"] }
+esp-hal = { version = "0.22", features = ["esp32c3", "unstable"] }
 esp-backtrace = { version = "0.18", features = ["esp32c3", "println"] }
 esp-println = { version = "0.16", features = ["esp32c3"] }
 
@@ -10201,7 +9157,7 @@ heapless = { version = "0.8", features = ["serde"] }
 
 # JSON serialization
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde-json-core = "0.5"
+serde-json-core = "0.6"
 
 [profile.dev]
 # Debug optimizations for faster flashing
@@ -10228,6 +9184,7 @@ use esp_hal::{
     peripherals::Peripherals,
     prelude::*,
     system::SystemControl,
+    tsens::{TemperatureSensor, Config},
 };
 use esp_println::println;
 
@@ -10242,25 +9199,7 @@ const BUFFER_SIZE: usize = 32;
 const SAMPLE_RATE_MS: u32 = 1000;
 const JSON_OUTPUT_INTERVAL: u32 = 5;
 
-// Mock temperature sensor for this example
-struct MockTemperatureSensor {
-    reading_count: u32,
-}
-
-impl MockTemperatureSensor {
-    fn new() -&gt; Self {
-        Self { reading_count: 0 }
-    }
-
-    fn read_celsius(&amp;mut self) -&gt; f32 {
-        self.reading_count += 1;
-        let base_temp = 23.0;
-
-        // Simple variation pattern for demo
-        let variation = ((self.reading_count % 20) as f32) * 0.1 - 1.0;
-        base_temp + variation
-    }
-}
+// No mock sensor needed - we'll use real ESP32-C3 temperature sensor
 
 #[entry]
 fn main() -&gt; ! {
@@ -10271,7 +9210,7 @@ fn main() -&gt; ! {
     let system = SystemControl::new(peripherals.SYSTEM);
     let clocks = ClockControl::max(system.clock_control).freeze();
 
-    // Setup GPIO for LED
+    // Set up GPIO for LED
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     let mut led = Output::new(io.pins.gpio8, Level::Low);
 
@@ -10279,7 +9218,10 @@ fn main() -&gt; ! {
     let delay = Delay::new(&amp;clocks);
 
     // Initialize components
-    let mut temp_sensor = MockTemperatureSensor::new();
+    let mut temp_sensor = TemperatureSensor::new(
+        peripherals.TSENS,
+        Config::default()
+    ).unwrap();
     let mut temp_buffer = TemperatureBuffer::&lt;BUFFER_SIZE&gt;::new();
     let mut comm = TemperatureComm::new();
     let mut reading_count = 0u32;
@@ -10292,7 +9234,9 @@ fn main() -&gt; ! {
 
     loop {
         // 1. Read temperature
-        let celsius = temp_sensor.read_celsius();
+        delay.delay_micros(200); // Stabilization delay for temperature sensor
+        let temperature_reading = temp_sensor.get_temperature();
+        let celsius = temperature_reading.to_celsius();
         let temperature = temperature::Temperature::from_celsius(celsius);
         temp_buffer.push(temperature);
         reading_count += 1;
@@ -10508,7 +9452,7 @@ JSON_STATUS: {"Status":{"uptime_ms":5000,"sample_rate_hz":1,"threshold_celsius":
 <hr />
 <p><strong>Next</strong>: <a href="day3/./18_complete_system.html">Chapter 18: Complete System Demo</a></p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-18-complete-temperature-monitor-system"><a class="header" href="#chapter-18-complete-temperature-monitor-system">Chapter 18: Complete Temperature Monitor System</a></h1>
-<h2 id="learning-objectives-17"><a class="header" href="#learning-objectives-17">Learning Objectives</a></h2>
+<h2 id="learning-objectives-15"><a class="header" href="#learning-objectives-15">Learning Objectives</a></h2>
 <p>By the end of this chapter, you’ll be able to:</p>
 <ul>
 <li>Demonstrate a complete, working embedded temperature monitoring system</li>
@@ -10894,7 +9838,7 @@ if let Some(command) = comm.parse_incoming_json() {
 <p><strong>Welcome to the world of embedded Rust development!</strong> 🦀⚡🌡️</p>
 <hr />
 <p><strong>Congratulations on completing Day 3: ESP32-C3 Embedded Systems with Rust!</strong></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="cargo--dependency-management"><a class="header" href="#cargo--dependency-management">Cargo &amp; Dependency Management</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-19-cargo--dependency-management"><a class="header" href="#chapter-19-cargo--dependency-management">Chapter 19: Cargo &amp; Dependency Management</a></h1>
 <p>Modern software development relies heavily on dependencies, and managing them correctly is crucial for reproducible builds, security, and maintainability. Coming from C++, .NET, or other ecosystems, Rust’s Cargo provides a refreshingly coherent approach to dependency management.</p>
 <h2 id="chapter-overview"><a class="header" href="#chapter-overview">Chapter Overview</a></h2>
 <p>This chapter covers the critical aspects of dependency management in Rust:</p>
@@ -11387,7 +10331,7 @@ jobs:
 <li><strong>Organize wisely</strong>: Leverage workspaces for multi-crate projects</li>
 </ul>
 <p>Coming from other ecosystems, Cargo’s approach might feel restrictive at first, but this strictness enables the reliability and safety that Rust is known for in production environments.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="code-coverage-with-cargo-llvm-cov"><a class="header" href="#code-coverage-with-cargo-llvm-cov">Code Coverage with cargo llvm-cov</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-20-code-coverage-with-cargo-llvm-cov"><a class="header" href="#chapter-20-code-coverage-with-cargo-llvm-cov">Chapter 20: Code Coverage with cargo llvm-cov</a></h1>
 <p>Code coverage is essential for understanding test quality and identifying untested code paths. The <code>cargo llvm-cov</code> tool provides precise, LLVM-based coverage analysis for Rust projects. However, achieving meaningful coverage metrics requires careful configuration to exclude third-party code, handle test coverage properly, and manage mock code appropriately.</p>
 <h2 id="chapter-overview-1"><a class="header" href="#chapter-overview-1">Chapter Overview</a></h2>
 <p>This chapter addresses practical code coverage challenges:</p>
@@ -11977,15 +10921,15 @@ cargo llvm-cov --lib --html \
 cov = "llvm-cov --lib --open --ignore-filename-regex '(tests?/|test_|_test\\.rs$|bench|mock|examples?/)'"
 </code></pre>
 <p>This provides clean, project-focused coverage analysis that developers can trust and act upon.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-23-macros--code-generation"><a class="header" href="#chapter-23-macros--code-generation">Chapter 23: Macros &amp; Code Generation</a></h1>
-<h2 id="learning-objectives-18"><a class="header" href="#learning-objectives-18">Learning Objectives</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-21-macros--code-generation"><a class="header" href="#chapter-21-macros--code-generation">Chapter 21: Macros &amp; Code Generation</a></h1>
+<h2 id="learning-objectives-16"><a class="header" href="#learning-objectives-16">Learning Objectives</a></h2>
 <ul>
 <li>Understand declarative macros with <code>macro_rules!</code></li>
 <li>Master pattern matching syntax variants</li>
 <li>Learn procedural macros basics</li>
 <li>Generate code at compile time</li>
 </ul>
-<h2 id="what-are-macros-1"><a class="header" href="#what-are-macros-1">What are Macros?</a></h2>
+<h2 id="what-are-macros"><a class="header" href="#what-are-macros">What are Macros?</a></h2>
 <p>Macros are code that writes other code (metaprogramming). They run at compile time, generating Rust code that gets compiled normally.</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
@@ -11998,8 +10942,8 @@ println!("Hello, {}!", "world");
     &amp;[::std::fmt::ArgumentV1::new("world", ::std::fmt::Display::fmt)]
 ));
 <span class="boring">}</span></code></pre></pre>
-<h2 id="declarative-macros-with-macro_rules-1"><a class="header" href="#declarative-macros-with-macro_rules-1">Declarative Macros with <code>macro_rules!</code></a></h2>
-<h3 id="basic-syntax-1"><a class="header" href="#basic-syntax-1">Basic Syntax</a></h3>
+<h2 id="declarative-macros-with-macro_rules"><a class="header" href="#declarative-macros-with-macro_rules">Declarative Macros with <code>macro_rules!</code></a></h2>
+<h3 id="basic-syntax"><a class="header" href="#basic-syntax">Basic Syntax</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! say_hello {
@@ -12010,8 +10954,8 @@ println!("Hello, {}!", "world");
 
 say_hello!(); // Prints: Hello!
 <span class="boring">}</span></code></pre></pre>
-<h3 id="pattern-matching-types-1"><a class="header" href="#pattern-matching-types-1">Pattern Matching Types</a></h3>
-<h4 id="1-item---items-like-functions-structs-modules-1"><a class="header" href="#1-item---items-like-functions-structs-modules-1">1. <code>item</code> - Items like functions, structs, modules</a></h4>
+<h3 id="pattern-matching-types"><a class="header" href="#pattern-matching-types">Pattern Matching Types</a></h3>
+<h4 id="1-item---items-like-functions-structs-modules"><a class="header" href="#1-item---items-like-functions-structs-modules">1. <code>item</code> - Items like functions, structs, modules</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! create_function {
@@ -12025,7 +10969,7 @@ say_hello!(); // Prints: Hello!
 create_function!(foo);
 foo(); // Prints: You called foo!
 <span class="boring">}</span></code></pre></pre>
-<h4 id="2-block---code-blocks-1"><a class="header" href="#2-block---code-blocks-1">2. <code>block</code> - Code blocks</a></h4>
+<h4 id="2-block---code-blocks"><a class="header" href="#2-block---code-blocks">2. <code>block</code> - Code blocks</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! time_it {
@@ -12041,7 +10985,7 @@ time_it!({
     println!("Work done!");
 });
 <span class="boring">}</span></code></pre></pre>
-<h4 id="3-stmt---statements-1"><a class="header" href="#3-stmt---statements-1">3. <code>stmt</code> - Statements</a></h4>
+<h4 id="3-stmt---statements"><a class="header" href="#3-stmt---statements">3. <code>stmt</code> - Statements</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! debug_stmt {
@@ -12053,7 +10997,7 @@ time_it!({
 
 debug_stmt!(let x = 42;);
 <span class="boring">}</span></code></pre></pre>
-<h4 id="4-expr---expressions-1"><a class="header" href="#4-expr---expressions-1">4. <code>expr</code> - Expressions</a></h4>
+<h4 id="4-expr---expressions"><a class="header" href="#4-expr---expressions">4. <code>expr</code> - Expressions</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! double {
@@ -12064,7 +11008,7 @@ debug_stmt!(let x = 42;);
 
 let result = double!(5 + 3); // 16
 <span class="boring">}</span></code></pre></pre>
-<h4 id="5-ty---types-1"><a class="header" href="#5-ty---types-1">5. <code>ty</code> - Types</a></h4>
+<h4 id="5-ty---types"><a class="header" href="#5-ty---types">5. <code>ty</code> - Types</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! create_struct {
@@ -12077,7 +11021,7 @@ let result = double!(5 + 3); // 16
 
 create_struct!(MyStruct, i32);
 <span class="boring">}</span></code></pre></pre>
-<h4 id="6-ident---identifiers-1"><a class="header" href="#6-ident---identifiers-1">6. <code>ident</code> - Identifiers</a></h4>
+<h4 id="6-ident---identifiers"><a class="header" href="#6-ident---identifiers">6. <code>ident</code> - Identifiers</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! getter {
@@ -12088,7 +11032,7 @@ create_struct!(MyStruct, i32);
     };
 }
 <span class="boring">}</span></code></pre></pre>
-<h4 id="7-path---paths-like-stdvecvec-1"><a class="header" href="#7-path---paths-like-stdvecvec-1">7. <code>path</code> - Paths like <code>std::vec::Vec</code></a></h4>
+<h4 id="7-path---paths-like-stdvecvec"><a class="header" href="#7-path---paths-like-stdvecvec">7. <code>path</code> - Paths like <code>std::vec::Vec</code></a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! use_type {
@@ -12099,7 +11043,7 @@ create_struct!(MyStruct, i32);
 
 use_type!(std::collections::HashMap&lt;String, i32&gt;);
 <span class="boring">}</span></code></pre></pre>
-<h4 id="8-literal---literal-values-1"><a class="header" href="#8-literal---literal-values-1">8. <code>literal</code> - Literal values</a></h4>
+<h4 id="8-literal---literal-values"><a class="header" href="#8-literal---literal-values">8. <code>literal</code> - Literal values</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! print_literal {
@@ -12111,7 +11055,7 @@ use_type!(std::collections::HashMap&lt;String, i32&gt;);
 print_literal!("hello");
 print_literal!(42);
 <span class="boring">}</span></code></pre></pre>
-<h4 id="9-tt---token-trees-any-valid-tokens-1"><a class="header" href="#9-tt---token-trees-any-valid-tokens-1">9. <code>tt</code> - Token trees (any valid tokens)</a></h4>
+<h4 id="9-tt---token-trees-any-valid-tokens"><a class="header" href="#9-tt---token-trees-any-valid-tokens">9. <code>tt</code> - Token trees (any valid tokens)</a></h4>
 <pre><pre class="playground"><code class="language-rust">macro_rules! capture_tokens {
     ($($tt:tt)*) =&gt; {
         println!("Tokens: {}", stringify!($($tt)*));
@@ -12119,8 +11063,8 @@ print_literal!(42);
 }
 
 capture_tokens!(fn main() { println!("anything"); });</code></pre></pre>
-<h3 id="repetition-patterns-1"><a class="header" href="#repetition-patterns-1">Repetition Patterns</a></h3>
-<h4 id="---zero-or-more-repetitions-1"><a class="header" href="#---zero-or-more-repetitions-1"><code>*</code> - Zero or more repetitions</a></h4>
+<h3 id="repetition-patterns"><a class="header" href="#repetition-patterns">Repetition Patterns</a></h3>
+<h4 id="---zero-or-more-repetitions"><a class="header" href="#---zero-or-more-repetitions"><code>*</code> - Zero or more repetitions</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! print_all {
@@ -12133,7 +11077,7 @@ capture_tokens!(fn main() { println!("anything"); });</code></pre></pre>
 
 print_all!(1, 2, 3, "hello");
 <span class="boring">}</span></code></pre></pre>
-<h4 id="---one-or-more-repetitions-1"><a class="header" href="#---one-or-more-repetitions-1"><code>+</code> - One or more repetitions</a></h4>
+<h4 id="---one-or-more-repetitions"><a class="header" href="#---one-or-more-repetitions"><code>+</code> - One or more repetitions</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! sum {
@@ -12144,7 +11088,7 @@ print_all!(1, 2, 3, "hello");
 
 let result = sum!(1, 2, 3, 4); // 10
 <span class="boring">}</span></code></pre></pre>
-<h4 id="---zero-or-one-repetition-1"><a class="header" href="#---zero-or-one-repetition-1"><code>?</code> - Zero or one repetition</a></h4>
+<h4 id="---zero-or-one-repetition"><a class="header" href="#---zero-or-one-repetition"><code>?</code> - Zero or one repetition</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! optional_print {
@@ -12158,7 +11102,7 @@ let result = sum!(1, 2, 3, 4); // 10
 optional_print!("Hello");           // Hello
 optional_print!("Hello", "World");  // Hello World
 <span class="boring">}</span></code></pre></pre>
-<h3 id="multiple-pattern-arms-1"><a class="header" href="#multiple-pattern-arms-1">Multiple Pattern Arms</a></h3>
+<h3 id="multiple-pattern-arms"><a class="header" href="#multiple-pattern-arms">Multiple Pattern Arms</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! calculate {
@@ -12177,7 +11121,7 @@ let sum = calculate!(add 5, 3);        // 8
 let product = calculate!(multiply 4, 7); // 28
 let power = calculate!(power 2, 3);    // 8
 <span class="boring">}</span></code></pre></pre>
-<h3 id="practical-example-hashmap-creation-1"><a class="header" href="#practical-example-hashmap-creation-1">Practical Example: HashMap Creation</a></h3>
+<h3 id="practical-example-hashmap-creation"><a class="header" href="#practical-example-hashmap-creation">Practical Example: HashMap Creation</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! hashmap {
@@ -12198,9 +11142,9 @@ let ages = hashmap! {
     "Carol" =&gt; 35,
 };
 <span class="boring">}</span></code></pre></pre>
-<h2 id="procedural-macros-1"><a class="header" href="#procedural-macros-1">Procedural Macros</a></h2>
+<h2 id="procedural-macros"><a class="header" href="#procedural-macros">Procedural Macros</a></h2>
 <p>Procedural macros are more powerful but complex. They operate on token streams.</p>
-<h3 id="function-like-macros-1"><a class="header" href="#function-like-macros-1">Function-like Macros</a></h3>
+<h3 id="function-like-macros"><a class="header" href="#function-like-macros">Function-like Macros</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>// In Cargo.toml:
@@ -12218,7 +11162,7 @@ pub fn make_answer(_item: TokenStream) -&gt; TokenStream {
 make_answer!();
 println!("{}", answer()); // 42
 <span class="boring">}</span></code></pre></pre>
-<h3 id="derive-macros-1"><a class="header" href="#derive-macros-1">Derive Macros</a></h3>
+<h3 id="derive-macros"><a class="header" href="#derive-macros">Derive Macros</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[proc_macro_derive(HelloMacro)]
@@ -12234,7 +11178,7 @@ struct Pancakes;
 
 Pancakes::hello_macro(); // Hello, Macro! My name is Pancakes!
 <span class="boring">}</span></code></pre></pre>
-<h3 id="attribute-macros-1"><a class="header" href="#attribute-macros-1">Attribute Macros</a></h3>
+<h3 id="attribute-macros"><a class="header" href="#attribute-macros">Attribute Macros</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[proc_macro_attribute]
@@ -12249,15 +11193,15 @@ fn index() -&gt; String {
     "Hello World".to_string()
 }
 <span class="boring">}</span></code></pre></pre>
-<h2 id="debugging-macros-1"><a class="header" href="#debugging-macros-1">Debugging Macros</a></h2>
-<h3 id="cargo-expand-1"><a class="header" href="#cargo-expand-1"><code>cargo expand</code></a></h3>
+<h2 id="debugging-macros"><a class="header" href="#debugging-macros">Debugging Macros</a></h2>
+<h3 id="cargo-expand"><a class="header" href="#cargo-expand"><code>cargo expand</code></a></h3>
 <pre><code class="language-bash"># Install cargo-expand
 cargo install cargo-expand
 
 # Expand macros in your code
 cargo expand
 </code></pre>
-<h3 id="debug-printing-1"><a class="header" href="#debug-printing-1">Debug Printing</a></h3>
+<h3 id="debug-printing"><a class="header" href="#debug-printing">Debug Printing</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! debug_macro {
@@ -12267,8 +11211,8 @@ cargo expand
     };
 }
 <span class="boring">}</span></code></pre></pre>
-<h2 id="common-patterns-3"><a class="header" href="#common-patterns-3">Common Patterns</a></h2>
-<h3 id="creating-dsls-domain-specific-languages-1"><a class="header" href="#creating-dsls-domain-specific-languages-1">Creating DSLs (Domain Specific Languages)</a></h3>
+<h2 id="common-patterns-2"><a class="header" href="#common-patterns-2">Common Patterns</a></h2>
+<h3 id="creating-dsls-domain-specific-languages"><a class="header" href="#creating-dsls-domain-specific-languages">Creating DSLs (Domain Specific Languages)</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! html {
@@ -12292,7 +11236,7 @@ let page = html! {
     }
 };
 <span class="boring">}</span></code></pre></pre>
-<h3 id="configuration-macros-1"><a class="header" href="#configuration-macros-1">Configuration Macros</a></h3>
+<h3 id="configuration-macros"><a class="header" href="#configuration-macros">Configuration Macros</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>macro_rules! config {
@@ -12349,7 +11293,7 @@ generate_tests!(
     test_mul: mul(3, 4) == 12
 );
 <span class="boring">}</span></code></pre></pre>
-<h2 id="best-practices-2"><a class="header" href="#best-practices-2">Best Practices</a></h2>
+<h2 id="best-practices-1"><a class="header" href="#best-practices-1">Best Practices</a></h2>
 <ul>
 <li><strong>Use declarative macros</strong> for simple code generation</li>
 <li><strong>Prefer functions</strong> when macros aren’t necessary</li>
@@ -12358,7 +11302,7 @@ generate_tests!(
 <li><strong>Handle edge cases</strong> in pattern matching</li>
 <li><strong>Use meaningful names</strong> for macro parameters</li>
 </ul>
-<h2 id="when-to-use-macros-1"><a class="header" href="#when-to-use-macros-1">When to Use Macros</a></h2>
+<h2 id="when-to-use-macros"><a class="header" href="#when-to-use-macros">When to Use Macros</a></h2>
 <p>✅ <strong>Good for:</strong></p>
 <ul>
 <li>Reducing boilerplate code</li>
@@ -12374,8 +11318,8 @@ generate_tests!(
 </ul>
 <hr />
 <p>Next: <a href="transfer/./24_unsafe_ffi.html">Chapter 24: Unsafe Rust &amp; FFI with Bindgen</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-24-unsafe-rust--ffi-with-bindgen"><a class="header" href="#chapter-24-unsafe-rust--ffi-with-bindgen">Chapter 24: Unsafe Rust &amp; FFI with Bindgen</a></h1>
-<h2 id="learning-objectives-19"><a class="header" href="#learning-objectives-19">Learning Objectives</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-22-unsafe-rust--ffi-with-bindgen"><a class="header" href="#chapter-22-unsafe-rust--ffi-with-bindgen">Chapter 22: Unsafe Rust &amp; FFI with Bindgen</a></h1>
+<h2 id="learning-objectives-17"><a class="header" href="#learning-objectives-17">Learning Objectives</a></h2>
 <ul>
 <li>Understand when and why to use unsafe Rust</li>
 <li>Interface with C/C++ libraries using FFI</li>
@@ -12955,7 +11899,7 @@ impl GrowingBuffer {
 <span class="boring">}</span></code></pre></pre>
 <h3 id="exercise-3-bindgen-practice"><a class="header" href="#exercise-3-bindgen-practice">Exercise 3: Bindgen Practice</a></h3>
 <p>Use bindgen to create bindings for a simple math library and wrap the unsafe functions in safe Rust APIs.</p>
-<h2 id="best-practices-3"><a class="header" href="#best-practices-3">Best Practices</a></h2>
+<h2 id="best-practices-2"><a class="header" href="#best-practices-2">Best Practices</a></h2>
 <ul>
 <li><strong>Minimize unsafe scope</strong> - Keep <code>unsafe</code> blocks as small as possible</li>
 <li><strong>Document safety contracts</strong> - Explain what makes the code safe</li>
@@ -12966,7 +11910,7 @@ impl GrowingBuffer {
 </ul>
 <hr />
 <p>Next: <a href="transfer/./25_embedded_hal.html">Chapter 25: Embedded HAL - Registers, SVD2Rust &amp; Volatile Access</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="memory-management-paradigm-shift"><a class="header" href="#memory-management-paradigm-shift">Memory Management Paradigm Shift</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-23-memory-management-paradigm-shift"><a class="header" href="#chapter-23-memory-management-paradigm-shift">Chapter 23: Memory Management Paradigm Shift</a></h1>
 <p>Transitioning from C++ RAII patterns or .NET garbage collection to Rust’s ownership system represents one of the most significant paradigm shifts for experienced developers. This chapter provides concrete examples and migration strategies to help you think in terms of ownership rather than manual memory management or garbage collection.</p>
 <h2 id="chapter-overview-2"><a class="header" href="#chapter-overview-2">Chapter Overview</a></h2>
 <p>This chapter covers:</p>
@@ -13895,7 +12839,7 @@ impl OptimizedRustProcessor {
 <p>The ownership system may feel restrictive initially, but it enables fearless refactoring and eliminates entire classes of runtime bugs that plague traditional systems programming.</p>
 <hr />
 <p>Next: <a href="transfer/./28_null_safety.html">Chapter 28: Null Safety &amp; Error Handling</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-21-null-safety---option-vs-null-pointers"><a class="header" href="#chapter-21-null-safety---option-vs-null-pointers">Chapter 21: Null Safety - Option<T> vs Null Pointers</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-24-null-safety---option-vs-null-pointers"><a class="header" href="#chapter-24-null-safety---option-vs-null-pointers">Chapter 24: Null Safety - Option<T> vs Null Pointers</a></h1>
 <h2 id="eliminating-null-reference-exceptions-forever"><a class="header" href="#eliminating-null-reference-exceptions-forever">Eliminating Null Reference Exceptions Forever</a></h2>
 <h3 id="the-billion-dollar-mistake"><a class="header" href="#the-billion-dollar-mistake">The Billion Dollar Mistake</a></h3>
 <p>Tony Hoare called null references his “billion-dollar mistake.” Here’s how each language handles nullability:</p>
@@ -14182,7 +13126,7 @@ fn size_comparison() {
 <li><strong>Compiler optimizations</strong> eliminate many Option operations</li>
 </ul>
 <hr />
-<h2 id="key-takeaways-16"><a class="header" href="#key-takeaways-16">Key Takeaways</a></h2>
+<h2 id="key-takeaways-15"><a class="header" href="#key-takeaways-15">Key Takeaways</a></h2>
 <ol>
 <li><strong>Option<T> makes nullability explicit</strong> in the type system</li>
 <li><strong>Impossible to forget null checks</strong> - compiler enforces handling</li>
@@ -14202,8 +13146,8 @@ fn size_comparison() {
 <p><strong>The Result:</strong> Code that simply cannot have null pointer exceptions. The compiler won’t let you forget to handle the None case, making your programs fundamentally more reliable.</p>
 <hr />
 <p>Next: <a href="transfer/./28_type_differences.html">Chapter 28: Type System Differences</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-22-type-system-differences"><a class="header" href="#chapter-22-type-system-differences">Chapter 22: Type System Differences</a></h1>
-<h2 id="learning-objectives-20"><a class="header" href="#learning-objectives-20">Learning Objectives</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-25-type-system-differences"><a class="header" href="#chapter-25-type-system-differences">Chapter 25: Type System Differences</a></h1>
+<h2 id="learning-objectives-18"><a class="header" href="#learning-objectives-18">Learning Objectives</a></h2>
 <ul>
 <li>Understand Rust’s strict type system vs C++/.NET</li>
 <li>Learn why there are no implicit conversions</li>
@@ -14671,7 +13615,7 @@ class ClickEvent : public Event { };
 class KeyEvent : public Event { };
 class TimerEvent : public Event { };
 </code></pre>
-<h2 id="key-takeaways-17"><a class="header" href="#key-takeaways-17">Key Takeaways</a></h2>
+<h2 id="key-takeaways-16"><a class="header" href="#key-takeaways-16">Key Takeaways</a></h2>
 <p>✅ <strong>No implicit conversions</strong> - Every type change is explicit and visible</p>
 <p>✅ <strong>No function overloading</strong> - Use traits, enums, or different names</p>
 <p>✅ <strong>No default parameters</strong> - Use builders or Option types</p>
@@ -14680,7 +13624,7 @@ class TimerEvent : public Event { };
 <p>✅ <strong>Pattern matching</strong> - Far beyond switch statements</p>
 <hr />
 <p>Next: <a href="transfer/./29_traits_vs_oop.html">Chapter 29: Traits vs OOP</a></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-23-traits-vs-oop---from-inheritance-to-composition"><a class="header" href="#chapter-23-traits-vs-oop---from-inheritance-to-composition">Chapter 23: Traits vs OOP - From Inheritance to Composition</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-26-traits-vs-oop---from-inheritance-to-composition"><a class="header" href="#chapter-26-traits-vs-oop---from-inheritance-to-composition">Chapter 26: Traits vs OOP - From Inheritance to Composition</a></h1>
 <h2 id="mastering-zero-cost-serialization-with-trait-based-design"><a class="header" href="#mastering-zero-cost-serialization-with-trait-based-design">Mastering Zero-Cost Serialization with Trait-Based Design</a></h2>
 <h3 id="serialization-paradigm-comparison"><a class="header" href="#serialization-paradigm-comparison">Serialization Paradigm Comparison</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>Concept</th><th>C++ (Boost.Serialization)</th><th>C#/.NET (System.Text.Json)</th><th>Rust (Serde)</th></tr></thead><tbody>
@@ -15072,7 +14016,7 @@ impl Add&lt;f64&gt; for Point {
 <li>When you need mutable shared state (though Rust makes this harder)</li>
 </ul>
 <hr />
-<h2 id="key-takeaways-18"><a class="header" href="#key-takeaways-18">Key Takeaways</a></h2>
+<h2 id="key-takeaways-17"><a class="header" href="#key-takeaways-17">Key Takeaways</a></h2>
 <ol>
 <li><strong>Traits are more flexible</strong> than inheritance hierarchies</li>
 <li><strong>Composition over inheritance</strong> leads to more maintainable code</li>
@@ -15091,7 +14035,7 @@ impl Add&lt;f64&gt; for Point {
 <hr />
 <p>Next: <a href="transfer/./32_idiomatic_patterns.html">Chapter 32: Idiomatic Rust Patterns for Production Systems</a></p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="chapter-27-idiomatic-rust-patterns-for-production-systems"><a class="header" href="#chapter-27-idiomatic-rust-patterns-for-production-systems">Chapter 27: Idiomatic Rust Patterns for Production Systems</a></h1>
-<h2 id="learning-objectives-21"><a class="header" href="#learning-objectives-21">Learning Objectives</a></h2>
+<h2 id="learning-objectives-19"><a class="header" href="#learning-objectives-19">Learning Objectives</a></h2>
 <ul>
 <li>Master idiomatic Rust patterns and conventions</li>
 <li>Understand “the Rust way” vs C++/.NET approaches</li>
@@ -15649,7 +14593,7 @@ where
     Ok(io::BufReader::new(file).lines())
 }
 <span class="boring">}</span></code></pre></pre>
-<h2 id="key-takeaways-19"><a class="header" href="#key-takeaways-19">Key Takeaways</a></h2>
+<h2 id="key-takeaways-18"><a class="header" href="#key-takeaways-18">Key Takeaways</a></h2>
 <p>✅ <strong>Embrace ownership</strong> - Make ownership transfers explicit and clear</p>
 <p>✅ <strong>Use the type system</strong> - Encode invariants in types, not runtime checks</p>
 <p>✅ <strong>Prefer composition</strong> - Traits and generics over inheritance</p>

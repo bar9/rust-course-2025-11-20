@@ -174,7 +174,7 @@
 <p><strong>Hardware Dependencies:</strong></p>
 <ul>
 <li>Code runs on ESP32-C3, but tests run on desktop</li>
-<li>No access to GPIO, sensors, or timers in test environment</li>
+<li>No access to GPIO, sensors, or timers in the test environment</li>
 <li>Different target architectures (RISC-V vs x86/ARM)</li>
 </ul>
 <p><strong>Resource Constraints:</strong></p>
@@ -307,12 +307,13 @@ impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
 
         #[cfg(not(test))]
         {
-            // In embedded, handle fixed capacity
-            if self.readings.len() &gt;= N {
-                self.readings.remove(0);
+            // In embedded, handle fixed capacity with circular buffer
+            if self.readings.len() &lt; N {
                 self.readings.push(temperature).ok();
             } else {
-                self.readings.push(temperature).ok();
+                // Use circular indexing (O(1) vs remove(0) which is O(n))
+                let oldest_index = (self.total_readings as usize) % N;
+                self.readings[oldest_index] = temperature;
             }
         }
 

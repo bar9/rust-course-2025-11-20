@@ -203,7 +203,7 @@ fn main() -> ! {
 
         // Read temperature from built-in sensor
         let temperature = temp_sensor.get_temperature();
-        let temp_celsius = temperature.to_celcius();
+        let temp_celsius = temperature.to_celsius();
         reading_count += 1;
 
         // Show reading with LED blink pattern
@@ -246,7 +246,7 @@ fn main() -> ! {
 **New Concepts:**
 - `tsens::TemperatureSensor` - Hardware abstraction for built-in sensor (requires `unstable` feature)
 - `get_temperature()` - Returns Temperature struct
-- `to_celcius()` - Converts to Celsius value
+- `to_celsius()` - Converts to Celsius value
 - **No external wiring** - Sensor is built into the chip!
 
 **Data Flow:**

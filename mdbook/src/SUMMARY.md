@@ -32,12 +32,12 @@
 
 # Day 4: Enterprise Transition - From C++/.NET to Production Rust
 
-- [Cargo & Dependency Management](./transfer/22_cargo.md)
-- [Code Coverage with CodeCov](./transfer/23_codecov.md)
-- [Macros & Code Generation](./transfer/24_macros.md)
-- [Unsafe Rust & FFI with Bindgen](./transfer/25_unsafe_ffi.md)
-- [Memory Management Paradigm Shift](./transfer/27_memory_paradigm.md)
-- [Null Safety & Error Handling](./transfer/28_null_safety.md)
-- [Type System Differences](./transfer/29_type_differences.md)
-- [Traits vs OOP - From Inheritance to Composition](./transfer/30_traits_vs_oop.md)
-- [Idiomatic Rust Patterns for Production Systems](./transfer/31_idiomatic_patterns.md)
+- [Cargo & Dependency Management](./transfer/19_cargo.md)
+- [Code Coverage with CodeCov](./transfer/20_codecov.md)
+- [Macros & Code Generation](./transfer/21_macros.md)
+- [Unsafe Rust & FFI with Bindgen](./transfer/22_unsafe_ffi.md)
+- [Memory Management Paradigm Shift](./transfer/23_memory_paradigm.md)
+- [Null Safety & Error Handling](./transfer/24_null_safety.md)
+- [Type System Differences](./transfer/25_type_differences.md)
+- [Traits vs OOP - From Inheritance to Composition](./transfer/26_traits_vs_oop.md)
+- [Idiomatic Rust Patterns for Production Systems](./transfer/27_idiomatic_patterns.md)

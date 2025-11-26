@@ -362,9 +362,9 @@ impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
             // Buffer not full yet - just add
             self.readings.push(temperature).ok();
         } else {
-            // Buffer full - replace oldest (FIFO)
-            self.readings.remove(0);
-            self.readings.push(temperature).ok();
+            // Buffer full - use circular indexing (more efficient than remove(0))
+            let oldest_index = (self.total_readings as usize) % N;
+            self.readings[oldest_index] = temperature;
         }
         self.total_readings += 1;
     }

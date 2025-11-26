@@ -212,7 +212,7 @@ edition = "2021"
 
 [dependencies]
 # ESP32-C3 Hardware Abstraction Layer
-esp-hal = { version = "0.22", features = ["esp32c3"] }
+esp-hal = { version = "0.22", features = ["esp32c3", "unstable"] }
 esp-backtrace = { version = "0.18", features = ["esp32c3", "println"] }
 esp-println = { version = "0.16", features = ["esp32c3"] }
 
@@ -225,7 +225,7 @@ heapless = { version = "0.8", features = ["serde"] }
 
 # JSON serialization
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde-json-core = "0.5"
+serde-json-core = "0.6"
 
 [profile.dev]
 # Debug optimizations for faster flashing
@@ -252,6 +252,7 @@ use esp_hal::{
     peripherals::Peripherals,
     prelude::*,
     system::SystemControl,
+    tsens::{TemperatureSensor, Config},
 };
 use esp_println::println;
 
@@ -266,25 +267,7 @@ const BUFFER_SIZE: usize = 32;
 const SAMPLE_RATE_MS: u32 = 1000;
 const JSON_OUTPUT_INTERVAL: u32 = 5;
 
-// Mock temperature sensor for this example
-struct MockTemperatureSensor {
-    reading_count: u32,
-}
-
-impl MockTemperatureSensor {
-    fn new() -&gt; Self {
-        Self { reading_count: 0 }
-    }
-
-    fn read_celsius(&amp;mut self) -&gt; f32 {
-        self.reading_count += 1;
-        let base_temp = 23.0;
-
-        // Simple variation pattern for demo
-        let variation = ((self.reading_count % 20) as f32) * 0.1 - 1.0;
-        base_temp + variation
-    }
-}
+// No mock sensor needed - we'll use real ESP32-C3 temperature sensor
 
 #[entry]
 fn main() -&gt; ! {
@@ -295,7 +278,7 @@ fn main() -&gt; ! {
     let system = SystemControl::new(peripherals.SYSTEM);
     let clocks = ClockControl::max(system.clock_control).freeze();
 
-    // Setup GPIO for LED
+    // Set up GPIO for LED
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     let mut led = Output::new(io.pins.gpio8, Level::Low);
 
@@ -303,7 +286,10 @@ fn main() -&gt; ! {
     let delay = Delay::new(&amp;clocks);
 
     // Initialize components
-    let mut temp_sensor = MockTemperatureSensor::new();
+    let mut temp_sensor = TemperatureSensor::new(
+        peripherals.TSENS,
+        Config::default()
+    ).unwrap();
     let mut temp_buffer = TemperatureBuffer::&lt;BUFFER_SIZE&gt;::new();
     let mut comm = TemperatureComm::new();
     let mut reading_count = 0u32;
@@ -316,7 +302,9 @@ fn main() -&gt; ! {
 
     loop {
         // 1. Read temperature
-        let celsius = temp_sensor.read_celsius();
+        delay.delay_micros(200); // Stabilization delay for temperature sensor
+        let temperature_reading = temp_sensor.get_temperature();
+        let celsius = temperature_reading.to_celsius();
         let temperature = temperature::Temperature::from_celsius(celsius);
         temp_buffer.push(temperature);
         reading_count += 1;

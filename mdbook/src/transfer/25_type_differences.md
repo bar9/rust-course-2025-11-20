@@ -1,4 +1,4 @@
-# Chapter 22: Type System Differences
+# Chapter 25: Type System Differences
 
 ## Learning Objectives
 - Understand Rust's strict type system vs C++/.NET

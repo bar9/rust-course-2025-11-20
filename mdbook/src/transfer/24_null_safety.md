@@ -1,4 +1,4 @@
-# Chapter 21: Null Safety - Option<T> vs Null Pointers
+# Chapter 24: Null Safety - Option<T> vs Null Pointers
 ## Eliminating Null Reference Exceptions Forever
 
 ### The Billion Dollar Mistake

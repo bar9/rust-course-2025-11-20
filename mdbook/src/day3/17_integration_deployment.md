@@ -129,7 +129,7 @@ fn main() -> ! {
     let system = SystemControl::new(peripherals.SYSTEM);
     let clocks = ClockControl::max(system.clock_control).freeze();
 
-    // Setup GPIO for LED
+    // Set up GPIO for LED
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     let mut led = Output::new(io.pins.gpio8, Level::Low);
 
@@ -155,7 +155,7 @@ fn main() -> ! {
         // 1. Read temperature
         delay.delay_micros(200); // Stabilization delay for temperature sensor
         let temperature_reading = temp_sensor.get_temperature();
-        let celsius = temperature_reading.to_celcius();
+        let celsius = temperature_reading.to_celsius();
         let temperature = temperature::Temperature::from_celsius(celsius);
         temp_buffer.push(temperature);
         reading_count += 1;

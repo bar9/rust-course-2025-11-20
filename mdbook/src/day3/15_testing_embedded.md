@@ -15,7 +15,7 @@ Testing embedded code presents unique challenges:
 
 **Hardware Dependencies:**
 - Code runs on ESP32-C3, but tests run on desktop
-- No access to GPIO, sensors, or timers in test environment
+- No access to GPIO, sensors, or timers in the test environment
 - Different target architectures (RISC-V vs x86/ARM)
 
 **Resource Constraints:**

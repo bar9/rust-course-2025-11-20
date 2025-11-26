@@ -310,14 +310,13 @@ fn main() -&gt; ! {
 
 use esp_backtrace as _;
 use esp_hal::{
-    adc::{Adc, AdcConfig, Attenuation, ADC},
     clock::ClockControl,
     delay::Delay,
     gpio::{Io, Level, Output},
     peripherals::Peripherals,
     prelude::*,
     system::SystemControl,
-    temperature_sensor::{TemperatureSensor, TempSensorConfig},
+    tsens::{TemperatureSensor, Config},
 };
 
 #[entry]
@@ -332,11 +331,10 @@ fn main() -&gt; ! {
     let mut led = Output::new(io.pins.gpio8, Level::Low);
 
     // Initialize the built-in temperature sensor
-    let temp_sensor_config = TempSensorConfig::default();
     let mut temp_sensor = TemperatureSensor::new(
-        peripherals.TEMP_SENSOR,
-        temp_sensor_config
-    );
+        peripherals.TSENS,
+        Config::default()
+    ).unwrap();
 
     esp_println::println!("ESP32-C3 Temperature Monitor");
     esp_println::println!("Built-in sensor initialized");
@@ -346,8 +344,12 @@ fn main() -&gt; ! {
     let mut reading_count = 0;
 
     loop {
+        // Stabilization delay (recommended by ESP-HAL docs)
+        delay.delay_micros(200);
+
         // Read temperature from built-in sensor
-        let temp_celsius = temp_sensor.read_celsius();
+        let temperature = temp_sensor.get_temperature();
+        let temp_celsius = temperature.to_celsius();
         reading_count += 1;
 
         // Show reading with LED blink pattern
@@ -386,8 +388,9 @@ fn main() -&gt; ! {
 <h3 id="understanding-temperature-sensor-code"><a class="header" href="#understanding-temperature-sensor-code">Understanding Temperature Sensor Code</a></h3>
 <p><strong>New Concepts:</strong></p>
 <ul>
-<li><code>TemperatureSensor</code> - Hardware abstraction for built-in sensor</li>
-<li><code>read_celsius()</code> - Direct temperature reading in Celsius</li>
+<li><code>tsens::TemperatureSensor</code> - Hardware abstraction for built-in sensor (requires <code>unstable</code> feature)</li>
+<li><code>get_temperature()</code> - Returns Temperature struct</li>
+<li><code>to_celsius()</code> - Converts to Celsius value</li>
 <li><strong>No external wiring</strong> - Sensor is built into the chip!</li>
 </ul>
 <p><strong>Data Flow:</strong></p>
@@ -412,7 +415,7 @@ edition = "2021"
 
 [dependencies]
 esp-backtrace = "0.18"
-esp-hal = { version = "0.22", features = ["esp32c3"] }
+esp-hal = { version = "0.22", features = ["esp32c3", "unstable"] }
 esp-println = { version = "0.16", features = ["esp32c3"] }
 
 [profile.dev]

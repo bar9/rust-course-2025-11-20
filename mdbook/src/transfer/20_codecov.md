@@ -1,4 +1,4 @@
-# Code Coverage with cargo llvm-cov
+# Chapter 20: Code Coverage with cargo llvm-cov
 
 Code coverage is essential for understanding test quality and identifying untested code paths. The `cargo llvm-cov` tool provides precise, LLVM-based coverage analysis for Rust projects. However, achieving meaningful coverage metrics requires careful configuration to exclude third-party code, handle test coverage properly, and manage mock code appropriately.
 
