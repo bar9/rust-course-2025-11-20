@@ -18,7 +18,6 @@
 - [Enums & Pattern Matching](./day2/09_pattern_matching.md)
 - [Error Handling Deep Dive](./day2/10_error_handling.md)
 - [Iterators & Functional Programming](./day2/11_iterators.md)
-- [Macros & Code Generation](./day2/12_macros.md)
 - [Modules & Visibility](./day2/13_modules_visibility.md)
 
 # Day 3: ESP32-C3 Temperature Monitor - From Sensor to System
