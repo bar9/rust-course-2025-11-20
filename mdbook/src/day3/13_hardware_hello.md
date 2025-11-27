@@ -66,11 +66,11 @@ The ESP32-C3 is a system-on-chip (SoC) that includes:
 # Install Rust targets for ESP32-C3
 rustup target add riscv32imc-unknown-none-elf
 
-# Install probe-rs for flashing and debugging
-cargo install probe-rs --features cli
+# Install cargo-espflash for flashing ESP32-C3
+cargo install cargo-espflash
 
-# Install espflash as alternative flashing tool
-cargo install espflash
+# Install probe-rs for debugging (optional, works best on Linux/macOS)
+cargo install probe-rs --features cli
 
 # Install serial monitoring tool (optional, for serial communication)
 cargo install serialport-rs
@@ -90,48 +90,42 @@ Let's start with the embedded equivalent of "Hello, World!" - blinking an LED:
 ```rust
 #![no_std]
 #![no_main]
+#![deny(
+    clippy::mem_forget,
+    reason = "mem::forget is generally not safe to do with esp_hal types"
+)]
 
-use esp_backtrace as _;
-use esp_hal::{
-    clock::ClockControl,
-    delay::Delay,
-    gpio::{Io, Level, Output},
-    peripherals::Peripherals,
-    prelude::*,
-    system::SystemControl,
-};
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::main;
+use esp_hal::time::{Duration, Instant};
 
-#[entry]
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
+// Required by the ESP-IDF bootloader
+esp_bootloader_esp_idf::esp_app_desc!();
+
+#[main]
 fn main() -> ! {
-    // Take ownership of hardware peripherals
-    let peripherals = Peripherals::take();
-    let system = SystemControl::new(peripherals.SYSTEM);
+    // Initialize hardware
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let peripherals = esp_hal::init(config);
 
-    // Configure system clock to maximum frequency
-    let clocks = ClockControl::max(system.clock_control).freeze();
+    // Configure GPIO 8 as LED output
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
 
-    // Create delay provider for timing
-    let delay = Delay::new(&clocks);
-
-    // Initialize GPIO subsystem
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-
-    // Configure GPIO 8 as output (usually connected to LED)
-    let mut led = Output::new(io.pins.gpio8, Level::Low);
-
-    // Print startup message
-    esp_println::println!("ESP32-C3 LED Blink Starting!");
-    esp_println::println!("Hardware: ESP32-C3 at {} MHz", clocks.cpu_clock.to_MHz());
-
-    // Main loop - runs forever
+    // Main loop - blink LED every second
     loop {
-        esp_println::println!("LED ON");
         led.set_high();
-        delay.delay_millis(1000);
+        let delay_start = Instant::now();
+        while delay_start.elapsed() < Duration::from_millis(1000) {}
 
-        esp_println::println!("LED OFF");
         led.set_low();
-        delay.delay_millis(1000);
+        let delay_start = Instant::now();
+        while delay_start.elapsed() < Duration::from_millis(1000) {}
     }
 }
 ```
@@ -141,13 +135,14 @@ fn main() -> ! {
 **Key Differences from Regular Rust:**
 - `#![no_std]` - No standard library (no heap, no OS services)
 - `#![no_main]` - No traditional main function (embedded entry point)
-- `#[entry]` - Marks the embedded program entry point
+- `#[main]` - ESP-HAL's main macro for embedded programs
+- `#[panic_handler]` - Required to handle panics in no_std
 - `-> !` - Function never returns (embedded programs run forever)
 
 **Hardware Abstraction:**
-- `Peripherals::take()` - Ownership of hardware (can only happen once!)
+- `esp_hal::init()` - Initialize hardware with configuration
 - `gpio::Output` - Type-safe GPIO pin configuration
-- `delay::Delay` - Hardware timer-based delays
+- `Instant::now()` and `Duration` - Hardware timer-based timing
 
 **Why These Patterns?**
 - **Singleton Pattern**: Hardware can only have one owner
@@ -161,82 +156,79 @@ Now let's read the ESP32-C3's built-in temperature sensor:
 ```rust
 #![no_std]
 #![no_main]
+#![deny(
+    clippy::mem_forget,
+    reason = "mem::forget is generally not safe to do with esp_hal types"
+)]
 
-use esp_backtrace as _;
-use esp_hal::{
-    clock::ClockControl,
-    delay::Delay,
-    gpio::{Io, Level, Output},
-    peripherals::Peripherals,
-    prelude::*,
-    system::SystemControl,
-    tsens::{TemperatureSensor, Config},
-};
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::main;
+use esp_hal::time::{Duration, Instant};
+use esp_hal::tsens::{Config, TemperatureSensor};
 
-#[entry]
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
+// Required by the ESP-IDF bootloader
+esp_bootloader_esp_idf::esp_app_desc!();
+
+#[main]
 fn main() -> ! {
-    let peripherals = Peripherals::take();
-    let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::max(system.clock_control).freeze();
-    let delay = Delay::new(&clocks);
+    // Initialize hardware
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let peripherals = esp_hal::init(config);
 
-    // Initialize GPIO for LED status
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut led = Output::new(io.pins.gpio8, Level::Low);
+    // Initialize GPIO for LED on GPIO8
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
 
     // Initialize the built-in temperature sensor
-    let mut temp_sensor = TemperatureSensor::new(
-        peripherals.TSENS,
-        Config::default()
-    ).unwrap();
+    let temp_sensor = TemperatureSensor::new(peripherals.TSENS, Config::default()).unwrap();
 
-    esp_println::println!("ESP32-C3 Temperature Monitor");
-    esp_println::println!("Built-in sensor initialized");
-    esp_println::println!("Reading temperature every 2 seconds...");
-    esp_println::println!();
+    // Track reading count
+    let mut _reading_count = 0u32;
 
-    let mut reading_count = 0;
-
+    // Main monitoring loop
     loop {
-        // Stabilization delay (recommended by ESP-HAL docs)
-        delay.delay_micros(200);
+        // Small stabilization delay (recommended by ESP-HAL)
+        let delay_start = Instant::now();
+        while delay_start.elapsed() < Duration::from_micros(200) {}
 
         // Read temperature from built-in sensor
         let temperature = temp_sensor.get_temperature();
         let temp_celsius = temperature.to_celsius();
-        reading_count += 1;
+        _reading_count += 1;
 
-        // Show reading with LED blink pattern
-        if temp_celsius > 30.0 {
-            // Rapid blink for high temperature
+        // LED feedback based on temperature threshold (52.2°C)
+        if temp_celsius > 52.2 {
+            // Fast blink pattern for high temperature
             led.set_high();
-            delay.delay_millis(100);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(100) {}
+
             led.set_low();
-            delay.delay_millis(100);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(100) {}
+
             led.set_high();
-            delay.delay_millis(100);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(100) {}
+
             led.set_low();
         } else {
-            // Single blink for normal temperature
+            // Slow single blink for normal temperature
             led.set_high();
-            delay.delay_millis(200);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(200) {}
+
             led.set_low();
         }
 
-        // Print temperature reading
-        esp_println::println!(
-            "Reading #{}: Temperature = {:.1}°C",
-            reading_count,
-            temp_celsius
-        );
-
-        // Status information
-        if reading_count % 10 == 0 {
-            esp_println::println!("Status: {} readings completed", reading_count);
-            esp_println::println!();
-        }
-
-        delay.delay_millis(1800); // Rest of 2-second interval
+        // Wait for remainder of 2-second interval
+        let wait_start = Instant::now();
+        while wait_start.elapsed() < Duration::from_millis(1500) {}
     }
 }
 ```
@@ -248,6 +240,7 @@ fn main() -> ! {
 - `get_temperature()` - Returns Temperature struct
 - `to_celsius()` - Converts to Celsius value
 - **No external wiring** - Sensor is built into the chip!
+- **Temperature threshold** - We use 52.2°C to trigger fast blinking (you can trigger this by touching the chip)
 
 **Data Flow:**
 ```
@@ -255,8 +248,8 @@ Hardware Sensor → ADC → Digital Value → Celsius Conversion → Your Code
 ```
 
 **LED Status Patterns:**
-- Normal temp (≤30°C): Single blink
-- High temp (>30°C): Double rapid blink
+- Normal temp (≤52.2°C): Single slow blink (200ms)
+- High temp (>52.2°C): Fast double blink pattern (3x100ms blinks)
 
 ## Building and Running on Hardware
 
@@ -275,12 +268,17 @@ Update `Cargo.toml`:
 [package]
 name = "temp_monitor"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.88"
+
+[[bin]]
+name = "temp_monitor"
+path = "./src/bin/main.rs"
 
 [dependencies]
-esp-backtrace = "0.18"
-esp-hal = { version = "0.22", features = ["esp32c3", "unstable"] }
-esp-println = { version = "0.16", features = ["esp32c3"] }
+esp-hal = { version = "1.0.0", features = ["esp32c3", "unstable"] }
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"] }
+critical-section = "1.2.0"
 
 [profile.dev]
 # Rust debug is too slow for embedded
@@ -299,14 +297,12 @@ overflow-checks = false
 ### Building and Flashing
 
 ```bash
-# Build for ESP32-C3 target
+# Build and flash to ESP32-C3 (recommended method)
+cargo run --release
+
+# Alternative: Build first, then flash
 cargo build --release
-
-# Flash to hardware with probe-rs
-probe-rs run --chip=esp32c3 target/riscv32imc-unknown-none-elf/release/temp_monitor
-
-# Alternative: Flash with espflash
-espflash flash --monitor target/riscv32imc-unknown-none-elf/release/temp_monitor
+cargo espflash flash --monitor target/riscv32imc-unknown-none-elf/release/temp_monitor
 ```
 
 ### Serial Monitoring
@@ -314,11 +310,14 @@ espflash flash --monitor target/riscv32imc-unknown-none-elf/release/temp_monitor
 Connect to see output:
 
 ```bash
-# Using screen (macOS/Linux)
-screen /dev/cu.usbmodem* 115200
+# Using cargo-espflash (flashes and shows serial output)
+cargo run --release
 
-# Using probe-rs (shows both flashing and serial output)
-probe-rs run --chip=esp32c3 target/riscv32imc-unknown-none-elf/release/temp_monitor
+# Or just monitor serial output (after flashing)
+cargo espflash monitor
+
+# Alternative: Using screen (macOS/Linux)
+screen /dev/cu.usbmodem* 115200
 ```
 
 **Expected Output:**
@@ -525,9 +524,9 @@ Reading #11: Temperature = 24.9°C
 - Check that feature flags match your ESP32-C3 variant
 
 **Flash Errors:**
-- Install probe-rs with `cargo install probe-rs --features cli`
-- Try alternative: `cargo install espflash`
-- Check USB cable and connection
+- Ensure cargo-espflash is installed: `cargo install cargo-espflash`
+- Check USB cable and ESP32-C3 connection
+- Try: `cargo espflash flash target/riscv32imc-unknown-none-elf/release/temp_monitor`
 
 **No Serial Output:**
 - Verify baud rate (115200)

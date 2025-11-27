@@ -9,15 +9,23 @@ By the end of this chapter, you'll be able to:
 - Build a circular buffer for continuous sensor data collection
 - Calculate statistics without dynamic allocation
 
-## Building on Chapter 13
+## Task: Build Memory-Efficient Temperature Storage
 
-In the last chapter, we read individual temperature values from the ESP32-C3. Now we need to:
-1. **Store multiple readings** for trend analysis
-2. **Calculate statistics** like average and min/max
-3. **Manage memory carefully** in our 320KB RAM environment
-4. **Do this efficiently** without heap allocation
+In Chapter 13, we successfully read temperature values from the ESP32-C3's built-in sensor. Now we need to build a system that can:
 
-This is where embedded programming differs from desktop development - we need to think about every byte of memory!
+**Your Mission:**
+1. **Store multiple readings** in a fixed-size circular buffer
+2. **Calculate statistics** (average, min, max) without heap allocation
+3. **Use only 2 bytes per temperature** reading (vs 4 bytes for f32)
+4. **Handle buffer overflow** gracefully with circular behavior
+5. **Monitor memory usage** and system performance
+
+**Why This Matters:**
+This chapter teaches essential embedded patterns:
+- Memory-efficient data structures
+- Fixed-capacity collections with `heapless`
+- Const generics for compile-time configuration
+- Statistics without dynamic allocation
 
 ## Understanding no_std: The Embedded Reality
 
@@ -405,101 +413,228 @@ Let's update our temperature monitor to use these new data structures:
 ```rust
 #![no_std]
 #![no_main]
+#![deny(
+    clippy::mem_forget,
+    reason = "mem::forget is generally not safe to do with esp_hal types"
+)]
 
-use esp_backtrace as _;
-use esp_hal::{
-    clock::ClockControl,
-    delay::Delay,
-    gpio::{Io, Level, Output},
-    peripherals::Peripherals,
-    prelude::*,
-    system::SystemControl,
-    temperature_sensor::{TemperatureSensor, TempSensorConfig},
-};
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::main;
+use esp_hal::time::{Duration, Instant};
+use esp_hal::tsens::{Config, TemperatureSensor};
+use heapless::Vec;
 
-// Our embedded temperature types
-mod temperature;
-use temperature::{Temperature, TemperatureBuffer, SystemConfig, SAMPLE_INTERVAL};
+// Temperature types from earlier in this chapter
+/// Temperature reading optimized for embedded systems
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Temperature {
+    celsius_tenths: i16,
+}
 
-#[entry]
+impl Temperature {
+    const fn from_celsius(celsius: f32) -> Self {
+        Self {
+            celsius_tenths: (celsius * 10.0) as i16,
+        }
+    }
+
+    fn celsius(&self) -> f32 {
+        self.celsius_tenths as f32 / 10.0
+    }
+
+    fn fahrenheit(&self) -> f32 {
+        self.celsius() * 9.0 / 5.0 + 32.0
+    }
+
+    const fn is_normal_range(&self) -> bool {
+        // Normal room temperature: 15-35°C
+        self.celsius_tenths >= 150 && self.celsius_tenths <= 350
+    }
+
+    const fn is_overheating(&self) -> bool {
+        self.celsius_tenths > 500  // > 50°C
+    }
+}
+
+/// Fixed-capacity temperature buffer
+struct TemperatureBuffer<const N: usize> {
+    readings: Vec<Temperature, N>,
+    total_readings: u32,
+}
+
+impl<const N: usize> TemperatureBuffer<N> {
+    const fn new() -> Self {
+        Self {
+            readings: Vec::new(),
+            total_readings: 0,
+        }
+    }
+
+    fn push(&mut self, temperature: Temperature) {
+        if self.readings.len() < N {
+            self.readings.push(temperature).ok();
+        } else {
+            // Circular buffer - overwrite oldest
+            let oldest_index = (self.total_readings as usize) % N;
+            self.readings[oldest_index] = temperature;
+        }
+        self.total_readings += 1;
+    }
+
+    fn total_readings(&self) -> u32 {
+        self.total_readings
+    }
+
+    fn stats(&self) -> Option<TemperatureStats> {
+        if self.readings.is_empty() {
+            return None;
+        }
+
+        let sum: i32 = self.readings.iter()
+            .map(|t| t.celsius_tenths as i32)
+            .sum();
+        let avg_tenths = sum / self.readings.len() as i32;
+        let average = Temperature { celsius_tenths: avg_tenths as i16 };
+
+        let min = *self.readings.iter()
+            .min_by_key(|t| t.celsius_tenths)?;
+        let max = *self.readings.iter()
+            .max_by_key(|t| t.celsius_tenths)?;
+
+        Some(TemperatureStats {
+            count: self.readings.len(),
+            total_count: self.total_readings,
+            average,
+            min,
+            max,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TemperatureStats {
+    count: usize,
+    total_count: u32,
+    average: Temperature,
+    min: Temperature,
+    max: Temperature,
+}
+
+const BUFFER_SIZE: usize = 20;
+const SAMPLE_INTERVAL_MS: u64 = 1000; // 1 second
+
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
+esp_bootloader_esp_idf::esp_app_desc!();
+
+#[main]
 fn main() -> ! {
-    let peripherals = Peripherals::take();
-    let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::max(system.clock_control).freeze();
-    let delay = Delay::new(&clocks);
+    // Initialize hardware
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let peripherals = esp_hal::init(config);
 
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut led = Output::new(io.pins.gpio8, Level::Low);
+    // Initialize GPIO for LED on GPIO8
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
 
-    let temp_sensor_config = TempSensorConfig::default();
-    let mut temp_sensor = TemperatureSensor::new(
-        peripherals.TEMP_SENSOR,
-        temp_sensor_config
-    );
+    // Initialize the built-in temperature sensor
+    let temp_sensor = TemperatureSensor::new(peripherals.TSENS, Config::default()).unwrap();
 
     // Create fixed-capacity temperature buffer
-    let mut temp_buffer = TemperatureBuffer::<{ SystemConfig::TEMP_BUFFER_SIZE }>::new();
+    let mut temp_buffer = TemperatureBuffer::<BUFFER_SIZE>::new();
 
+    // Startup messages
     esp_println::println!("ESP32-C3 Temperature Monitor with Data Storage");
-    esp_println::println!("Sample rate: {} Hz", SystemConfig::TEMP_SAMPLE_RATE_HZ);
-    esp_println::println!("Buffer capacity: {} readings", temp_buffer.capacity());
-    esp_println::println!("High threshold: {}", SystemConfig::high_threshold());
+    esp_println::println!("Buffer capacity: {} readings", BUFFER_SIZE);
+    esp_println::println!("Sample rate: {} second intervals", SAMPLE_INTERVAL_MS / 1000);
+    esp_println::println!("Temperature stored as {} bytes per reading", core::mem::size_of::<Temperature>());
     esp_println::println!();
 
+    // Main monitoring loop
     loop {
-        // Read temperature
-        let celsius = temp_sensor.read_celsius();
-        let temperature = Temperature::from_celsius(celsius);
+        // Small stabilization delay (recommended by ESP-HAL)
+        let delay_start = Instant::now();
+        while delay_start.elapsed() < Duration::from_micros(200) {}
+
+        // Read temperature from built-in sensor
+        let esp_temperature = temp_sensor.get_temperature();
+        let temp_celsius = esp_temperature.to_celsius();
+        let temperature = Temperature::from_celsius(temp_celsius);
 
         // Store in buffer
         temp_buffer.push(temperature);
 
         // LED status based on temperature
         if temperature.is_overheating() {
-            // Rapid blink for overheating
+            // Rapid triple blink for overheating (>50°C)
             for _ in 0..3 {
                 led.set_high();
-                delay.delay_millis(100);
+                let blink_start = Instant::now();
+                while blink_start.elapsed() < Duration::from_millis(100) {}
                 led.set_low();
-                delay.delay_millis(100);
+                let blink_start = Instant::now();
+                while blink_start.elapsed() < Duration::from_millis(100) {}
             }
         } else if !temperature.is_normal_range() {
-            // Double blink for out of normal range
+            // Double blink for out of normal range (not 15-35°C)
             led.set_high();
-            delay.delay_millis(150);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(150) {}
             led.set_low();
-            delay.delay_millis(100);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(100) {}
             led.set_high();
-            delay.delay_millis(150);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(150) {}
             led.set_low();
         } else {
-            // Single blink for normal
+            // Single blink for normal temperature
             led.set_high();
-            delay.delay_millis(200);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(200) {}
             led.set_low();
         }
 
         // Print current reading
-        esp_println::println!("Reading #{}: {}",
+        esp_println::println!("Reading #{}: {:.1}°C ({:.1}°F)",
             temp_buffer.total_readings(),
-            temperature
+            temperature.celsius(),
+            temperature.fahrenheit()
         );
 
-        // Print statistics every 10 readings
-        if temp_buffer.total_readings() % 10 == 0 {
+        // Print statistics every 5 readings
+        if temp_buffer.total_readings() % 5 == 0 {
             if let Some(stats) = temp_buffer.stats() {
-                esp_println::println!("{}", stats);
-                esp_println::println!("Memory: Buffer using {} of {} slots",
-                    temp_buffer.len(), temp_buffer.capacity());
+                esp_println::println!("Stats: {} readings (total: {}), Avg: {:.1}°C, Min: {:.1}°C, Max: {:.1}°C",
+                    stats.count,
+                    stats.total_count,
+                    stats.average.celsius(),
+                    stats.min.celsius(),
+                    stats.max.celsius()
+                );
+
+                // Memory usage info
+                let buffer_size = core::mem::size_of::<TemperatureBuffer<BUFFER_SIZE>>();
+                esp_println::println!("Memory: Buffer using {} of {} slots ({} bytes total)",
+                    stats.count, BUFFER_SIZE, buffer_size
+                );
+
+                // Buffer status
+                if stats.count >= BUFFER_SIZE {
+                    esp_println::println!("Buffer full - circular mode active (overwriting oldest data)");
+                }
                 esp_println::println!();
             }
         }
 
         // Wait for next sample
-        delay.delay_millis(SAMPLE_INTERVAL);
+        let wait_start = Instant::now();
+        while wait_start.elapsed() < Duration::from_millis(SAMPLE_INTERVAL_MS) {}
     }
 }
-```
 
 ## Exercise: Temperature Data Collection System
 

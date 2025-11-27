@@ -9,26 +9,27 @@ By the end of this chapter, you'll be able to:
 - Use integration tests to validate ESP32-C3 behavior
 - Debug embedded code efficiently using both tests and hardware
 
-## The Challenge of Testing Embedded Code
+## Task: Test Embedded Code on Desktop
 
-Testing embedded code presents unique challenges:
+Building on chapters 13-14, where we created temperature monitoring with data structures, now we need to ensure our code is robust and correct.
 
-**Hardware Dependencies:**
-- Code runs on ESP32-C3, but tests run on desktop
-- No access to GPIO, sensors, or timers in the test environment
-- Different target architectures (RISC-V vs x86/ARM)
+**Your Mission:**
+1. **Test no_std code** on desktop using conditional compilation
+2. **Mock hardware dependencies** (temperature sensor, GPIO) for isolated testing
+3. **Validate algorithms** (circular buffer, statistics) without hardware
+4. **Create testable abstractions** that work both embedded and on desktop
+5. **Add comprehensive test coverage** including edge cases and error conditions
 
-**Resource Constraints:**
-- Limited memory for test data
-- No heap allocation in production code
-- Real-time timing requirements
+**Why This Matters:**
+- **Faster development**: Test business logic without flashing hardware
+- **Better reliability**: Catch bugs before they reach embedded systems
+- **Easier debugging**: Desktop tools are more powerful than embedded debuggers
+- **Continuous Integration**: Automated testing in CI/CD pipelines
 
-**Environmental Factors:**
-- Temperature sensors affected by ambient conditions
-- Timing-sensitive hardware interactions
-- Power states and sleep modes
-
-**Rust's Solution: Conditional Compilation + Hardware Abstraction**
+**The Challenge:**
+- Code runs on ESP32-C3 (RISC-V), but tests run on desktop (x86/ARM)
+- No access to GPIO, sensors, or timers in test environment
+- Need to test `no_std` code using `std` tools
 
 ## Conditional Compilation Strategy
 
@@ -70,33 +71,88 @@ mod tests {
 }
 ```
 
-### Testing the Temperature Types from Chapter 14
+## Project Setup for Testable Embedded Code
+
+First, let's set up our project to support both embedded and testing targets:
+
+```toml
+[package]
+name = "chapter15_testing"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[[bin]]
+name = "chapter15_testing"
+path = "./src/bin/main.rs"
+
+[lib]
+name = "chapter15_testing"
+path = "src/lib.rs"
+
+[dependencies]
+# Only include ESP dependencies when not testing
+esp-hal = { version = "1.0.0", features = ["esp32c3", "unstable"], optional = true }
+heapless = "0.8"
+esp-println = { version = "0.16", features = ["esp32c3"], optional = true }
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"], optional = true }
+critical-section = "1.2.0"
+
+[features]
+default = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+embedded = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 's'
+overflow-checks = false
+```
+
+**Key Setup Details:**
+- **Optional ESP dependencies**: Only included when building for embedded target
+- **Feature flags**: Control when ESP-specific code is compiled
+- **Library + Binary**: Allows testing the library separately from main embedded binary
+
+## Testing the Temperature Types from Chapter 14
 
 Let's add comprehensive tests to our embedded temperature code:
 
 ```rust
-// src/temperature.rs - Updated with tests
+// src/lib.rs - Testable embedded temperature library
 #![cfg_attr(not(test), no_std)]
 
 use core::fmt;
 
+// Conditional imports for testing
 #[cfg(test)]
 use std::vec::Vec;
 #[cfg(not(test))]
 use heapless::Vec;
 
+/// Temperature reading optimized for embedded systems
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Temperature {
-    celsius_tenths: i16,
+    // Store as i16 to save memory (16-bit vs 32-bit f32)
+    // Resolution: 0.1°C, Range: -3276.8°C to +3276.7°C
+    pub(crate) celsius_tenths: i16,
 }
 
 impl Temperature {
+    /// Create temperature from Celsius value
     pub const fn from_celsius(celsius: f32) -> Self {
         Self {
             celsius_tenths: (celsius * 10.0) as i16,
         }
     }
 
+    /// Get temperature as Celsius f32
     pub fn celsius(&self) -> f32 {
         self.celsius_tenths as f32 / 10.0
     }
@@ -592,12 +648,38 @@ test test_overheating_detection ... ok
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
+## Building for Embedded Target
+
+When you're ready to test on hardware:
+
+```bash
+# Build and flash to ESP32-C3 (recommended)
+cargo run --release --features embedded
+
+# Alternative: Build then flash separately
+cargo build --release --target riscv32imc-unknown-none-elf --features embedded
+cargo espflash flash target/riscv32imc-unknown-none-elf/release/chapter15_testing
+```
+
+## Key Testing Patterns Learned
+
+✅ **Conditional Compilation**: Use `#[cfg(test)]` and `#[cfg(not(test))]` to create testable embedded code
+✅ **Hardware Abstraction**: Create traits that can be mocked for testing hardware dependencies
+✅ **Memory Efficiency Testing**: Verify size and memory usage in unit tests
+✅ **Edge Case Testing**: Test boundary conditions like buffer overflow, empty data, extreme values
+✅ **Integration Testing**: Test complete workflows without hardware dependencies
+
+**Next**: In Chapter 16, we'll add communication capabilities to send structured data like JSON over serial connections.
+
 ### Hardware Validation
 
 ```bash
-# Build and flash test version
+# Build and flash test version (recommended)
+cargo run --release --features test-on-hardware
+
+# Alternative: Build then flash
 cargo build --release --features test-on-hardware
-probe-rs run --chip=esp32c3 target/riscv32imc-unknown-none-elf/release/temp_monitor
+cargo espflash flash target/riscv32imc-unknown-none-elf/release/temp_monitor
 
 # Expected hardware output:
 # Running hardware validation...

@@ -91,24 +91,25 @@ The toolchain for the ESP32-C3 (RISC-V architecture):
 rustup target add riscv32imc-unknown-none-elf
 ```
 
-### 3. probe-rs for Flashing and Debugging
-probe-rs is the primary tool for flashing and debugging ESP32-C3 boards.
+### 3. cargo-espflash for Flashing
+cargo-espflash is the recommended tool for flashing ESP32-C3 boards across all platforms.
 
 **Installation:**
 ```bash
-# Install probe-rs
+# Install cargo-espflash
+cargo install cargo-espflash
+```
+
+### 4. probe-rs for Debugging (Optional - Linux/macOS)
+probe-rs provides debugging capabilities and works best on Linux and macOS.
+
+**Installation (Optional):**
+```bash
+# Install probe-rs (optional, primarily for debugging)
 cargo install probe-rs --features cli
 ```
 
-**Windows-Specific Setup:**
-- **Driver Issue Fix**: On Windows, you may need to switch the USB driver using [Zadig](https://zadig.akeo.ie/):
-  1. Download and run Zadig as administrator
-  2. Connect your ESP32-C3 board via USB
-  3. Select your ESP32-C3 device from the dropdown
-  4. Choose "WinUSB" as the driver
-  5. Click "Install Driver" or "Replace Driver"
-
-### 4. esp-generate for Project Scaffolding
+### 5. esp-generate for Project Scaffolding
 Tool for creating no_std projects targeting ESP32 chips:
 
 ```bash
@@ -130,7 +131,7 @@ cargo install esp-generate
    ```
 4. **Flash to the board**:
    ```bash
-   probe-rs run --chip esp32c3 target/riscv32imc-unknown-none-elf/release/test-esp32c3
+   cargo run --release
    ```
 
 ### Zed Editor ESP32 Debugging Setup
@@ -154,30 +155,27 @@ If using Zed editor:
 
 ### Common Issues and Solutions
 
-**USB Driver Issues (Windows):**
-- Error: "Failed to open the debug probe"
-- Solution: Use Zadig to switch to WinUSB driver (see step 3 above)
+**Flashing Issues:**
+- If cargo-espflash fails to detect the board, ensure the ESP32-C3 is connected via USB and the correct port is being used
+
+**Port Detection Issues:**
+- On Windows: Check Device Manager for COM port assignments
+- On Linux: Ensure user is in dialout group (see below)
+- On macOS: Look for `/dev/cu.usbserial-*` or `/dev/cu.usbmodem*` devices
 
 **ESP32-C3 Chip Revision:**
-- USB debugging requires ESP32-C3 chip revision 3 or newer
+- Most ESP32-C3 boards work with cargo-espflash regardless of revision
 - Check revision during flashing: Look for "Chip is ESP32-C3 (revision 3)" message
-- For revision 1 and 2, consider using ESP-Prog for debugging
-
-**Timeout Errors:**
-- If probe-rs times out, try using espflash as alternative:
-  ```bash
-  cargo install espflash
-  espflash flash target/riscv32imc-unknown-none-elf/release/test-esp32c3
-  ```
 
 **Permission Issues (Linux):**
 - Add user to dialout group: `sudo usermod -a -G dialout $USER`
 - Log out and back in for changes to take effect
 
-### Alternative Tools
-If you encounter issues with probe-rs, you can use the traditional ESP-IDF toolchain:
-- Install espflash: `cargo install espflash`
-- Use cargo-espflash for Cargo integration
+### Alternative Debugging Tools
+For advanced debugging beyond cargo-espflash:
+- **probe-rs**: Best on Linux/macOS for hardware debugging
+- **ESP-IDF monitor**: Traditional ESP toolchain option
+- **Serial monitor**: Use any serial terminal for basic output monitoring
 
 ## Resources
 - [ESP-RS Documentation](https://docs.esp-rs.org/)

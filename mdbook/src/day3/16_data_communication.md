@@ -9,36 +9,64 @@ By the end of this chapter, you'll be able to:
 - Handle communication errors gracefully in resource-constrained environments
 - Design protocols optimized for IoT and embedded applications
 
-## Why Communication Matters in Embedded Systems
+## Task: Send Structured Temperature Data via JSON
 
-Your temperature sensor is great, but isolated data isn't very useful. Modern embedded systems need to:
+Building on chapters 13-15, where we created temperature monitoring with testing, now we need to enable communication with external systems.
 
-**Share Data:**
-- Send readings to dashboards, databases, or cloud services
-- Integrate with IoT platforms and monitoring systems
-- Enable remote monitoring and alerting
+**Your Mission:**
+1. **Add serialization support** to temperature data structures using Serde
+2. **Send JSON data** over USB Serial for monitoring dashboards
+3. **Implement command/response protocol** for remote control
+4. **Use fixed-size strings** and heapless collections for efficiency
+5. **Handle communication errors** gracefully in resource-constrained environment
 
-**Accept Commands:**
-- Change sampling rates or thresholds remotely
-- Trigger calibration or diagnostic procedures
-- Update configuration without reflashing firmware
+**Why This Matters:**
+- **Remote monitoring**: Send data to dashboards and cloud services
+- **Remote control**: Change settings without reflashing firmware
+- **Interoperability**: JSON works with any programming language
+- **Debugging**: Structured data makes debugging easier than raw values
 
-**Interoperability:**
-- Work with different programming languages and platforms
-- Support standard protocols and data formats
-- Enable integration with existing systems
+**The Challenge:**
+- No heap allocation for JSON serialization
+- Fixed-size buffers for serial communication
+- Error handling without panicking
 
 ## Serde in no_std: Serialization for Embedded
 
 Serde is Rust's premier serialization framework, and it works great in no_std environments:
 
-```rust
-// Cargo.toml dependencies
+```toml
+[package]
+name = "chapter16_communication"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[[bin]]
+name = "chapter16_communication"
+path = "./src/bin/main.rs"
+
+[lib]
+name = "chapter16_communication"
+path = "src/lib.rs"
+
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde-json-core = "0.6"  # no_std JSON support
-postcard = { version = "1.0", default-features = false }  # Binary serialization
+# Only include ESP dependencies when not testing
+esp-hal = { version = "1.0.0", features = ["esp32c3", "unstable"], optional = true }
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"], optional = true }
+esp-println = { version = "0.16", features = ["esp32c3"], optional = true }
+
+# Core dependencies
+critical-section = "1.2.0"
 heapless = "0.8"
+
+# Serialization
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde-json-core = "0.6"
+
+[features]
+default = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+embedded = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
 ```
 
 ### Making Temperature Data Serializable
@@ -565,50 +593,53 @@ mod tests {
 Let's update our main application to use these communication capabilities:
 
 ```rust
-// src/main.rs - ESP32 temperature monitor with communication
+// src/bin/main.rs - ESP32 temperature monitor with communication
 #![no_std]
 #![no_main]
+#![deny(
+    clippy::mem_forget,
+    reason = "mem::forget is generally not safe to do with esp_hal types"
+)]
 
-use esp_backtrace as _;
-use esp_hal::{
-    clock::ClockControl,
-    delay::Delay,
-    gpio::{Io, Level, Output},
-    peripherals::Peripherals,
-    prelude::*,
-    system::SystemControl,
-    temperature_sensor::{TemperatureSensor, TempSensorConfig},
-};
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::main;
+use esp_hal::time::{Duration, Instant};
+use esp_hal::tsens::{Config, TemperatureSensor};
 
-mod temperature;
-mod communication;
-
-use temperature::{Temperature, TemperatureBuffer};
-use communication::{Command, Response, TemperatureComm};
+// Use the communication library types
+use chapter16_communication::{Temperature, TemperatureBuffer, Command, TemperatureComm};
 
 const BUFFER_SIZE: usize = 20;
+const SAMPLE_INTERVAL_MS: u64 = 1000; // 1 second
 
-#[entry]
+#[panic_handler]
+fn panic(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
+esp_bootloader_esp_idf::esp_app_desc!();
+
+#[main]
 fn main() -> ! {
-    let peripherals = Peripherals::take();
-    let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::max(system.clock_control).freeze();
-    let delay = Delay::new(&clocks);
+    // Initialize hardware
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let peripherals = esp_hal::init(config);
 
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut led = Output::new(io.pins.gpio8, Level::Low);
+    // Initialize GPIO for LED on GPIO8
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
 
-    let temp_sensor_config = TempSensorConfig::default();
-    let mut temp_sensor = TemperatureSensor::new(
-        peripherals.TEMP_SENSOR,
-        temp_sensor_config
-    );
+    // Initialize the built-in temperature sensor
+    let temp_sensor = TemperatureSensor::new(peripherals.TSENS, Config::default()).unwrap();
 
-    // Initialize data structures
+    // Create fixed-capacity temperature buffer
     let mut temp_buffer = TemperatureBuffer::<BUFFER_SIZE>::new();
-    let mut comm = TemperatureComm::new();
-    comm.init(0);  // Initialize at time 0
 
+    // Initialize communication handler
+    let mut comm = TemperatureComm::new();
+    comm.init(0);
+
+    // Startup messages with JSON communication
     esp_println::println!("🌡️ ESP32-C3 Temperature Monitor with Communication");
     esp_println::println!("📊 Buffer capacity: {} readings", temp_buffer.capacity());
     esp_println::println!("📡 JSON communication enabled");
@@ -621,305 +652,119 @@ fn main() -> ! {
     esp_println::println!();
 
     let mut reading_count = 0u32;
-    let mut last_stats_output = 0u32;
 
+    // Main monitoring loop
     loop {
         // Get current timestamp (simplified)
-        let current_time = reading_count * 1000; // 1-second intervals
+        let current_time = reading_count * SAMPLE_INTERVAL_MS as u32;
 
-        // Read temperature
-        let celsius = temp_sensor.read_celsius();
-        let temperature = Temperature::from_celsius(celsius);
+        // Small stabilization delay (recommended by ESP-HAL)
+        let delay_start = Instant::now();
+        while delay_start.elapsed() < Duration::from_micros(200) {}
 
-        // Store reading
+        // Read temperature from built-in sensor
+        let esp_temperature = temp_sensor.get_temperature();
+        let temp_celsius = esp_temperature.to_celsius();
+        let temperature = Temperature::from_celsius(temp_celsius);
+
+        // Store in buffer
         temp_buffer.push(temperature);
         reading_count += 1;
 
         // LED status based on temperature
         if temperature.is_overheating() {
-            // Rapid blink for overheating
+            // Rapid triple blink for overheating (>50°C)
             for _ in 0..3 {
                 led.set_high();
-                delay.delay_millis(100);
+                let blink_start = Instant::now();
+                while blink_start.elapsed() < Duration::from_millis(100) {}
                 led.set_low();
-                delay.delay_millis(100);
+                let blink_start = Instant::now();
+                while blink_start.elapsed() < Duration::from_millis(100) {}
             }
-        } else {
-            // Single blink for normal
+        } else if !temperature.is_normal_range() {
+            // Double blink for out of normal range (not 15-35°C)
             led.set_high();
-            delay.delay_millis(200);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(150) {}
+            led.set_low();
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(100) {}
+            led.set_high();
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(150) {}
+            led.set_low();
+        } else {
+            // Single blink for normal temperature
+            led.set_high();
+            let blink_start = Instant::now();
+            while blink_start.elapsed() < Duration::from_millis(200) {}
             led.set_low();
         }
 
-        // Output current reading as JSON
-        let reading_json = comm.reading_json(&temp_buffer, current_time);
+        // Output structured JSON data
+        let reading_json = comm.latest_reading_json(&temp_buffer, current_time);
         esp_println::println!("READING: {}", reading_json);
 
-        // Output statistics every 5 readings
+        // Print statistics every 5 readings
         if reading_count % 5 == 0 {
-            let stats_resp = comm.process_command(
-                Command::GetStats,
-                &temp_buffer,
-                current_time
-            );
-
-            if let Ok(stats_json) = comm.response_to_json(&stats_resp) {
-                esp_println::println!("STATS: {}", stats_json);
-            }
+            let stats_json = comm.stats_json(&temp_buffer, current_time);
+            esp_println::println!("STATS: {}", stats_json);
 
             let status_json = comm.status_json(&temp_buffer, current_time);
             esp_println::println!("STATUS: {}", status_json);
             esp_println::println!();
         }
 
-        // Simulate command processing (in real application, this would read from UART/WiFi)
-        if reading_count % 10 == 0 {
-            demonstrate_command_processing(&mut comm, &temp_buffer, current_time);
-        }
-
-        delay.delay_millis(1000); // 1 Hz sampling
-    }
-}
-
-fn demonstrate_command_processing(
-    comm: &mut TemperatureComm,
-    buffer: &TemperatureBuffer<BUFFER_SIZE>,
-    current_time: u32
-) {
-    esp_println::println!("--- Command Processing Demo ---");
-
-    // Simulate received commands
-    let commands = [
-        Command::GetStatus,
-        Command::SetSampleRate { rate_hz: 2 },
-        Command::SetThreshold { threshold_celsius: 40.0 },
-    ];
-
-    for command in commands {
-        esp_println::println!("Processing command: {:?}", command);
-
-        let response = comm.process_command(command, buffer, current_time);
-
-        if let Ok(json) = comm.response_to_json(&response) {
-            esp_println::println!("Response: {}", json);
-        } else {
-            esp_println::println!("Failed to serialize response");
-        }
-    }
-
-    esp_println::println!("--- End Demo ---");
-    esp_println::println!();
-}
-```
-
-## Communication Protocols for IoT
-
-### Message Framing for Serial Communication
-
-When sending data over serial, you need message boundaries:
-
-```rust
-// Simple line-based protocol
-pub struct SerialProtocol;
-
-impl SerialProtocol {
-    /// Frame a JSON message with newline delimiter
-    pub fn frame_json(json: &str) -> heapless::String<600> {
-        let mut framed = heapless::String::new();
-        framed.push_str(json).ok();
-        framed.push('\n').ok();
-        framed
-    }
-
-    /// Frame binary data with length prefix
-    pub fn frame_binary(data: &[u8]) -> heapless::Vec<u8, 300> {
-        let mut framed = heapless::Vec::new();
-
-        // Add 2-byte length prefix (little-endian)
-        let len = data.len() as u16;
-        framed.push((len & 0xFF) as u8).ok();
-        framed.push(((len >> 8) & 0xFF) as u8).ok();
-
-        // Add data
-        framed.extend_from_slice(data).ok();
-
-        framed
+        // Wait for next sample
+        let wait_start = Instant::now();
+        while wait_start.elapsed() < Duration::from_millis(SAMPLE_INTERVAL_MS) {}
     }
 }
 ```
 
-### WiFi and HTTP Integration
+## Example Output
 
-For IoT applications, you might send data over WiFi:
+When you run this on the ESP32-C3, you'll see structured JSON output like:
 
-```rust
-// Future enhancement: HTTP client for ESP32-C3
-// This would integrate with esp-wifi crate
-
-pub struct HttpClient;
-
-impl HttpClient {
-    pub fn post_temperature_json(_url: &str, _json: &str) -> Result<(), ()> {
-        // Implementation would use esp-wifi to send HTTP POST
-        // with JSON payload to a server endpoint
-        Ok(())
-    }
-}
-```
-
-## Exercise: Add Communication to Temperature Monitor
-
-**Time Budget: 25 minutes**
-
-Add JSON communication capabilities to your temperature monitoring system.
-
-### Requirements
-
-1. **Serde Integration**: Make temperature types serializable
-2. **Command Processing**: Handle commands to get status, readings, stats
-3. **JSON Output**: Send structured data over USB Serial
-4. **Error Handling**: Graceful handling of serialization and command errors
-5. **Real-time Output**: Stream temperature data in parseable format
-
-### Tasks
-
-1. **Add Serde Dependencies** (5 minutes):
-   ```toml
-   # Add to Cargo.toml
-   [dependencies]
-   serde = { version = "1.0", default-features = false, features = ["derive"] }
-   serde-json-core = "0.6"
-   heapless = "0.8"
-   ```
-
-2. **Update Temperature Types** (8 minutes):
-   ```rust
-   // Add Serialize, Deserialize to Temperature
-   #[derive(Serialize, Deserialize, ...)]
-   pub struct Temperature { ... }
-
-   // Create TemperatureReading struct
-   #[derive(Serialize, Deserialize)]
-   pub struct TemperatureReading {
-       pub temperature: Temperature,
-       pub timestamp_ms: u32,
-   }
-   ```
-
-3. **Implement Command System** (8 minutes):
-   ```rust
-   #[derive(Serialize, Deserialize)]
-   pub enum Command {
-       GetStatus,
-       GetReading,
-       GetStats,
-   }
-
-   #[derive(Serialize, Deserialize)]
-   pub enum Response {
-       Status { /* fields */ },
-       Reading(TemperatureReading),
-       Stats { /* fields */ },
-       Error(String),
-   }
-   ```
-
-4. **Integration with Main Loop** (4 minutes):
-   - Output readings as JSON every cycle
-   - Output stats every 5 readings
-   - Demonstrate command processing
-
-### Expected Output
-
-```
+```json
 🌡️ ESP32-C3 Temperature Monitor with Communication
 📊 Buffer capacity: 20 readings
 📡 JSON communication enabled
+🔧 Send commands: status, reading, stats, reset
 
-INITIAL_STATUS: {"Status":{"uptime_ms":0,"sample_rate_hz":1,"buffer_usage":0}}
+INITIAL_STATUS: {"Status":{"uptime_ms":0,"sample_rate_hz":1,"threshold_celsius":35.0,"buffer_usage":0}}
 
-READING: {"Reading":{"temperature":{"celsius_tenths":245},"timestamp_ms":1000}}
-READING: {"Reading":{"temperature":{"celsius_tenths":243},"timestamp_ms":2000}}
-READING: {"Reading":{"temperature":{"celsius_tenths":247},"timestamp_ms":3000}}
-READING: {"Reading":{"temperature":{"celsius_tenths":241},"timestamp_ms":4000}}
-READING: {"Reading":{"temperature":{"celsius_tenths":249},"timestamp_ms":5000}}
+READING: {"Reading":{"temperature":{"celsius_tenths":523},"timestamp_ms":1000,"sensor_id":0}}
+READING: {"Reading":{"temperature":{"celsius_tenths":524},"timestamp_ms":2000,"sensor_id":0}}
+READING: {"Reading":{"temperature":{"celsius_tenths":521},"timestamp_ms":3000,"sensor_id":0}}
+READING: {"Reading":{"temperature":{"celsius_tenths":522},"timestamp_ms":4000,"sensor_id":0}}
+READING: {"Reading":{"temperature":{"celsius_tenths":523},"timestamp_ms":5000,"sensor_id":0}}
 
-STATS: {"Stats":{"count":5,"min_celsius":24.1,"max_celsius":24.9,"avg_celsius":24.5}}
-STATUS: {"Status":{"uptime_ms":5000,"sample_rate_hz":1,"buffer_usage":25}}
-
---- Command Processing Demo ---
-Processing command: GetStatus
-Response: {"Status":{"uptime_ms":10000,"sample_rate_hz":1,"buffer_usage":50}}
-Processing command: SetSampleRate { rate_hz: 2 }
-Response: {"SampleRateSet":2}
---- End Demo ---
+STATS: {"Stats":{"count":5,"total_count":5,"average":{"celsius_tenths":523},"min":{"celsius_tenths":521},"max":{"celsius_tenths":524},"timestamp_ms":5000}}
+STATUS: {"Status":{"uptime_ms":5000,"sample_rate_hz":1,"threshold_celsius":35.0,"buffer_usage":25}}
 ```
 
-### Success Criteria
+## Building and Testing
 
-- [ ] Temperature data serializes correctly to JSON
-- [ ] Commands process and return appropriate responses
-- [ ] JSON output is valid and parseable
-- [ ] Error conditions are handled gracefully
-- [ ] Serial output can be parsed by external tools
-- [ ] Memory usage remains bounded (no heap allocation)
+```bash
+# Run tests on desktop
+cargo test
 
-### Extension Challenges
+# Build and flash to ESP32-C3 (recommended)
+cargo run --release --features embedded
 
-1. **Binary Protocol**: Add postcard binary serialization
-2. **Command Input**: Parse commands from serial input
-3. **Data Logging**: Store readings with timestamps
-4. **Configuration**: Persistent settings across resets
-5. **HTTP Client**: Send data to web server (with esp-wifi)
-
-### Testing Communication
-
-You can test the JSON output with external tools:
-
-```python
-# test_serial.py - Parse ESP32 JSON output
-import serial
-import json
-import time
-
-ser = serial.Serial('/dev/cu.usbmodem*', 115200)
-
-while True:
-    line = ser.readline().decode('utf-8').strip()
-
-    if line.startswith('READING:'):
-        json_data = line[8:]  # Remove "READING:" prefix
-        try:
-            reading = json.loads(json_data)
-            temp_c = reading['Reading']['temperature']['celsius_tenths'] / 10.0
-            timestamp = reading['Reading']['timestamp_ms']
-            print(f"Temperature: {temp_c}°C at {timestamp}ms")
-        except json.JSONDecodeError:
-            print(f"Invalid JSON: {json_data}")
-
-    elif line.startswith('STATS:'):
-        json_data = line[6:]  # Remove "STATS:" prefix
-        try:
-            stats = json.loads(json_data)['Stats']
-            print(f"Stats: {stats['count']} readings, "
-                  f"avg {stats['avg_celsius']:.1f}°C, "
-                  f"range {stats['min_celsius']:.1f}-{stats['max_celsius']:.1f}°C")
-        except json.JSONDecodeError:
-            print(f"Invalid JSON: {json_data}")
+# Alternative: Build then flash separately
+cargo build --release --target riscv32imc-unknown-none-elf --features embedded
+cargo espflash flash target/riscv32imc-unknown-none-elf/release/chapter16_communication
 ```
 
-## Key Takeaways
+## Key Communication Patterns Learned
 
-✅ **Serde in no_std**: Powerful serialization without heap allocation using serde-json-core
+✅ **Serde Integration**: Add serialization support to embedded types with `#[derive(Serialize, Deserialize)]`
+✅ **Fixed-size Collections**: Use `heapless::String` and `heapless::Vec` for JSON without heap allocation
+✅ **Command/Response Protocol**: Design structured interfaces for remote control
+✅ **Error Handling**: Handle serialization errors gracefully in resource-constrained environments
+✅ **JSON vs Binary**: Understand trade-offs between readability and efficiency
 
-✅ **Structured Communication**: JSON for interoperability, binary for efficiency
-
-✅ **Command/Response Pattern**: Essential for interactive embedded systems
-
-✅ **Error Handling**: Graceful degradation when serialization or commands fail
-
-✅ **Real-time Streaming**: Continuous data output for monitoring and integration
-
-✅ **IoT Ready**: Foundation for WiFi, HTTP, and cloud integration
-
-**Next**: In Chapter 17, we'll add async capabilities using Embassy to handle multiple tasks concurrently while maintaining real-time performance.
+**Next**: In Chapter 17, we'll integrate all these components into a production-ready system with proper error handling and deployment strategies.
