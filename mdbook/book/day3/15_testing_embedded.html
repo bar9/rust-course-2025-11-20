@@ -126,10 +126,10 @@
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/bar9/rust-course-2025-11-20" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/day3/15_testing_embedded.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/bar9/rus    t-course-2025-11-20/edit/main/mdbook/src/day3/15_testing_embedded.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -160,7 +160,7 @@
                     <main>
                         <h1 id="chapter-15-testing-embedded-code"><a class="header" href="#chapter-15-testing-embedded-code">Chapter 15: Testing Embedded Code</a></h1>
 <h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
-<p>By the end of this chapter, you’ll be able to:</p>
+<p>This chapter covers:</p>
 <ul>
 <li>Test no_std code on your desktop using conditional compilation</li>
 <li>Create hardware abstraction layers (HAL) for testable embedded code</li>
@@ -169,27 +169,29 @@
 <li>Use integration tests to validate ESP32-C3 behavior</li>
 <li>Debug embedded code efficiently using both tests and hardware</li>
 </ul>
-<h2 id="the-challenge-of-testing-embedded-code"><a class="header" href="#the-challenge-of-testing-embedded-code">The Challenge of Testing Embedded Code</a></h2>
-<p>Testing embedded code presents unique challenges:</p>
-<p><strong>Hardware Dependencies:</strong></p>
+<h2 id="task-test-embedded-code-on-desktop"><a class="header" href="#task-test-embedded-code-on-desktop">Task: Test Embedded Code on Desktop</a></h2>
+<p>Building on chapters 13-14, where we created temperature monitoring with data structures, now we need to ensure our code is robust and correct.</p>
+<p><strong>Your Mission:</strong></p>
+<ol>
+<li><strong>Test no_std code</strong> on desktop using conditional compilation</li>
+<li><strong>Mock hardware dependencies</strong> (temperature sensor, GPIO) for isolated testing</li>
+<li><strong>Validate algorithms</strong> (circular buffer, statistics) without hardware</li>
+<li><strong>Create testable abstractions</strong> that work both embedded and on desktop</li>
+<li><strong>Add comprehensive test coverage</strong> including edge cases and error conditions</li>
+</ol>
+<p><strong>Why This Matters:</strong></p>
 <ul>
-<li>Code runs on ESP32-C3, but tests run on desktop</li>
-<li>No access to GPIO, sensors, or timers in the test environment</li>
-<li>Different target architectures (RISC-V vs x86/ARM)</li>
+<li><strong>Faster development</strong>: Test business logic without flashing hardware</li>
+<li><strong>Better reliability</strong>: Catch bugs before they reach embedded systems</li>
+<li><strong>Easier debugging</strong>: Desktop tools are more powerful than embedded debuggers</li>
+<li><strong>Continuous Integration</strong>: Automated testing in CI/CD pipelines</li>
 </ul>
-<p><strong>Resource Constraints:</strong></p>
+<p><strong>The Challenge:</strong></p>
 <ul>
-<li>Limited memory for test data</li>
-<li>No heap allocation in production code</li>
-<li>Real-time timing requirements</li>
+<li>Code runs on ESP32-C3 (RISC-V), but tests run on desktop (x86/ARM)</li>
+<li>No access to GPIO, sensors, or timers in test environment</li>
+<li>Need to test <code>no_std</code> code using <code>std</code> tools</li>
 </ul>
-<p><strong>Environmental Factors:</strong></p>
-<ul>
-<li>Temperature sensors affected by ambient conditions</li>
-<li>Timing-sensitive hardware interactions</li>
-<li>Power states and sleep modes</li>
-</ul>
-<p><strong>Rust’s Solution: Conditional Compilation + Hardware Abstraction</strong></p>
 <h2 id="conditional-compilation-strategy"><a class="header" href="#conditional-compilation-strategy">Conditional Compilation Strategy</a></h2>
 <p>The key insight: <strong>Your business logic doesn’t need hardware to be tested.</strong></p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
@@ -228,32 +230,84 @@ mod tests {
     }
 }
 <span class="boring">}</span></code></pre></pre>
-<h3 id="testing-the-temperature-types-from-chapter-14"><a class="header" href="#testing-the-temperature-types-from-chapter-14">Testing the Temperature Types from Chapter 14</a></h3>
+<h2 id="project-setup-for-testable-embedded-code"><a class="header" href="#project-setup-for-testable-embedded-code">Project Setup for Testable Embedded Code</a></h2>
+<p>First, let’s set up our project to support both embedded and testing targets:</p>
+<pre><code class="language-toml">[package]
+name = "chapter15_testing"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+
+[[bin]]
+name = "chapter15_testing"
+path = "./src/bin/main.rs"
+
+[lib]
+name = "chapter15_testing"
+path = "src/lib.rs"
+
+[dependencies]
+# Only include ESP dependencies when not testing
+esp-hal = { version = "1.0.0", features = ["esp32c3", "unstable"], optional = true }
+heapless = "0.8"
+esp-println = { version = "0.16", features = ["esp32c3"], optional = true }
+esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"], optional = true }
+critical-section = "1.2.0"
+
+[features]
+default = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+embedded = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+
+[profile.dev]
+opt-level = "s"
+
+[profile.release]
+codegen-units = 1
+debug = 2
+debug-assertions = false
+incremental = false
+lto = 'fat'
+opt-level = 's'
+overflow-checks = false
+</code></pre>
+<p><strong>Key Setup Details:</strong></p>
+<ul>
+<li><strong>Optional ESP dependencies</strong>: Only included when building for embedded target</li>
+<li><strong>Feature flags</strong>: Control when ESP-specific code is compiled</li>
+<li><strong>Library + Binary</strong>: Allows testing the library separately from main embedded binary</li>
+</ul>
+<h2 id="testing-the-temperature-types-from-chapter-14"><a class="header" href="#testing-the-temperature-types-from-chapter-14">Testing the Temperature Types from Chapter 14</a></h2>
 <p>Let’s add comprehensive tests to our embedded temperature code:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// src/temperature.rs - Updated with tests
+</span>// src/lib.rs - Testable embedded temperature library
 #![cfg_attr(not(test), no_std)]
 
 use core::fmt;
 
+// Conditional imports for testing
 #[cfg(test)]
 use std::vec::Vec;
 #[cfg(not(test))]
 use heapless::Vec;
 
+/// Temperature reading optimized for embedded systems
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Temperature {
-    celsius_tenths: i16,
+    // Store as i16 to save memory (16-bit vs 32-bit f32)
+    // Resolution: 0.1°C, Range: -3276.8°C to +3276.7°C
+    pub(crate) celsius_tenths: i16,
 }
 
 impl Temperature {
+    /// Create temperature from Celsius value
     pub const fn from_celsius(celsius: f32) -&gt; Self {
         Self {
             celsius_tenths: (celsius * 10.0) as i16,
         }
     }
 
+    /// Get temperature as Celsius f32
     pub fn celsius(&amp;self) -&gt; f32 {
         self.celsius_tenths as f32 / 10.0
     }
@@ -737,10 +791,29 @@ test test_overheating_detection ... ok
 
 test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 </code></pre>
+<h2 id="building-for-embedded-target"><a class="header" href="#building-for-embedded-target">Building for Embedded Target</a></h2>
+<p>When you’re ready to test on hardware:</p>
+<pre><code class="language-bash"># Build and flash to ESP32-C3 (recommended)
+cargo run --release --features embedded
+
+# Alternative: Build then flash separately
+cargo build --release --target riscv32imc-unknown-none-elf --features embedded
+cargo espflash flash target/riscv32imc-unknown-none-elf/release/chapter15_testing
+</code></pre>
+<h2 id="key-testing-patterns-learned"><a class="header" href="#key-testing-patterns-learned">Key Testing Patterns Learned</a></h2>
+<p>✅ <strong>Conditional Compilation</strong>: Use <code>#[cfg(test)]</code> and <code>#[cfg(not(test))]</code> to create testable embedded code
+✅ <strong>Hardware Abstraction</strong>: Create traits that can be mocked for testing hardware dependencies
+✅ <strong>Memory Efficiency Testing</strong>: Verify size and memory usage in unit tests
+✅ <strong>Edge Case Testing</strong>: Test boundary conditions like buffer overflow, empty data, extreme values
+✅ <strong>Integration Testing</strong>: Test complete workflows without hardware dependencies</p>
+<p><strong>Next</strong>: In Chapter 16, we’ll add communication capabilities to send structured data like JSON over serial connections.</p>
 <h3 id="hardware-validation"><a class="header" href="#hardware-validation">Hardware Validation</a></h3>
-<pre><code class="language-bash"># Build and flash test version
+<pre><code class="language-bash"># Build and flash test version (recommended)
+cargo run --release --features test-on-hardware
+
+# Alternative: Build then flash
 cargo build --release --features test-on-hardware
-probe-rs run --chip=esp32c3 target/riscv32imc-unknown-none-elf/release/temp_monitor
+cargo espflash flash target/riscv32imc-unknown-none-elf/release/temp_monitor
 
 # Expected hardware output:
 # Running hardware validation...
@@ -799,7 +872,6 @@ impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
 // 3. Refactor and add more test cases
 <span class="boring">}</span></code></pre></pre>
 <h2 id="exercise-add-comprehensive-testing"><a class="header" href="#exercise-add-comprehensive-testing">Exercise: Add Comprehensive Testing</a></h2>
-<p><strong>Time Budget: 25 minutes</strong></p>
 <p>Add a full test suite to your temperature monitoring code.</p>
 <h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
 <ol>
@@ -812,7 +884,7 @@ impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
 <h3 id="tasks"><a class="header" href="#tasks">Tasks</a></h3>
 <ol>
 <li>
-<p><strong>Setup Test Environment</strong> (5 minutes):</p>
+<p><strong>Setup Test Environment</strong>:</p>
 <ul>
 <li>Add conditional compilation for tests</li>
 <li>Create <code>src/lib.rs</code> to expose modules for testing</li>
@@ -820,7 +892,7 @@ impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
 </ul>
 </li>
 <li>
-<p><strong>Unit Tests for Temperature</strong> (5 minutes):</p>
+<p><strong>Unit Tests for Temperature</strong>:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[cfg(test)]
@@ -845,7 +917,7 @@ mod tests {
 <span class="boring">}</span></code></pre></pre>
 </li>
 <li>
-<p><strong>Unit Tests for Buffer</strong> (8 minutes):</p>
+<p><strong>Unit Tests for Buffer</strong>:</p>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
 </span>#[test]
@@ -865,7 +937,7 @@ fn test_circular_replacement() {
 <span class="boring">}</span></code></pre></pre>
 </li>
 <li>
-<p><strong>Hardware Abstraction Tests</strong> (5 minutes):</p>
+<p><strong>Hardware Abstraction Tests</strong>:</p>
 <ul>
 <li>Create mock sensor implementation</li>
 <li>Test sensor trait with controlled data</li>
@@ -873,7 +945,7 @@ fn test_circular_replacement() {
 </ul>
 </li>
 <li>
-<p><strong>Run and Validate</strong> (2 minutes):</p>
+<p><strong>Run and Validate</strong>:</p>
 <ul>
 <li>Execute test suite with <code>cargo test</code></li>
 <li>Verify all tests pass</li>
@@ -1021,6 +1093,22 @@ pub fn validate_hardware() {
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

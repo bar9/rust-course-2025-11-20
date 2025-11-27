@@ -10,17 +10,75 @@ use esp_hal::clock::CpuClock;
 use esp_hal::gpio::{Level, Output, OutputConfig};
 use esp_hal::main;
 use esp_hal::time::{Duration, Instant};
+
+// Conditional imports based on features
+#[cfg(all(feature = "hardware", not(feature = "simulation")))]
 use esp_hal::tsens::{Config, TemperatureSensor};
 
 // Use the integrated system components
 use chapter17_integration::{Temperature, TemperatureBuffer, Command, TemperatureComm};
+
+// Mock sensor for simulation feature
+#[cfg(feature = "simulation")]
+struct MockTemperatureSensor {
+    base_temp: f32,
+    reading_count: u32,
+}
+
+#[cfg(feature = "simulation")]
+impl MockTemperatureSensor {
+    fn new() -> Self {
+        Self {
+            base_temp: 25.0,
+            reading_count: 0,
+        }
+    }
+
+    fn get_temperature(&mut self) -> MockTemperature {
+        self.reading_count += 1;
+        // Simulate varying temperature with a simple pattern (no_std compatible)
+        let cycle = self.reading_count % 20;
+        let variation = if cycle < 10 {
+            (cycle as f32 * 0.2) - 1.0  // -1.0 to +1.0
+        } else {
+            1.0 - ((cycle - 10) as f32 * 0.2) // +1.0 to -1.0
+        };
+        let temp = self.base_temp + variation;
+        MockTemperature { celsius: temp }
+    }
+}
+
+#[cfg(feature = "simulation")]
+struct MockTemperature {
+    celsius: f32,
+}
+
+#[cfg(feature = "simulation")]
+impl MockTemperature {
+    fn to_celsius(&self) -> f32 {
+        self.celsius
+    }
+}
+
+// Verbose logging macros
+#[cfg(feature = "verbose")]
+macro_rules! debug_log {
+    ($($arg:tt)*) => {
+        esp_println::println!("🔍 DEBUG: {}", format_args!($($arg)*));
+    };
+}
+
+#[cfg(not(feature = "verbose"))]
+macro_rules! debug_log {
+    ($($arg:tt)*) => {};
+}
 
 // System configuration constants
 const BUFFER_SIZE: usize = 32;
 const SAMPLE_RATE_MS: u32 = 1000;
 const JSON_OUTPUT_INTERVAL: u32 = 5;
 const HEALTH_REPORT_INTERVAL: u32 = 20;
-const OVERHEATING_THRESHOLD: f32 = 35.0;
+const OVERHEATING_THRESHOLD: f32 = 100.0;
 
 // System state tracking
 struct SystemState {
@@ -84,14 +142,24 @@ fn main() -> ! {
     // GPIO setup
     let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
 
-    // Initialize temperature sensor with error handling
-    let temp_sensor = match TemperatureSensor::new(peripherals.TSENS, Config::default()) {
+    // Initialize temperature sensor with feature-dependent implementation
+    #[cfg(all(feature = "hardware", not(feature = "simulation")))]
+    let mut temp_sensor = match TemperatureSensor::new(peripherals.TSENS, Config::default()) {
         Ok(sensor) => sensor,
         Err(_) => {
             esp_println::println!("❌ Failed to initialize temperature sensor");
             loop {}
         }
     };
+
+    #[cfg(feature = "simulation")]
+    let mut temp_sensor = MockTemperatureSensor::new();
+
+    #[cfg(all(feature = "hardware", not(feature = "simulation")))]
+    esp_println::println!("🔧 Hardware: ESP32-C3 @ max frequency");
+
+    #[cfg(feature = "simulation")]
+    esp_println::println!("🔧 Simulation: Mock sensor enabled");
 
     // System components
     let mut temp_buffer = TemperatureBuffer::<BUFFER_SIZE>::new();
@@ -118,14 +186,33 @@ fn main() -> ! {
 
     // === MAIN SYSTEM LOOP ===
     loop {
-        // STEP 1: Read temperature with error handling
-        let celsius = match read_temperature_safe(&temp_sensor) {
+        // STEP 1: Read temperature with error handling (feature-dependent)
+        #[cfg(all(feature = "hardware", not(feature = "simulation")))]
+        let celsius = match read_temperature_safe_hw(&mut temp_sensor) {
             Ok(temp) => {
+                debug_log!("Temperature read successfully: {:.2}°C", temp);
                 system_state.last_temp = temp;
                 temp
             }
             Err(_) => {
                 system_state.record_sensor_error();
+                debug_log!("Sensor error #{}, fallback to last value", system_state.sensor_error_count);
+                esp_println::println!("❌ Sensor error #{}, using last value: {:.1}°C",
+                    system_state.sensor_error_count, system_state.last_temp);
+                system_state.last_temp // Use last known good value
+            }
+        };
+
+        #[cfg(feature = "simulation")]
+        let celsius = match read_temperature_safe_sim(&mut temp_sensor) {
+            Ok(temp) => {
+                debug_log!("Temperature read successfully: {:.2}°C", temp);
+                system_state.last_temp = temp;
+                temp
+            }
+            Err(_) => {
+                system_state.record_sensor_error();
+                debug_log!("Sensor error #{}, fallback to last value", system_state.sensor_error_count);
                 esp_println::println!("❌ Sensor error #{}, using last value: {:.1}°C",
                     system_state.sensor_error_count, system_state.last_temp);
                 system_state.last_temp // Use last known good value
@@ -135,6 +222,8 @@ fn main() -> ! {
         let temperature = Temperature::from_celsius(celsius);
         temp_buffer.push(temperature);
         system_state.advance_time();
+
+        debug_log!("Buffer status: {}/{}, Total: {}", temp_buffer.len(), BUFFER_SIZE, temp_buffer.total_readings());
 
         // STEP 2: LED feedback with enhanced patterns
         update_led_status(&mut led, &temperature, &system_state);
@@ -161,7 +250,12 @@ fn main() -> ! {
 
         // STEP 6: Health monitoring and reporting
         if system_state.reading_count % HEALTH_REPORT_INTERVAL == 0 {
+            debug_log!("Health report interval reached");
             output_health_report(&system_state, &temp_buffer);
+
+            // Output extended telemetry if feature is enabled
+            #[cfg(feature = "telemetry")]
+            output_telemetry_data(&system_state, &temp_buffer);
         }
 
         // STEP 7: Error condition management
@@ -178,13 +272,21 @@ fn main() -> ! {
     }
 }
 
-fn read_temperature_safe(sensor: &TemperatureSensor) -> Result<f32, ()> {
+// Feature-dependent temperature reading implementations
+#[cfg(all(feature = "hardware", not(feature = "simulation")))]
+fn read_temperature_safe_hw(sensor: &mut TemperatureSensor) -> Result<f32, ()> {
     // Small stabilization delay
     let delay_start = Instant::now();
     while delay_start.elapsed() < Duration::from_micros(200) {}
 
     let esp_temperature = sensor.get_temperature();
     Ok(esp_temperature.to_celsius())
+}
+
+#[cfg(feature = "simulation")]
+fn read_temperature_safe_sim(sensor: &mut MockTemperatureSensor) -> Result<f32, ()> {
+    let mock_temp = sensor.get_temperature();
+    Ok(mock_temp.to_celsius())
 }
 
 fn update_led_status(led: &mut Output, temperature: &Temperature, state: &SystemState) {
@@ -289,4 +391,29 @@ fn demonstrate_system_integration(
     esp_println::println!("  📈 Performance: {} Hz stable, {} total readings",
         1000 / SAMPLE_RATE_MS, state.reading_count);
     esp_println::println!("  🔧 Integration test complete\n");
+}
+
+// Telemetry output (only included with telemetry feature)
+#[cfg(feature = "telemetry")]
+fn output_telemetry_data(state: &SystemState, buffer: &TemperatureBuffer<BUFFER_SIZE>) {
+    esp_println::println!("📊 TELEMETRY DATA:");
+    esp_println::println!("{{");
+    esp_println::println!("  \"system\": {{");
+    esp_println::println!("    \"uptime_ms\": {},", state.system_time_ms);
+    esp_println::println!("    \"total_readings\": {},", state.reading_count);
+    esp_println::println!("    \"sample_rate_hz\": {},", 1000 / SAMPLE_RATE_MS);
+    esp_println::println!("    \"free_stack\": \"unknown\",");
+    esp_println::println!("    \"cpu_freq_mhz\": 160");
+    esp_println::println!("  }},");
+    esp_println::println!("  \"errors\": {{");
+    esp_println::println!("    \"sensor_errors\": {},", state.sensor_error_count);
+    esp_println::println!("    \"overheating_events\": {}", state.overheating_count);
+    esp_println::println!("  }},");
+    esp_println::println!("  \"buffer\": {{");
+    esp_println::println!("    \"capacity\": {},", BUFFER_SIZE);
+    esp_println::println!("    \"current_size\": {},", buffer.len());
+    esp_println::println!("    \"total_processed\": {},", buffer.total_readings());
+    esp_println::println!("    \"usage_percent\": {}", (buffer.len() * 100) / BUFFER_SIZE);
+    esp_println::println!("  }}");
+    esp_println::println!("}}");
 }

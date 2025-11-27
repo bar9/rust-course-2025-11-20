@@ -126,10 +126,10 @@
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/bar9/rust-course-2025-11-20" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/day3/14_embedded_foundations.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/bar9/rus    t-course-2025-11-20/edit/main/mdbook/src/day3/14_embedded_foundations.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -160,7 +160,7 @@
                     <main>
                         <h1 id="chapter-14-embedded-foundations---no_std-from-the-start"><a class="header" href="#chapter-14-embedded-foundations---no_std-from-the-start">Chapter 14: Embedded Foundations - no_std from the Start</a></h1>
 <h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
-<p>By the end of this chapter, you’ll be able to:</p>
+<p>This chapter covers:</p>
 <ul>
 <li>Understand the difference between <code>core</code>, <code>alloc</code>, and <code>std</code> libraries</li>
 <li>Create temperature data structures that work in embedded environments</li>
@@ -169,15 +169,24 @@
 <li>Build a circular buffer for continuous sensor data collection</li>
 <li>Calculate statistics without dynamic allocation</li>
 </ul>
-<h2 id="building-on-chapter-13"><a class="header" href="#building-on-chapter-13">Building on Chapter 13</a></h2>
-<p>In the last chapter, we read individual temperature values from the ESP32-C3. Now we need to:</p>
+<h2 id="task-build-memory-efficient-temperature-storage"><a class="header" href="#task-build-memory-efficient-temperature-storage">Task: Build Memory-Efficient Temperature Storage</a></h2>
+<p>In Chapter 13, we successfully read temperature values from the ESP32-C3’s built-in sensor. Now we need to build a system that can:</p>
+<p><strong>Your Mission:</strong></p>
 <ol>
-<li><strong>Store multiple readings</strong> for trend analysis</li>
-<li><strong>Calculate statistics</strong> like average and min/max</li>
-<li><strong>Manage memory carefully</strong> in our 320KB RAM environment</li>
-<li><strong>Do this efficiently</strong> without heap allocation</li>
+<li><strong>Store multiple readings</strong> in a fixed-size circular buffer</li>
+<li><strong>Calculate statistics</strong> (average, min, max) without heap allocation</li>
+<li><strong>Use only 2 bytes per temperature</strong> reading (vs 4 bytes for f32)</li>
+<li><strong>Handle buffer overflow</strong> gracefully with circular behavior</li>
+<li><strong>Monitor memory usage</strong> and system performance</li>
 </ol>
-<p>This is where embedded programming differs from desktop development - we need to think about every byte of memory!</p>
+<p><strong>Why This Matters:</strong>
+This chapter teaches essential embedded patterns:</p>
+<ul>
+<li>Memory-efficient data structures</li>
+<li>Fixed-capacity collections with <code>heapless</code></li>
+<li>Const generics for compile-time configuration</li>
+<li>Statistics without dynamic allocation</li>
+</ul>
 <h2 id="understanding-no_std-the-embedded-reality"><a class="header" href="#understanding-no_std-the-embedded-reality">Understanding no_std: The Embedded Reality</a></h2>
 <h3 id="why-no_std"><a class="header" href="#why-no_std">Why no_std?</a></h3>
 <p>Desktop programs can use:</p>
@@ -284,7 +293,7 @@ impl Temperature {
 
     /// Check if temperature is too high (potential overheating)
     pub const fn is_overheating(&amp;self) -&gt; bool {
-        self.celsius_tenths &gt; 500  // &gt; 50°C
+        self.celsius_tenths &gt; 1000  // &gt; 100°C
     }
 }
 
@@ -510,8 +519,8 @@ impl SystemConfig {
     /// Temperature monitoring configuration
     pub const TEMP_SAMPLE_RATE_HZ: u32 = 1;  // 1 reading per second
     pub const TEMP_BUFFER_SIZE: usize = 60;  // 1 minute of readings
-    pub const TEMP_HIGH_THRESHOLD: f32 = 35.0; // 35°C warning threshold
-    pub const TEMP_CRITICAL_THRESHOLD: f32 = 50.0; // 50°C critical threshold
+    pub const TEMP_WARNING_THRESHOLD: f32 = 52.0; // 52°C warning threshold
+    pub const TEMP_CRITICAL_THRESHOLD: f32 = 100.0; // 100°C critical threshold
 
     /// Calculate timer interval for sampling rate
     pub const fn sample_interval_ms() -&gt; u32 {
@@ -519,8 +528,8 @@ impl SystemConfig {
     }
 
     /// Create temperature thresholds at compile time
-    pub const fn high_threshold() -&gt; Temperature {
-        Temperature::from_celsius(Self::TEMP_HIGH_THRESHOLD)
+    pub const fn warning_threshold() -&gt; Temperature {
+        Temperature::from_celsius(Self::TEMP_WARNING_THRESHOLD)
     }
 
     pub const fn critical_threshold() -&gt; Temperature {
@@ -542,123 +551,256 @@ const _: () = assert!(SystemConfig::TEMP_BUFFER_SIZE &gt; 0);
 
 // Pre-computed constants (zero runtime cost)
 pub const SAMPLE_INTERVAL: u32 = SystemConfig::sample_interval_ms();
-pub const HIGH_TEMP: Temperature = SystemConfig::high_threshold();
+pub const WARNING_TEMP: Temperature = SystemConfig::warning_threshold();
 pub const CRITICAL_TEMP: Temperature = SystemConfig::critical_threshold();
 <span class="boring">}</span></code></pre></pre>
 <h2 id="integrating-with-esp32-c3-hardware"><a class="header" href="#integrating-with-esp32-c3-hardware">Integrating with ESP32-C3 Hardware</a></h2>
 <p>Let’s update our temperature monitor to use these new data structures:</p>
 <pre><pre class="playground"><code class="language-rust">#![no_std]
 #![no_main]
+#![deny(
+    clippy::mem_forget,
+    reason = "mem::forget is generally not safe to do with esp_hal types"
+)]
 
-use esp_backtrace as _;
-use esp_hal::{
-    clock::ClockControl,
-    delay::Delay,
-    gpio::{Io, Level, Output},
-    peripherals::Peripherals,
-    prelude::*,
-    system::SystemControl,
-    temperature_sensor::{TemperatureSensor, TempSensorConfig},
-};
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::{Level, Output, OutputConfig};
+use esp_hal::main;
+use esp_hal::time::{Duration, Instant};
+use esp_hal::tsens::{Config, TemperatureSensor};
+use heapless::Vec;
 
-// Our embedded temperature types
-mod temperature;
-use temperature::{Temperature, TemperatureBuffer, SystemConfig, SAMPLE_INTERVAL};
+// Temperature types from earlier in this chapter
+/// Temperature reading optimized for embedded systems
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Temperature {
+    celsius_tenths: i16,
+}
 
-#[entry]
+impl Temperature {
+    const fn from_celsius(celsius: f32) -&gt; Self {
+        Self {
+            celsius_tenths: (celsius * 10.0) as i16,
+        }
+    }
+
+    fn celsius(&amp;self) -&gt; f32 {
+        self.celsius_tenths as f32 / 10.0
+    }
+
+    fn fahrenheit(&amp;self) -&gt; f32 {
+        self.celsius() * 9.0 / 5.0 + 32.0
+    }
+
+    const fn is_normal_range(&amp;self) -&gt; bool {
+        // Normal room temperature: 15-35°C
+        self.celsius_tenths &gt;= 150 &amp;&amp; self.celsius_tenths &lt;= 350
+    }
+
+    const fn is_overheating(&amp;self) -&gt; bool {
+        self.celsius_tenths &gt; 1000  // &gt; 100°C
+    }
+}
+
+/// Fixed-capacity temperature buffer
+struct TemperatureBuffer&lt;const N: usize&gt; {
+    readings: Vec&lt;Temperature, N&gt;,
+    total_readings: u32,
+}
+
+impl&lt;const N: usize&gt; TemperatureBuffer&lt;N&gt; {
+    const fn new() -&gt; Self {
+        Self {
+            readings: Vec::new(),
+            total_readings: 0,
+        }
+    }
+
+    fn push(&amp;mut self, temperature: Temperature) {
+        if self.readings.len() &lt; N {
+            self.readings.push(temperature).ok();
+        } else {
+            // Circular buffer - overwrite oldest
+            let oldest_index = (self.total_readings as usize) % N;
+            self.readings[oldest_index] = temperature;
+        }
+        self.total_readings += 1;
+    }
+
+    fn total_readings(&amp;self) -&gt; u32 {
+        self.total_readings
+    }
+
+    fn stats(&amp;self) -&gt; Option&lt;TemperatureStats&gt; {
+        if self.readings.is_empty() {
+            return None;
+        }
+
+        let sum: i32 = self.readings.iter()
+            .map(|t| t.celsius_tenths as i32)
+            .sum();
+        let avg_tenths = sum / self.readings.len() as i32;
+        let average = Temperature { celsius_tenths: avg_tenths as i16 };
+
+        let min = *self.readings.iter()
+            .min_by_key(|t| t.celsius_tenths)?;
+        let max = *self.readings.iter()
+            .max_by_key(|t| t.celsius_tenths)?;
+
+        Some(TemperatureStats {
+            count: self.readings.len(),
+            total_count: self.total_readings,
+            average,
+            min,
+            max,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct TemperatureStats {
+    count: usize,
+    total_count: u32,
+    average: Temperature,
+    min: Temperature,
+    max: Temperature,
+}
+
+const BUFFER_SIZE: usize = 20;
+const SAMPLE_INTERVAL_MS: u64 = 1000; // 1 second
+
+#[panic_handler]
+fn panic(info: &amp;core::panic::PanicInfo) -&gt; ! {
+    esp_println::println!("💥 SYSTEM PANIC: {}", info);
+    loop {}
+}
+
+esp_bootloader_esp_idf::esp_app_desc!();
+
+#[main]
 fn main() -&gt; ! {
-    let peripherals = Peripherals::take();
-    let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::max(system.clock_control).freeze();
-    let delay = Delay::new(&amp;clocks);
+    // Initialize hardware
+    let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
+    let peripherals = esp_hal::init(config);
 
-    let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
-    let mut led = Output::new(io.pins.gpio8, Level::Low);
+    // Initialize GPIO for LED on GPIO8
+    let mut led = Output::new(peripherals.GPIO8, Level::Low, OutputConfig::default());
 
-    let temp_sensor_config = TempSensorConfig::default();
-    let mut temp_sensor = TemperatureSensor::new(
-        peripherals.TEMP_SENSOR,
-        temp_sensor_config
-    );
+    // Initialize the built-in temperature sensor
+    let temp_sensor = TemperatureSensor::new(peripherals.TSENS, Config::default()).unwrap();
 
     // Create fixed-capacity temperature buffer
-    let mut temp_buffer = TemperatureBuffer::&lt;{ SystemConfig::TEMP_BUFFER_SIZE }&gt;::new();
+    let mut temp_buffer = TemperatureBuffer::&lt;BUFFER_SIZE&gt;::new();
 
+    // Startup messages
     esp_println::println!("ESP32-C3 Temperature Monitor with Data Storage");
-    esp_println::println!("Sample rate: {} Hz", SystemConfig::TEMP_SAMPLE_RATE_HZ);
-    esp_println::println!("Buffer capacity: {} readings", temp_buffer.capacity());
-    esp_println::println!("High threshold: {}", SystemConfig::high_threshold());
+    esp_println::println!("Buffer capacity: {} readings", BUFFER_SIZE);
+    esp_println::println!("Sample rate: {} second intervals", SAMPLE_INTERVAL_MS / 1000);
+    esp_println::println!("Temperature stored as {} bytes per reading", core::mem::size_of::&lt;Temperature&gt;());
     esp_println::println!();
 
+    // Main monitoring loop
     loop {
-        // Read temperature
-        let celsius = temp_sensor.read_celsius();
-        let temperature = Temperature::from_celsius(celsius);
+        // Small stabilization delay (recommended by ESP-HAL)
+        let delay_start = Instant::now();
+        while delay_start.elapsed() &lt; Duration::from_micros(200) {}
+
+        // Read temperature from built-in sensor
+        let esp_temperature = temp_sensor.get_temperature();
+        let temp_celsius = esp_temperature.to_celsius();
+        let temperature = Temperature::from_celsius(temp_celsius);
 
         // Store in buffer
         temp_buffer.push(temperature);
 
         // LED status based on temperature
         if temperature.is_overheating() {
-            // Rapid blink for overheating
+            // Rapid triple blink for overheating (&gt;100°C)
             for _ in 0..3 {
                 led.set_high();
-                delay.delay_millis(100);
+                let blink_start = Instant::now();
+                while blink_start.elapsed() &lt; Duration::from_millis(100) {}
                 led.set_low();
-                delay.delay_millis(100);
+                let blink_start = Instant::now();
+                while blink_start.elapsed() &lt; Duration::from_millis(100) {}
             }
         } else if !temperature.is_normal_range() {
-            // Double blink for out of normal range
+            // Double blink for out of normal range (not 15-35°C)
             led.set_high();
-            delay.delay_millis(150);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() &lt; Duration::from_millis(150) {}
             led.set_low();
-            delay.delay_millis(100);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() &lt; Duration::from_millis(100) {}
             led.set_high();
-            delay.delay_millis(150);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() &lt; Duration::from_millis(150) {}
             led.set_low();
         } else {
-            // Single blink for normal
+            // Single blink for normal temperature
             led.set_high();
-            delay.delay_millis(200);
+            let blink_start = Instant::now();
+            while blink_start.elapsed() &lt; Duration::from_millis(200) {}
             led.set_low();
         }
 
         // Print current reading
-        esp_println::println!("Reading #{}: {}",
+        esp_println::println!("Reading #{}: {:.1}°C ({:.1}°F)",
             temp_buffer.total_readings(),
-            temperature
+            temperature.celsius(),
+            temperature.fahrenheit()
         );
 
-        // Print statistics every 10 readings
-        if temp_buffer.total_readings() % 10 == 0 {
+        // Print statistics every 5 readings
+        if temp_buffer.total_readings() % 5 == 0 {
             if let Some(stats) = temp_buffer.stats() {
-                esp_println::println!("{}", stats);
-                esp_println::println!("Memory: Buffer using {} of {} slots",
-                    temp_buffer.len(), temp_buffer.capacity());
+                esp_println::println!("Stats: {} readings (total: {}), Avg: {:.1}°C, Min: {:.1}°C, Max: {:.1}°C",
+                    stats.count,
+                    stats.total_count,
+                    stats.average.celsius(),
+                    stats.min.celsius(),
+                    stats.max.celsius()
+                );
+
+                // Memory usage info
+                let buffer_size = core::mem::size_of::&lt;TemperatureBuffer&lt;BUFFER_SIZE&gt;&gt;();
+                esp_println::println!("Memory: Buffer using {} of {} slots ({} bytes total)",
+                    stats.count, BUFFER_SIZE, buffer_size
+                );
+
+                // Buffer status
+                if stats.count &gt;= BUFFER_SIZE {
+                    esp_println::println!("Buffer full - circular mode active (overwriting oldest data)");
+                }
                 esp_println::println!();
             }
         }
 
         // Wait for next sample
-        delay.delay_millis(SAMPLE_INTERVAL);
+        let wait_start = Instant::now();
+        while wait_start.elapsed() &lt; Duration::from_millis(SAMPLE_INTERVAL_MS) {}
     }
-}</code></pre></pre>
-<h2 id="exercise-temperature-data-collection-system"><a class="header" href="#exercise-temperature-data-collection-system">Exercise: Temperature Data Collection System</a></h2>
-<p><strong>Time Budget: 30 minutes</strong></p>
-<p>Build an embedded data collection system that stores and analyzes temperature readings.</p>
-<h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
-<ol>
-<li><strong>Temperature Type</strong>: Create efficient embedded temperature representation</li>
-<li><strong>Circular Buffer</strong>: Fixed-capacity storage with automatic oldest-data replacement</li>
-<li><strong>Statistics</strong>: Real-time calculation of min, max, average</li>
-<li><strong>Configuration</strong>: Compile-time system parameters</li>
-<li><strong>Memory Efficiency</strong>: Minimize RAM usage while maintaining functionality</li>
-</ol>
-<h3 id="starting-project-structure"><a class="header" href="#starting-project-structure">Starting Project Structure</a></h3>
-<p>Create new module files:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/temperature.rs
+}
+
+# Exercise: Temperature Data Collection System
+
+
+Build an embedded data collection system that stores and analyzes temperature readings.
+
+## Requirements
+
+1. **Temperature Type**: Create efficient embedded temperature representation
+2. **Circular Buffer**: Fixed-capacity storage with automatic oldest-data replacement
+3. **Statistics**: Real-time calculation of min, max, average
+4. **Configuration**: Compile-time system parameters
+5. **Memory Efficiency**: Minimize RAM usage while maintaining functionality
+
+## Starting Project Structure
+
+Create new module files:
+
+```rust
+// src/temperature.rs
 #![no_std]
 
 use core::fmt;
@@ -681,7 +823,7 @@ impl Temperature {
     }
 
     pub const fn is_overheating(&amp;self) -&gt; bool {
-        // TODO: Check if temperature &gt; 50°C
+        // TODO: Check if temperature &gt; 100°C
         unimplemented!()
     }
 }
@@ -713,8 +855,7 @@ pub struct TemperatureStats {
     pub average: Temperature,
     pub min: Temperature,
     pub max: Temperature,
-}
-<span class="boring">}</span></code></pre></pre>
+}</code></pre></pre>
 <pre><pre class="playground"><code class="language-rust">// src/main.rs
 #![no_std]
 #![no_main]
@@ -743,16 +884,16 @@ fn main() -&gt; ! {
 <h3 id="implementation-tasks"><a class="header" href="#implementation-tasks">Implementation Tasks</a></h3>
 <ol>
 <li>
-<p><strong>Efficient Temperature Type</strong> (8 minutes):</p>
+<p><strong>Efficient Temperature Type</strong>:</p>
 <ul>
 <li>Use <code>i16</code> to store temperature * 10 (0.1°C resolution)</li>
 <li>Implement <code>from_celsius()</code> and <code>celsius()</code> conversion</li>
-<li>Add <code>is_overheating()</code> check for &gt; 50°C</li>
+<li>Add <code>is_overheating()</code> check for &gt; 100°C</li>
 <li>Implement <code>Display</code> trait for printing</li>
 </ul>
 </li>
 <li>
-<p><strong>Circular Buffer Implementation</strong> (12 minutes):</p>
+<p><strong>Circular Buffer Implementation</strong>:</p>
 <ul>
 <li>Use <code>heapless::Vec&lt;Temperature, N&gt;</code> for storage</li>
 <li>Implement <code>push()</code> with oldest-data replacement when full</li>
@@ -761,7 +902,7 @@ fn main() -&gt; ! {
 </ul>
 </li>
 <li>
-<p><strong>Statistics Calculation</strong> (8 minutes):</p>
+<p><strong>Statistics Calculation</strong>:</p>
 <ul>
 <li>Implement <code>min()</code>, <code>max()</code>, <code>average()</code> functions</li>
 <li>Create <code>TemperatureStats</code> struct</li>
@@ -770,7 +911,7 @@ fn main() -&gt; ! {
 </ul>
 </li>
 <li>
-<p><strong>Integration Testing</strong> (2 minutes):</p>
+<p><strong>Integration Testing</strong>:</p>
 <ul>
 <li>Build and flash to ESP32-C3</li>
 <li>Verify buffer behavior and statistics</li>
@@ -873,6 +1014,22 @@ esp_println::println!("  Total: {} bytes", BUFFER_SIZE + STATS_SIZE);
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

@@ -1,7 +1,7 @@
 # Chapter 13: Hardware Hello - ESP32-C3 Basics
 
 ## Learning Objectives
-By the end of this chapter, you'll be able to:
+This chapter covers:
 - Set up ESP32-C3 development environment
 - Understand the ESP32-C3 hardware capabilities and built-in sensors
 - Create your first embedded Rust program that blinks an LED
@@ -16,12 +16,12 @@ After learning Rust fundamentals, it's time to apply that knowledge to real hard
 - **Built-in temperature sensor** - No external components needed!
 - **USB Serial support** - Easy debugging and communication
 - **WiFi capability** - For IoT projects
-- **Rust-first tooling** - Excellent `esp-hal` and ecosystem support
+- **Rust-first tooling** - Good `esp-hal` and ecosystem support
 - **RISC-V architecture** - Modern, open-source instruction set
 
 **Why Start with Hardware?**
 
-Many embedded courses start with theory, but we're jumping straight into the exciting part - making real hardware do real things! This approach helps you:
+Many embedded courses start with theory, but we're jumping straight into practical work - making real hardware do real things. This approach helps you:
 - See immediate results (LED blinking, temperature readings)
 - Understand constraints early (memory, power, timing)
 - Build intuition for embedded programming patterns
@@ -201,8 +201,8 @@ fn main() -> ! {
         let temp_celsius = temperature.to_celsius();
         _reading_count += 1;
 
-        // LED feedback based on temperature threshold (52.2°C)
-        if temp_celsius > 52.2 {
+        // LED feedback based on temperature threshold (52°C)
+        if temp_celsius > 52.0 {
             // Fast blink pattern for high temperature
             led.set_high();
             let blink_start = Instant::now();
@@ -240,7 +240,7 @@ fn main() -> ! {
 - `get_temperature()` - Returns Temperature struct
 - `to_celsius()` - Converts to Celsius value
 - **No external wiring** - Sensor is built into the chip!
-- **Temperature threshold** - We use 52.2°C to trigger fast blinking (you can trigger this by touching the chip)
+- **Temperature threshold** - We use 52°C to trigger fast blinking (you can trigger this by touching the chip)
 
 **Data Flow:**
 ```
@@ -248,8 +248,8 @@ Hardware Sensor → ADC → Digital Value → Celsius Conversion → Your Code
 ```
 
 **LED Status Patterns:**
-- Normal temp (≤52.2°C): Single slow blink (200ms)
-- High temp (>52.2°C): Fast double blink pattern (3x100ms blinks)
+- Normal temp (≤52°C): Single slow blink (200ms)
+- High temp (>52°C): Fast double blink pattern (3x100ms blinks)
 
 ## Building and Running on Hardware
 
@@ -395,7 +395,6 @@ let temperature = temp_sensor.read_celsius()
 
 ## Exercise: Your First Temperature Monitor
 
-**Time Budget: 30 minutes**
 
 Build a basic temperature monitoring system with the ESP32-C3's built-in sensor.
 
@@ -448,7 +447,7 @@ fn main() -> ! {
 
 ### Implementation Tasks
 
-1. **Initialize Hardware** (5 minutes):
+1. **Initialize Hardware**:
    ```rust
    let peripherals = Peripherals::take();
    let system = SystemControl::new(peripherals.SYSTEM);
@@ -459,7 +458,7 @@ fn main() -> ! {
    let mut led = Output::new(io.pins.gpio8, Level::Low);
    ```
 
-2. **Configure Temperature Sensor** (5 minutes):
+2. **Configure Temperature Sensor**:
    ```rust
    let temp_config = TempSensorConfig::default();
    let mut temp_sensor = TemperatureSensor::new(
@@ -468,14 +467,14 @@ fn main() -> ! {
    );
    ```
 
-3. **Main Monitoring Loop** (15 minutes):
+3. **Main Monitoring Loop**:
    - Read temperature with `temp_sensor.read_celsius()`
    - Control LED: fast blink if >25°C, slow if ≤25°C
    - Print "Reading #N: Temperature = X.X°C"
    - Status summary every 10 readings
    - 2-second intervals between readings
 
-4. **Test on Hardware** (5 minutes):
+4. **Test on Hardware**:
    - Build and flash to ESP32-C3
    - Verify temperature readings and LED behavior
    - Try warming the chip with your finger
@@ -551,5 +550,100 @@ Reading #11: Temperature = 24.9°C
 ✅ **Type Safety**: Rust's ownership system prevents common embedded bugs even on bare metal
 
 ✅ **Immediate Feedback**: LED status and serial output provide instant verification of functionality
+
+## ESP32-C3 Troubleshooting Guide
+
+### Hardware Issues
+
+**Device Not Found / Flashing Fails:**
+- Check USB-C cable is properly connected
+- Try a different USB-C cable (some are power-only)
+- Press and hold BOOT button while connecting USB
+- Check device enumeration: `ls /dev/cu.*` (macOS) or `ls /dev/ttyUSB*` (Linux)
+- Install USB drivers if needed: `brew install --cask silicon-labs-vcp-driver` (macOS)
+
+**No Serial Output:**
+- Verify baud rate is 115200
+- Try different terminal: `screen /dev/cu.usbmodem* 115200`
+- Check if device is already open in another terminal
+- Press RESET button on ESP32-C3 to restart program
+
+**Sensor Readings Look Wrong:**
+- Temperature should be 20-40°C typically for room temperature
+- Very high values (>80°C) may indicate calibration issues
+- Try warming chip gently with finger to test responsiveness
+- Compare with room thermometer for validation
+
+### Software Issues
+
+**Build Errors:**
+```bash
+# Install required targets and tools
+rustup target add riscv32imc-unknown-none-elf
+cargo install cargo-espflash
+cargo install probe-rs --features cli
+
+# Update tools if outdated
+cargo install-update -a
+```
+
+**Linker Errors:**
+- Check Cargo.toml dependencies match examples exactly
+- Verify feature flags: `features = ["esp32c3", "unstable"]`
+- Clean and rebuild: `cargo clean && cargo build`
+
+**Runtime Panics:**
+- Check temperature sensor initialization succeeds
+- Verify GPIO pin 8 is available (built-in LED)
+- Add more delay if sensor readings fail intermittently
+
+**Performance Issues:**
+- Use `opt-level = "s"` in Cargo.toml for size optimization
+- Debug builds are very slow - always test with `--release`
+- Monitor memory usage if experiencing strange behavior
+
+### Development Tips
+
+**Faster Development Cycle:**
+- Use `cargo run --release` for combined build + flash + monitor
+- Keep one terminal open for monitoring, another for building
+- Save modified code before flashing (auto-save recommended)
+
+**Serial Monitoring:**
+```bash
+# Built-in monitoring
+cargo espflash monitor
+
+# External tools
+screen /dev/cu.usbmodem* 115200    # macOS/Linux
+picocom /dev/ttyUSB0 -b 115200     # Linux alternative
+
+# Exit screen: Ctrl+A then K, then Y
+```
+
+**When Things Go Wrong:**
+1. Try different USB cable/port
+2. Power cycle ESP32-C3 (unplug + replug)
+3. Press RESET button
+4. Clean build: `cargo clean`
+5. Check for conflicting cargo processes: `pkill cargo`
+
+### Common Error Messages
+
+**`espflash::connection_failed`:**
+- Device not in bootloader mode
+- Wrong serial port selected
+- Driver issues
+
+**`failed to parse elf`:**
+- Build failed but cargo didn't catch it
+- Run `cargo build` first to see actual error
+- Check target architecture matches
+
+**`timer not found`:**
+- Old esp-hal version - update dependencies
+- Feature flag mismatch in Cargo.toml
+
+If problems persist, check the [ESP32-C3 documentation](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/) and [esp-rs community](https://github.com/esp-rs).
 
 **Next**: In Chapter 14, we'll build proper data structures for storing and processing these temperature readings using embedded-friendly `no_std` patterns.

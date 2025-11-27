@@ -1,7 +1,7 @@
 # Chapter 16: Data & Communication
 
 ## Learning Objectives
-By the end of this chapter, you'll be able to:
+This chapter covers:
 - Use Serde for serialization in no_std embedded environments
 - Send structured temperature data as JSON over USB Serial
 - Implement efficient binary protocols with postcard
@@ -614,7 +614,8 @@ const BUFFER_SIZE: usize = 20;
 const SAMPLE_INTERVAL_MS: u64 = 1000; // 1 second
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("💥 SYSTEM PANIC: {}", info);
     loop {}
 }
 
@@ -758,6 +759,141 @@ cargo run --release --features embedded
 cargo build --release --target riscv32imc-unknown-none-elf --features embedded
 cargo espflash flash target/riscv32imc-unknown-none-elf/release/chapter16_communication
 ```
+
+## Exercise: JSON Temperature Communication System
+
+
+Build a complete JSON communication system for your temperature monitor.
+
+### Requirements
+
+1. **JSON Output**: Send temperature readings as JSON over serial every second
+2. **Command Processing**: Parse and respond to JSON commands
+3. **Status Reporting**: Provide system status via JSON
+4. **Statistics Export**: Export temperature statistics in JSON format
+5. **Error Handling**: Handle serialization errors gracefully
+
+### Starting Project Structure
+
+Create these files:
+
+```rust
+// src/temperature.rs - Add Serde support to existing types
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Temperature {
+    celsius_tenths: i16,
+}
+
+// TODO: Add Serde derives to TemperatureBuffer
+// TODO: Create TemperatureReading struct with timestamp
+```
+
+```rust
+// src/communication.rs - Create command/response system
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Command {
+    GetStatus,
+    GetLatestReading,
+    GetStats,
+    SetSampleRate { rate_hz: u8 },
+    Reset,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Response {
+    // TODO: Define response types
+}
+
+pub struct TemperatureComm {
+    // TODO: Implement communication handler
+}
+```
+
+### Implementation Tasks
+
+1. **Add Serde Support**:
+   - Add `Serialize, Deserialize` to Temperature struct
+   - Create TemperatureReading with timestamp
+   - Update Cargo.toml with serde dependencies
+
+2. **Create Command System**:
+   - Define Command enum for incoming commands
+   - Define Response enum for outgoing responses
+   - Implement command processing logic
+
+3. **JSON Communication**:
+   - Serialize responses to JSON strings
+   - Deserialize commands from JSON
+   - Handle serialization errors gracefully
+
+4. **Integration**:
+   - Update main loop to output JSON readings
+   - Add command demonstration
+   - Test JSON format with serial monitor
+
+### Success Criteria
+
+- [ ] Program compiles without warnings
+- [ ] Temperature readings output as valid JSON
+- [ ] Commands processed and responses sent as JSON
+- [ ] Statistics exported in JSON format
+- [ ] Serial output shows structured data
+- [ ] No panics on malformed input
+
+### Expected JSON Output
+
+```json
+🌡️ ESP32-C3 Temperature Monitor with Communication
+
+READING: {"Reading":{"temperature":{"celsius_tenths":523},"timestamp_ms":1000,"sensor_id":0}}
+STATUS: {"Status":{"uptime_ms":1000,"sample_rate_hz":1,"threshold_celsius":52.0,"buffer_usage":5}}
+STATS: {"Stats":{"count":5,"average":{"celsius_tenths":522},"min":{"celsius_tenths":520},"max":{"celsius_tenths":525}}}
+
+Command Response: {"SampleRateSet":2}
+```
+
+### Testing Commands
+
+```bash
+# Run tests first
+./test.sh
+
+# Build and flash
+cargo run --release
+
+# Monitor output
+cargo espflash monitor
+```
+
+You can test commands by sending JSON to the serial interface:
+- `"GetStatus"`
+- `{"SetSampleRate":{"rate_hz":2}}`
+- `"Reset"`
+
+### Extension Challenges
+
+1. **Command Input**: Read commands from serial input
+2. **Binary Protocol**: Compare JSON vs postcard serialization
+3. **Compression**: Implement message compression for efficiency
+4. **Authentication**: Add simple command authentication
+5. **Batch Operations**: Send multiple readings in one JSON message
+
+### Troubleshooting
+
+**Serialization Errors:**
+- Check that all types implement Serde traits
+- Ensure fixed-size strings for heapless compatibility
+- Use `serde-json-core` instead of `serde_json` for no_std
+
+**JSON Format Issues:**
+- Validate JSON with online tools
+- Use pretty-printing for debugging
+- Check string buffer sizes are sufficient
+
+**Memory Errors:**
+- Monitor stack usage during JSON operations
+- Use smaller buffer sizes if memory is limited
+- Consider streaming large responses
 
 ## Key Communication Patterns Learned
 

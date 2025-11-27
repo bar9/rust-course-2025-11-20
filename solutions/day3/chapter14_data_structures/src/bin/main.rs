@@ -44,7 +44,7 @@ impl Temperature {
     }
 
     const fn is_overheating(&self) -> bool {
-        self.celsius_tenths > 500  // > 50°C
+        self.celsius_tenths > 1000  // > 100°C
     }
 }
 
@@ -122,7 +122,8 @@ const BUFFER_SIZE: usize = 20;
 const SAMPLE_INTERVAL_MS: u64 = 1000; // 1 second
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("💥 SYSTEM PANIC: {}", info);
     loop {}
 }
 
@@ -168,7 +169,7 @@ fn main() -> ! {
 
         // LED status based on temperature
         if temperature.is_overheating() {
-            // Rapid triple blink for overheating (>50°C)
+            // Rapid triple blink for overheating (>100°C)
             for _ in 0..3 {
                 led.set_high();
                 let blink_start = Instant::now();

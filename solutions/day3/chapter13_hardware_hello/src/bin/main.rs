@@ -47,9 +47,9 @@ fn main() -> ! {
         let temp_celsius = temperature.to_celsius();
         _reading_count += 1;
 
-        // LED feedback based on temperature threshold (25°C)
-        if temp_celsius > 52.2 {
-            // Fast blink pattern for temperature > 25°C
+        // LED feedback based on temperature threshold (52°C)
+        if temp_celsius > 52.0 {
+            // Fast blink pattern for temperature > 52°C
             led.set_high();
             let blink_start = Instant::now();
             while blink_start.elapsed() < Duration::from_millis(100) {}
@@ -64,7 +64,7 @@ fn main() -> ! {
 
             led.set_low();
         } else {
-            // Slow single blink for temperature <= 25°C
+            // Slow single blink for temperature <= 52°C
             led.set_high();
             let blink_start = Instant::now();
             while blink_start.elapsed() < Duration::from_millis(200) {}

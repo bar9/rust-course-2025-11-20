@@ -1,7 +1,7 @@
 # Chapter 14: Embedded Foundations - no_std from the Start
 
 ## Learning Objectives
-By the end of this chapter, you'll be able to:
+This chapter covers:
 - Understand the difference between `core`, `alloc`, and `std` libraries
 - Create temperature data structures that work in embedded environments
 - Use heapless collections for fixed-capacity storage
@@ -139,7 +139,7 @@ impl Temperature {
 
     /// Check if temperature is too high (potential overheating)
     pub const fn is_overheating(&self) -> bool {
-        self.celsius_tenths > 500  // > 50°C
+        self.celsius_tenths > 1000  // > 100°C
     }
 }
 
@@ -370,8 +370,8 @@ impl SystemConfig {
     /// Temperature monitoring configuration
     pub const TEMP_SAMPLE_RATE_HZ: u32 = 1;  // 1 reading per second
     pub const TEMP_BUFFER_SIZE: usize = 60;  // 1 minute of readings
-    pub const TEMP_HIGH_THRESHOLD: f32 = 35.0; // 35°C warning threshold
-    pub const TEMP_CRITICAL_THRESHOLD: f32 = 50.0; // 50°C critical threshold
+    pub const TEMP_WARNING_THRESHOLD: f32 = 52.0; // 52°C warning threshold
+    pub const TEMP_CRITICAL_THRESHOLD: f32 = 100.0; // 100°C critical threshold
 
     /// Calculate timer interval for sampling rate
     pub const fn sample_interval_ms() -> u32 {
@@ -379,8 +379,8 @@ impl SystemConfig {
     }
 
     /// Create temperature thresholds at compile time
-    pub const fn high_threshold() -> Temperature {
-        Temperature::from_celsius(Self::TEMP_HIGH_THRESHOLD)
+    pub const fn warning_threshold() -> Temperature {
+        Temperature::from_celsius(Self::TEMP_WARNING_THRESHOLD)
     }
 
     pub const fn critical_threshold() -> Temperature {
@@ -402,7 +402,7 @@ const _: () = assert!(SystemConfig::TEMP_BUFFER_SIZE > 0);
 
 // Pre-computed constants (zero runtime cost)
 pub const SAMPLE_INTERVAL: u32 = SystemConfig::sample_interval_ms();
-pub const HIGH_TEMP: Temperature = SystemConfig::high_threshold();
+pub const WARNING_TEMP: Temperature = SystemConfig::warning_threshold();
 pub const CRITICAL_TEMP: Temperature = SystemConfig::critical_threshold();
 ```
 
@@ -453,7 +453,7 @@ impl Temperature {
     }
 
     const fn is_overheating(&self) -> bool {
-        self.celsius_tenths > 500  // > 50°C
+        self.celsius_tenths > 1000  // > 100°C
     }
 }
 
@@ -525,7 +525,8 @@ const BUFFER_SIZE: usize = 20;
 const SAMPLE_INTERVAL_MS: u64 = 1000; // 1 second
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("💥 SYSTEM PANIC: {}", info);
     loop {}
 }
 
@@ -569,7 +570,7 @@ fn main() -> ! {
 
         // LED status based on temperature
         if temperature.is_overheating() {
-            // Rapid triple blink for overheating (>50°C)
+            // Rapid triple blink for overheating (>100°C)
             for _ in 0..3 {
                 led.set_high();
                 let blink_start = Instant::now();
@@ -638,7 +639,6 @@ fn main() -> ! {
 
 ## Exercise: Temperature Data Collection System
 
-**Time Budget: 30 minutes**
 
 Build an embedded data collection system that stores and analyzes temperature readings.
 
@@ -678,7 +678,7 @@ impl Temperature {
     }
 
     pub const fn is_overheating(&self) -> bool {
-        // TODO: Check if temperature > 50°C
+        // TODO: Check if temperature > 100°C
         unimplemented!()
     }
 }
@@ -743,25 +743,25 @@ fn main() -> ! {
 
 ### Implementation Tasks
 
-1. **Efficient Temperature Type** (8 minutes):
+1. **Efficient Temperature Type**:
    - Use `i16` to store temperature * 10 (0.1°C resolution)
    - Implement `from_celsius()` and `celsius()` conversion
-   - Add `is_overheating()` check for > 50°C
+   - Add `is_overheating()` check for > 100°C
    - Implement `Display` trait for printing
 
-2. **Circular Buffer Implementation** (12 minutes):
+2. **Circular Buffer Implementation**:
    - Use `heapless::Vec<Temperature, N>` for storage
    - Implement `push()` with oldest-data replacement when full
    - Track total readings processed
    - Add `len()`, `capacity()`, `latest()` methods
 
-3. **Statistics Calculation** (8 minutes):
+3. **Statistics Calculation**:
    - Implement `min()`, `max()`, `average()` functions
    - Create `TemperatureStats` struct
    - Handle empty buffer case gracefully
    - Efficient integer-based calculations
 
-4. **Integration Testing** (2 minutes):
+4. **Integration Testing**:
    - Build and flash to ESP32-C3
    - Verify buffer behavior and statistics
    - Test with temperature changes

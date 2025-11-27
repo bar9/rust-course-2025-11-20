@@ -126,10 +126,10 @@
                         <a href="print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/bar9/rust-course-2025-11-20" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/introduction.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/bar9/rus    t-course-2025-11-20/edit/main/mdbook/src/introduction.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -226,25 +226,19 @@ rm -rf hello-rust
 <p>The toolchain for the ESP32-C3 (RISC-V architecture):</p>
 <pre><code class="language-bash">rustup target add riscv32imc-unknown-none-elf
 </code></pre>
-<h3 id="3-probe-rs-for-flashing-and-debugging"><a class="header" href="#3-probe-rs-for-flashing-and-debugging">3. probe-rs for Flashing and Debugging</a></h3>
-<p>probe-rs is the primary tool for flashing and debugging ESP32-C3 boards.</p>
+<h3 id="3-cargo-espflash-for-flashing"><a class="header" href="#3-cargo-espflash-for-flashing">3. cargo-espflash for Flashing</a></h3>
+<p>cargo-espflash is the recommended tool for flashing ESP32-C3 boards across all platforms.</p>
 <p><strong>Installation:</strong></p>
-<pre><code class="language-bash"># Install probe-rs
+<pre><code class="language-bash"># Install cargo-espflash
+cargo install cargo-espflash
+</code></pre>
+<h3 id="4-probe-rs-for-debugging-optional---linuxmacos"><a class="header" href="#4-probe-rs-for-debugging-optional---linuxmacos">4. probe-rs for Debugging (Optional - Linux/macOS)</a></h3>
+<p>probe-rs provides debugging capabilities and works best on Linux and macOS.</p>
+<p><strong>Installation (Optional):</strong></p>
+<pre><code class="language-bash"># Install probe-rs (optional, primarily for debugging)
 cargo install probe-rs --features cli
 </code></pre>
-<p><strong>Windows-Specific Setup:</strong></p>
-<ul>
-<li><strong>Driver Issue Fix</strong>: On Windows, you may need to switch the USB driver using <a href="https://zadig.akeo.ie/">Zadig</a>:
-<ol>
-<li>Download and run Zadig as administrator</li>
-<li>Connect your ESP32-C3 board via USB</li>
-<li>Select your ESP32-C3 device from the dropdown</li>
-<li>Choose “WinUSB” as the driver</li>
-<li>Click “Install Driver” or “Replace Driver”</li>
-</ol>
-</li>
-</ul>
-<h3 id="4-esp-generate-for-project-scaffolding"><a class="header" href="#4-esp-generate-for-project-scaffolding">4. esp-generate for Project Scaffolding</a></h3>
+<h3 id="5-esp-generate-for-project-scaffolding"><a class="header" href="#5-esp-generate-for-project-scaffolding">5. esp-generate for Project Scaffolding</a></h3>
 <p>Tool for creating no_std projects targeting ESP32 chips:</p>
 <pre><code class="language-bash">cargo install esp-generate
 </code></pre>
@@ -262,7 +256,7 @@ cd test-esp32c3
 </code></pre>
 </li>
 <li><strong>Flash to the board</strong>:
-<pre><code class="language-bash">probe-rs run --chip esp32c3 target/riscv32imc-unknown-none-elf/release/test-esp32c3
+<pre><code class="language-bash">cargo run --release
 </code></pre>
 </li>
 </ol>
@@ -287,35 +281,32 @@ cd test-esp32c3
 </ul>
 <h2 id="troubleshooting-esp32-c3-setup"><a class="header" href="#troubleshooting-esp32-c3-setup">Troubleshooting ESP32-C3 Setup</a></h2>
 <h3 id="common-issues-and-solutions"><a class="header" href="#common-issues-and-solutions">Common Issues and Solutions</a></h3>
-<p><strong>USB Driver Issues (Windows):</strong></p>
+<p><strong>Flashing Issues:</strong></p>
 <ul>
-<li>Error: “Failed to open the debug probe”</li>
-<li>Solution: Use Zadig to switch to WinUSB driver (see step 3 above)</li>
+<li>If cargo-espflash fails to detect the board, ensure the ESP32-C3 is connected via USB and the correct port is being used</li>
+</ul>
+<p><strong>Port Detection Issues:</strong></p>
+<ul>
+<li>On Windows: Check Device Manager for COM port assignments</li>
+<li>On Linux: Ensure user is in dialout group (see below)</li>
+<li>On macOS: Look for <code>/dev/cu.usbserial-*</code> or <code>/dev/cu.usbmodem*</code> devices</li>
 </ul>
 <p><strong>ESP32-C3 Chip Revision:</strong></p>
 <ul>
-<li>USB debugging requires ESP32-C3 chip revision 3 or newer</li>
+<li>Most ESP32-C3 boards work with cargo-espflash regardless of revision</li>
 <li>Check revision during flashing: Look for “Chip is ESP32-C3 (revision 3)” message</li>
-<li>For revision 1 and 2, consider using ESP-Prog for debugging</li>
-</ul>
-<p><strong>Timeout Errors:</strong></p>
-<ul>
-<li>If probe-rs times out, try using espflash as alternative:
-<pre><code class="language-bash">cargo install espflash
-espflash flash target/riscv32imc-unknown-none-elf/release/test-esp32c3
-</code></pre>
-</li>
 </ul>
 <p><strong>Permission Issues (Linux):</strong></p>
 <ul>
 <li>Add user to dialout group: <code>sudo usermod -a -G dialout $USER</code></li>
 <li>Log out and back in for changes to take effect</li>
 </ul>
-<h3 id="alternative-tools"><a class="header" href="#alternative-tools">Alternative Tools</a></h3>
-<p>If you encounter issues with probe-rs, you can use the traditional ESP-IDF toolchain:</p>
+<h3 id="alternative-debugging-tools"><a class="header" href="#alternative-debugging-tools">Alternative Debugging Tools</a></h3>
+<p>For advanced debugging beyond cargo-espflash:</p>
 <ul>
-<li>Install espflash: <code>cargo install espflash</code></li>
-<li>Use cargo-espflash for Cargo integration</li>
+<li><strong>probe-rs</strong>: Best on Linux/macOS for hardware debugging</li>
+<li><strong>ESP-IDF monitor</strong>: Traditional ESP toolchain option</li>
+<li><strong>Serial monitor</strong>: Use any serial terminal for basic output monitoring</li>
 </ul>
 <h2 id="resources"><a class="header" href="#resources">Resources</a></h2>
 <ul>
@@ -348,6 +339,22 @@ espflash flash target/riscv32imc-unknown-none-elf/release/test-esp32c3
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

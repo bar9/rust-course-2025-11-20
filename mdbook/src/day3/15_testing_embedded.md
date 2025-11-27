@@ -1,7 +1,7 @@
 # Chapter 15: Testing Embedded Code
 
 ## Learning Objectives
-By the end of this chapter, you'll be able to:
+This chapter covers:
 - Test no_std code on your desktop using conditional compilation
 - Create hardware abstraction layers (HAL) for testable embedded code
 - Write unit tests for temperature data structures and algorithms
@@ -742,7 +742,6 @@ impl<const N: usize> TemperatureBuffer<N> {
 
 ## Exercise: Add Comprehensive Testing
 
-**Time Budget: 25 minutes**
 
 Add a full test suite to your temperature monitoring code.
 
@@ -756,12 +755,12 @@ Add a full test suite to your temperature monitoring code.
 
 ### Tasks
 
-1. **Setup Test Environment** (5 minutes):
+1. **Setup Test Environment**:
    - Add conditional compilation for tests
    - Create `src/lib.rs` to expose modules for testing
    - Update `Cargo.toml` with test dependencies
 
-2. **Unit Tests for Temperature** (5 minutes):
+2. **Unit Tests for Temperature**:
    ```rust
    #[cfg(test)]
    mod tests {
@@ -784,7 +783,7 @@ Add a full test suite to your temperature monitoring code.
    }
    ```
 
-3. **Unit Tests for Buffer** (8 minutes):
+3. **Unit Tests for Buffer**:
    ```rust
    #[test]
    fn test_buffer_capacity_limits() {
@@ -802,12 +801,12 @@ Add a full test suite to your temperature monitoring code.
    }
    ```
 
-4. **Hardware Abstraction Tests** (5 minutes):
+4. **Hardware Abstraction Tests**:
    - Create mock sensor implementation
    - Test sensor trait with controlled data
    - Verify error handling
 
-5. **Run and Validate** (2 minutes):
+5. **Run and Validate**:
    - Execute test suite with `cargo test`
    - Verify all tests pass
    - Check test coverage

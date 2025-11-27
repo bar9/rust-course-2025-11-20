@@ -19,7 +19,6 @@ esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"], optional =
 esp-println = { version = "0.16", features = ["esp32c3"], optional = true }
 
 # Core dependencies
-critical-section = "1.2.0"
 heapless = "0.8"
 
 # Serialization
@@ -27,8 +26,11 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-json-core = "0.6"
 
 [features]
-default = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
-embedded = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+default = ["hardware"]
+hardware = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+simulation = []     # Use mock sensors instead of hardware
+verbose = []        # Enable detailed debug logging
+telemetry = []      # Extended monitoring capabilities
 
 
 [profile.dev]

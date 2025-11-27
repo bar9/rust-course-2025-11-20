@@ -126,10 +126,10 @@
                         <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/bar9/rust-course-2025-11-20" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/bar9/rust-course-2025-09-18/edit/main/mdbook/src/day3/18_complete_system.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/bar9/rus    t-course-2025-11-20/edit/main/mdbook/src/day3/18_complete_system.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
 
@@ -160,24 +160,32 @@
                     <main>
                         <h1 id="chapter-18-complete-temperature-monitor-system"><a class="header" href="#chapter-18-complete-temperature-monitor-system">Chapter 18: Complete Temperature Monitor System</a></h1>
 <h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
-<p>By the end of this chapter, you’ll be able to:</p>
+<p>This chapter covers:</p>
 <ul>
 <li>Demonstrate a complete, working embedded temperature monitoring system</li>
 <li>Understand the full architecture from hardware to application level</li>
 <li>Analyze system performance and resource utilization</li>
 <li>Plan future enhancements and deployment strategies</li>
 </ul>
-<h2 id="celebrating-your-achievement"><a class="header" href="#celebrating-your-achievement">Celebrating Your Achievement!</a></h2>
-<p>Congratulations! Over the past 6 chapters, you’ve built something remarkable:</p>
-<p><strong>🔥 From Zero to Production Embedded System</strong></p>
+<h2 id="task-advanced-features-and-extensions"><a class="header" href="#task-advanced-features-and-extensions">Task: Advanced Features and Extensions</a></h2>
+<p>This chapter explores advanced features and potential extensions for the temperature monitoring system.</p>
+<p><strong>Your Achievement:</strong>
+Over chapters 13-17, you built a production-ready embedded system from scratch:</p>
 <ul>
-<li><strong>Chapter 13</strong>: Started with blinking an LED and reading temperature</li>
-<li><strong>Chapter 14</strong>: Built memory-efficient data structures for embedded</li>
-<li><strong>Chapter 15</strong>: Added comprehensive testing strategies</li>
-<li><strong>Chapter 16</strong>: Implemented structured communication with JSON</li>
-<li><strong>Chapter 17</strong>: Integrated everything into a production-ready system</li>
+<li><strong>Chapter 13</strong>: Hardware interaction with ESP32-C3 and temperature sensor</li>
+<li><strong>Chapter 14</strong>: Memory-efficient data structures for embedded systems</li>
+<li><strong>Chapter 15</strong>: Comprehensive testing strategies for embedded code</li>
+<li><strong>Chapter 16</strong>: Structured communication with JSON serialization</li>
+<li><strong>Chapter 17</strong>: Production-ready integration with error handling</li>
 </ul>
-<p>You now have a <strong>complete IoT temperature monitoring device</strong> running on real hardware!</p>
+<p><strong>What’s Next:</strong></p>
+<ol>
+<li><strong>Performance analysis</strong> - Understand system resource usage</li>
+<li><strong>Advanced features</strong> - Explore additional capabilities</li>
+<li><strong>Deployment strategies</strong> - Production deployment considerations</li>
+<li><strong>Future enhancements</strong> - Ideas for extending the system</li>
+<li><strong>Career pathways</strong> - Next steps in embedded Rust development</li>
+</ol>
 <h2 id="what-youve-built-complete-system-overview"><a class="header" href="#what-youve-built-complete-system-overview">What You’ve Built: Complete System Overview</a></h2>
 <h3 id="hardware-foundation"><a class="header" href="#hardware-foundation">Hardware Foundation</a></h3>
 <pre><code>ESP32-C3 SoC @ 160MHz
@@ -475,23 +483,18 @@ struct CloudUploader {
 <li><strong>Cryptographic signing</strong>: Secure data transmission</li>
 <li><strong>Energy management</strong>: Battery operation support</li>
 </ul>
-<h2 id="what-youve-learned-the-embedded-rust-journey"><a class="header" href="#what-youve-learned-the-embedded-rust-journey">What You’ve Learned: The Embedded Rust Journey</a></h2>
-<h3 id="technical-skills-gained"><a class="header" href="#technical-skills-gained">Technical Skills Gained</a></h3>
-<p>✅ <strong>Hardware Programming</strong>: Direct register access, GPIO control, sensor interfaces
-✅ <strong>Memory Management</strong>: Zero-allocation patterns, efficient data structures
-✅ <strong>Real-time Systems</strong>: Deterministic timing, interrupt handling
-✅ <strong>Testing Strategies</strong>: Unit testing embedded code, hardware mocking
-✅ <strong>Communication Protocols</strong>: JSON serialization, structured data exchange
-✅ <strong>Build Systems</strong>: Cross-compilation, optimization, deployment</p>
-<h3 id="embedded-rust-advantages"><a class="header" href="#embedded-rust-advantages">Embedded Rust Advantages</a></h3>
-<p>✅ <strong>Memory Safety</strong>: No buffer overflows, null pointer dereferences, or use-after-free
-✅ <strong>Zero-cost Abstractions</strong>: High-level code with assembly-level performance
-✅ <strong>Fearless Concurrency</strong>: Safe shared data access without data races
-✅ <strong>Rich Type System</strong>: Compile-time guarantees about system behavior
-✅ <strong>Excellent Tooling</strong>: Cargo, testing, documentation, package management
-✅ <strong>Growing Ecosystem</strong>: Active community, improving HAL layers, better tooling</p>
+<h2 id="technical-overview"><a class="header" href="#technical-overview">Technical Overview</a></h2>
+<h3 id="core-concepts-covered"><a class="header" href="#core-concepts-covered">Core Concepts Covered</a></h3>
+<ul>
+<li><strong>Hardware Programming</strong>: Direct register access, GPIO control, sensor interfaces</li>
+<li><strong>Memory Management</strong>: Zero-allocation patterns, efficient data structures</li>
+<li><strong>Real-time Systems</strong>: Deterministic timing, interrupt handling</li>
+<li><strong>Testing Strategies</strong>: Unit testing embedded code, hardware mocking</li>
+<li><strong>Communication Protocols</strong>: JSON serialization, structured data exchange</li>
+<li><strong>Build Systems</strong>: Cross-compilation, optimization, deployment</li>
+</ul>
 <h3 id="from-here-to-production"><a class="header" href="#from-here-to-production">From Here to Production</a></h3>
-<p>Your temperature monitor demonstrates <strong>production-ready patterns</strong>:</p>
+<p>The temperature monitor demonstrates practical patterns:</p>
 <ol>
 <li><strong>Robust Error Handling</strong>: System continues operating despite individual failures</li>
 <li><strong>Resource Management</strong>: Efficient use of constrained memory and processing</li>
@@ -529,20 +532,19 @@ if let Some(command) = comm.parse_incoming_json() {
 }
 <span class="boring">}</span></code></pre></pre>
 <h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
-<p><strong>Congratulations! You’ve completed the embedded Rust journey!</strong></p>
-<p>🎉 <strong>What you built</strong>: A complete IoT temperature monitoring device
-🚀 <strong>Skills gained</strong>: Hardware-first embedded development with Rust
-💡 <strong>Next steps</strong>: Apply these patterns to your own embedded projects</p>
+<p>You have completed the embedded Rust course.</p>
+<p><strong>Project built</strong>: IoT temperature monitoring device
+<strong>Skills covered</strong>: Hardware-first embedded development with Rust
+<strong>Next steps</strong>: Apply these patterns to your own embedded projects</p>
 <p>Key takeaways:</p>
 <ul>
 <li><strong>Rust enables safe, efficient embedded programming</strong> without sacrificing performance</li>
 <li><strong>no_std development</strong> requires different patterns but offers predictable resource usage</li>
 <li><strong>Structured data and communication</strong> make embedded devices network-ready</li>
 <li><strong>Testing and modular design</strong> apply even in resource-constrained environments</li>
-<li><strong>The embedded Rust ecosystem</strong> provides excellent foundation for real projects</li>
+<li><strong>The embedded Rust ecosystem</strong> provides a solid foundation for real projects</li>
 </ul>
-<p>Your temperature monitor represents a <strong>foundation for countless IoT applications</strong>: environmental monitoring, industrial automation, smart home devices, wearable technology, and much more.</p>
-<p><strong>Welcome to the world of embedded Rust development!</strong> 🦀⚡🌡️</p>
+<p>The temperature monitor provides a foundation for IoT applications including environmental monitoring, industrial automation, smart home devices, and wearable technology.</p>
 <hr />
 <p><strong>Congratulations on completing Day 3: ESP32-C3 Embedded Systems with Rust!</strong></p>
 
@@ -575,6 +577,22 @@ if let Some(command) = comm.parse_incoming_json() {
 
         </div>
 
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
 
 
 

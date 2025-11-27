@@ -55,7 +55,7 @@ impl TemperatureComm {
     pub const fn new() -> Self {
         Self {
             sample_rate_hz: 1,
-            threshold_celsius: 35.0,
+            threshold_celsius: 52.0,
             start_time_ms: 0,
         }
     }
@@ -126,7 +126,7 @@ impl TemperatureComm {
             Command::Reset => {
                 self.start_time_ms = current_time_ms;
                 self.sample_rate_hz = 1;
-                self.threshold_celsius = 35.0;
+                self.threshold_celsius = 52.0;
                 Response::ResetComplete
             }
         }

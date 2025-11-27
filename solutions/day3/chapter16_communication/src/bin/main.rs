@@ -19,7 +19,8 @@ const BUFFER_SIZE: usize = 20;
 const SAMPLE_INTERVAL_MS: u64 = 1000; // 1 second
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("💥 SYSTEM PANIC: {}", info);
     loop {}
 }
 

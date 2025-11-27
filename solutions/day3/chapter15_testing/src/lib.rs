@@ -44,9 +44,9 @@ impl Temperature {
         self.celsius_tenths >= 150 && self.celsius_tenths <= 350
     }
 
-    /// Check if temperature is too high (potential overheating >50°C)
+    /// Check if temperature is too high (potential overheating >100°C)
     pub const fn is_overheating(&self) -> bool {
-        self.celsius_tenths > 500
+        self.celsius_tenths > 1000
     }
 }
 
@@ -280,7 +280,7 @@ mod tests {
         assert!(normal.is_normal_range());
         assert!(!normal.is_overheating());
 
-        let hot = Temperature::from_celsius(55.0);
+        let hot = Temperature::from_celsius(105.0);
         assert!(!hot.is_normal_range());
         assert!(hot.is_overheating());
 
@@ -525,8 +525,8 @@ mod integration_tests {
     #[test]
     fn test_overheating_detection() {
         let normal_temp = Temperature::from_celsius(25.0);
-        let hot_temp = Temperature::from_celsius(55.0);
-        let very_hot_temp = Temperature::from_celsius(75.0);
+        let hot_temp = Temperature::from_celsius(150.0);
+        let very_hot_temp = Temperature::from_celsius(175.0);
 
         assert!(!normal_temp.is_overheating());
         assert!(hot_temp.is_overheating());
