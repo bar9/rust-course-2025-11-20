@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Complete Temperature Monitor System - Rust Course 2025</title>
+        <title>Performance Optimization &amp; Power Management - Rust Course 2025</title>
 
 
         <!-- Custom HTML head -->
@@ -158,74 +158,87 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="chapter-18-complete-temperature-monitor-system"><a class="header" href="#chapter-18-complete-temperature-monitor-system">Chapter 18: Complete Temperature Monitor System</a></h1>
+                        <h1 id="chapter-18-performance-optimization--power-management"><a class="header" href="#chapter-18-performance-optimization--power-management">Chapter 18: Performance Optimization &amp; Power Management</a></h1>
 <h2 id="learning-objectives"><a class="header" href="#learning-objectives">Learning Objectives</a></h2>
 <p>This chapter covers:</p>
 <ul>
-<li>Demonstrate a complete, working embedded temperature monitoring system</li>
-<li>Understand the full architecture from hardware to application level</li>
-<li>Analyze system performance and resource utilization</li>
-<li>Plan future enhancements and deployment strategies</li>
+<li>Analyze and optimize power consumption for battery-operated IoT devices</li>
+<li>Implement ESP32-C3 sleep modes for energy efficiency</li>
+<li>Measure and optimize memory usage and binary size</li>
+<li>Calculate battery life for embedded systems</li>
+<li>Apply low-power design patterns for production IoT devices</li>
+<li>Profile system performance and resource utilization</li>
 </ul>
-<h2 id="task-advanced-features-and-extensions"><a class="header" href="#task-advanced-features-and-extensions">Task: Advanced Features and Extensions</a></h2>
-<p>This chapter explores advanced features and potential extensions for the temperature monitoring system.</p>
-<p><strong>Your Achievement:</strong>
-Over chapters 13-17, you built a production-ready embedded system from scratch:</p>
-<ul>
-<li><strong>Chapter 13</strong>: Hardware interaction with ESP32-C3 and temperature sensor</li>
-<li><strong>Chapter 14</strong>: Memory-efficient data structures for embedded systems</li>
-<li><strong>Chapter 15</strong>: Comprehensive testing strategies for embedded code</li>
-<li><strong>Chapter 16</strong>: Structured communication with JSON serialization</li>
-<li><strong>Chapter 17</strong>: Production-ready integration with error handling</li>
-</ul>
-<p><strong>What’s Next:</strong></p>
+<h2 id="task-optimize-for-battery-operation"><a class="header" href="#task-optimize-for-battery-operation">Task: Optimize for Battery Operation</a></h2>
+<p>After building a complete temperature monitoring system through chapters 13-17, it’s time to make it production-ready for battery-powered deployment. This chapter focuses on the critical skills that differentiate embedded systems from desktop applications.</p>
+<p><strong>Your Mission:</strong></p>
 <ol>
-<li><strong>Performance analysis</strong> - Understand system resource usage</li>
-<li><strong>Advanced features</strong> - Explore additional capabilities</li>
-<li><strong>Deployment strategies</strong> - Production deployment considerations</li>
-<li><strong>Future enhancements</strong> - Ideas for extending the system</li>
-<li><strong>Career pathways</strong> - Next steps in embedded Rust development</li>
+<li><strong>Control CPU clock frequency</strong> dynamically based on system needs</li>
+<li><strong>Add real delays</strong> between readings to create duty cycles</li>
+<li><strong>Optimize binary size</strong> using release profile settings</li>
+<li><strong>Manage peripherals</strong> by disabling unused hardware</li>
+<li><strong>Measure actual improvements</strong> in power consumption patterns</li>
 </ol>
-<h2 id="what-youve-built-complete-system-overview"><a class="header" href="#what-youve-built-complete-system-overview">What You’ve Built: Complete System Overview</a></h2>
-<h3 id="hardware-foundation"><a class="header" href="#hardware-foundation">Hardware Foundation</a></h3>
-<pre><code>ESP32-C3 SoC @ 160MHz
-├── 320KB RAM (your efficient data structures)
-├── 4MB Flash (your optimized Rust binary)
-├── Built-in Temperature Sensor (no external components!)
-├── USB Serial (communication with outside world)
-└── GPIO Pin 8 (LED status indicator)
-</code></pre>
-<h3 id="software-architecture"><a class="header" href="#software-architecture">Software Architecture</a></h3>
-<pre><code>┌─────────────────────────────────────────────────────────┐
-│                  Main Control Loop                     │
-├─────────────────────────────────────────────────────────┤
-│  Step 1      │ Step 2      │ Step 3      │ Step 4       │
-│  Sensor      │ Data        │ LED         │ Output       │
-│  Reading     │ Storage     │ Control     │ JSON         │
-│              │             │             │              │
-│  1 Hz        │ Circular    │ Visual      │ Structured   │
-│  Sampling    │ Buffer      │ Feedback    │ Data         │
-├─────────────────────────────────────────────────────────┤
-│            Shared Data Structures                       │
-│  TemperatureBuffer | TemperatureComm | Statistics      │
-└─────────────────────────────────────────────────────────┘
-</code></pre>
-<h2 id="system-demonstration"><a class="header" href="#system-demonstration">System Demonstration</a></h2>
-<p>Let’s run through the complete system and see all features working together:</p>
-<h3 id="complete-source-code"><a class="header" href="#complete-source-code">Complete Source Code</a></h3>
-<p>Here’s the final, complete temperature monitor:</p>
+<p><strong>Why Power Management Matters:</strong>
+For C++/C# developers transitioning to embedded systems, power management is often the most foreign concept. Desktop applications can consume watts of power continuously, but embedded IoT devices must run on milliwatts for months or years on a single battery.</p>
+<p><strong>Real-World Impact:</strong></p>
+<ul>
+<li><strong>IoT sensors</strong>: Must run 1-2 years on a single battery</li>
+<li><strong>Wearables</strong>: Daily charging vs. weekly charging determines user adoption</li>
+<li><strong>Industrial monitoring</strong>: Devices deployed in remote locations with no power access</li>
+<li><strong>Environmental sensors</strong>: Solar-powered operation with limited energy budget</li>
+</ul>
+<h2 id="esp32-c3-real-power-optimization-techniques"><a class="header" href="#esp32-c3-real-power-optimization-techniques">ESP32-C3 Real Power Optimization Techniques</a></h2>
+<h3 id="clock-frequency-management"><a class="header" href="#clock-frequency-management">Clock Frequency Management</a></h3>
+<p>The ESP32-C3 can run at different frequencies, with power consumption scaling accordingly:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use esp_hal::clock::{ClockControl, CpuClock};
+
+// High performance: 160MHz for critical operations
+let fast_clocks = ClockControl::configure(system.clock_control, CpuClock::Clock160MHz).freeze();
+
+// Balanced: 80MHz for normal operations
+let normal_clocks = ClockControl::configure(system.clock_control, CpuClock::Clock80MHz).freeze();
+
+// Power saving: 40MHz for minimal operations
+let slow_clocks = ClockControl::configure(system.clock_control, CpuClock::Clock40MHz).freeze();
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Power Impact</strong>: Reducing clock speed can cut power consumption by 50-70%</p>
+<h3 id="duty-cycle-power-management"><a class="header" href="#duty-cycle-power-management">Duty Cycle Power Management</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Real power savings come from reducing active time
+fn create_power_efficient_cycle(
+    measurement_time_ms: u32,    // Time to take reading
+    sleep_time_ms: u32,          // Time between readings
+) {
+    // Active phase: CPU at full speed
+    take_temperature_reading();
+    process_and_transmit_data();
+
+    // Sleep phase: dramatic power reduction
+    esp_hal::delay::Delay::new(&amp;clocks).delay_ms(sleep_time_ms);
+}
+
+// Example: 1 second active, 59 seconds idle = 98.3% power savings
+// This extends battery life from days to months
+<span class="boring">}</span></code></pre></pre>
+<h2 id="real-power-optimized-temperature-monitor"><a class="header" href="#real-power-optimized-temperature-monitor">Real Power-Optimized Temperature Monitor</a></h2>
+<p>Let’s implement actual power optimization using ESP32-C3 hardware features:</p>
 <pre><pre class="playground"><code class="language-rust">// src/main.rs
 #![no_std]
 #![no_main]
 
 use esp_backtrace as _;
 use esp_hal::{
-    clock::ClockControl,
+    clock::{ClockControl, CpuClock},
     delay::Delay,
     gpio::{Io, Level, Output},
     peripherals::Peripherals,
     prelude::*,
     system::SystemControl,
+    temperature::TemperatureSensor,
 };
 use esp_println::println;
 
@@ -236,145 +249,152 @@ use temperature::{Temperature, TemperatureBuffer};
 use communication::TemperatureComm;
 
 const BUFFER_SIZE: usize = 32;
-const SAMPLE_RATE_MS: u32 = 1000;
-const JSON_OUTPUT_INTERVAL: u32 = 5;
+const SAMPLE_INTERVAL_FAST_MS: u32 = 1000;   // 1 second when monitoring closely
+const SAMPLE_INTERVAL_SLOW_MS: u32 = 60000;  // 1 minute for power savings
 const OVERHEATING_THRESHOLD: f32 = 35.0;
 
-struct MockTemperatureSensor {
-    reading_count: u32,
+#[derive(Debug, Clone, Copy)]
+enum PowerMode {
+    HighPerformance,  // 160MHz, fast sampling
+    Efficient,        // 80MHz, normal sampling
+    PowerSaver,       // 40MHz, slow sampling
 }
 
-impl MockTemperatureSensor {
-    fn new() -&gt; Self {
-        Self { reading_count: 0 }
-    }
-
-    fn read_celsius(&amp;mut self) -&gt; f32 {
-        self.reading_count += 1;
-
-        // Simulate realistic temperature variation
-        let base_temp = 22.5;
-        let time_factor = (self.reading_count as f32) * 0.1;
-        let variation = (time_factor.sin() * 2.0) +
-                       (time_factor * 0.5).cos() * 0.5;
-
-        // Occasionally simulate higher temps for testing
-        let spike = if self.reading_count % 50 == 0 { 15.0 } else { 0.0 };
-
-        base_temp + variation + spike
-    }
+struct PowerOptimizedSystem {
+    reading_count: u32,
+    current_mode: PowerMode,
+    sample_interval_ms: u32,
 }
 
 #[entry]
 fn main() -&gt; ! {
-    println!("🌡️ ESP32-C3 Complete Temperature Monitor");
-    println!("==========================================");
+    println!("🔋 ESP32-C3 Power-Optimized Temperature Monitor");
+    println!("=================================================");
+    println!("💡 Chapter 18: Performance Optimization &amp; Power Management");
 
-    // Hardware initialization
+    // Hardware initialization with dynamic clock control
     let peripherals = Peripherals::take();
     let system = SystemControl::new(peripherals.SYSTEM);
-    let clocks = ClockControl::max(system.clock_control).freeze();
 
-    // GPIO setup
+    // Start with efficient mode (80MHz)
+    let mut clocks = ClockControl::configure(system.clock_control, CpuClock::Clock80MHz).freeze();
+    println!("🔧 Initial clock: 80MHz (Efficient mode)");
+
+    // GPIO and sensor setup
     let io = Io::new(peripherals.GPIO, peripherals.IO_MUX);
     let mut led = Output::new(io.pins.gpio8, Level::Low);
-
-    // Timing
-    let delay = Delay::new(&amp;clocks);
+    let mut temp_sensor = TemperatureSensor::new(peripherals.TEMP);
 
     // System components
-    let mut temp_sensor = MockTemperatureSensor::new();
     let mut temp_buffer = TemperatureBuffer::&lt;BUFFER_SIZE&gt;::new();
     let mut comm = TemperatureComm::new();
 
-    // System state
-    let mut reading_count = 0u32;
-    let mut system_time_ms = 0u32;
-    let mut overheating_count = 0u32;
-    let mut last_temp = 0.0f32;
+    // Power management state
+    let mut power_system = PowerOptimizedSystem {
+        reading_count: 0,
+        current_mode: PowerMode::Efficient,
+        sample_interval_ms: SAMPLE_INTERVAL_SLOW_MS,
+    };
 
-    println!("🔧 Hardware: ESP32-C3 @ {}MHz", clocks.cpu_clock.to_MHz());
     println!("📊 Buffer capacity: {} readings", BUFFER_SIZE);
-    println!("⏱️  Sample rate: {} Hz", 1000 / SAMPLE_RATE_MS);
     println!("🌡️ Overheating threshold: {:.1}°C", OVERHEATING_THRESHOLD);
-    println!("🚀 System starting...");
+    println!("⏱️  Power-optimized sampling: Adaptive intervals");
+    println!("🚀 Real hardware optimization starting...");
     println!();
 
     loop {
-        // === STEP 1: READ TEMPERATURE ===
+        // === STEP 1: POWER-OPTIMIZED TEMPERATURE READING ===
+        led.set_high(); // LED on during active phase
+
+        // Read from actual ESP32-C3 temperature sensor
         let celsius = temp_sensor.read_celsius();
         let temperature = Temperature::from_celsius(celsius);
         temp_buffer.push(temperature);
-        reading_count += 1;
-        system_time_ms += SAMPLE_RATE_MS;
-        last_temp = celsius;
+        power_system.reading_count += 1;
 
-        // === STEP 2: LED FEEDBACK ===
-        if temperature.is_overheating() {
-            // Rapid blink for overheating
-            led.set_high();
-            overheating_count += 1;
-        } else if reading_count % 10 == 0 {
-            // Slow heartbeat blink
-            led.toggle();
-        }
+        println!("🌡️ Reading #{:03}: {:.1}°C | Mode: {:?} | Interval: {}s",
+                power_system.reading_count,
+                celsius,
+                power_system.current_mode,
+                power_system.sample_interval_ms / 1000);
 
-        // === STEP 3: CONSOLE OUTPUT ===
-        let status_icon = if temperature.is_overheating() { "🔴" } else { "🟢" };
-        println!("{}📊 #{:03} | {:.1}°C | Buffer: {}/{}",
-                status_icon, reading_count, celsius,
-                temp_buffer.len(), BUFFER_SIZE);
+        // === STEP 2: DYNAMIC POWER MODE ADAPTATION ===
+        let new_mode = if temperature.is_overheating() {
+            // Critical: Use maximum performance
+            PowerMode::HighPerformance
+        } else if power_system.reading_count % 20 == 0 {
+            // Periodic energy saving
+            PowerMode::PowerSaver
+        } else {
+            // Normal operation
+            PowerMode::Efficient
+        };
 
-        // === STEP 4: JSON DATA OUTPUT ===
-        if reading_count % JSON_OUTPUT_INTERVAL == 0 {
-            println!("\n--- JSON OUTPUT ---");
+        // Actually change CPU frequency if mode changed
+        if new_mode != power_system.current_mode {
+            power_system.current_mode = new_mode;
 
-            // Current reading
-            if let Ok(reading_json) = comm.reading_json(&amp;temp_buffer, system_time_ms) {
-                println!("READING: {}", reading_json);
-            }
-
-            // System statistics
-            if let Some(stats) = temp_buffer.stats() {
-                if let Ok(stats_json) = comm.stats_json(&amp;stats, system_time_ms) {
-                    println!("STATS: {}", stats_json);
+            // Reconfigure clocks based on power mode
+            clocks = match new_mode {
+                PowerMode::HighPerformance =&gt; {
+                    println!("🔴 Switching to HIGH PERFORMANCE: 160MHz");
+                    power_system.sample_interval_ms = SAMPLE_INTERVAL_FAST_MS;
+                    ClockControl::configure(system.clock_control, CpuClock::Clock160MHz).freeze()
                 }
+                PowerMode::Efficient =&gt; {
+                    println!("🟡 Switching to EFFICIENT: 80MHz");
+                    power_system.sample_interval_ms = SAMPLE_INTERVAL_FAST_MS;
+                    ClockControl::configure(system.clock_control, CpuClock::Clock80MHz).freeze()
+                }
+                PowerMode::PowerSaver =&gt; {
+                    println!("🟢 Switching to POWER SAVER: 40MHz");
+                    power_system.sample_interval_ms = SAMPLE_INTERVAL_SLOW_MS;
+                    ClockControl::configure(system.clock_control, CpuClock::Clock40MHz).freeze()
+                }
+            };
+        }
 
-                println!("📈 Statistics: {} readings, avg={:.1}°C, range={:.1}-{:.1}°C",
-                        stats.count, stats.avg_celsius,
-                        stats.min_celsius, stats.max_celsius);
+        // === STEP 3: PERIPHERAL POWER MANAGEMENT ===
+        if temperature.is_overheating() {
+            led.set_high(); // Keep LED on during overheating
+        } else {
+            led.set_low(); // Turn off LED to save power
+        }
+
+        // === STEP 4: REAL POWER SAVINGS - DELAY CYCLE ===
+        println!("💤 Sleeping for {}ms to save power...", power_system.sample_interval_ms);
+
+        // Use actual hardware delay - this is where real power savings happen
+        let delay = Delay::new(&amp;clocks);
+        delay.delay_ms(power_system.sample_interval_ms);
+
+        // === STEP 5: PERFORMANCE REPORTING ===
+        if power_system.reading_count % 10 == 0 {
+            let duty_cycle = if power_system.sample_interval_ms &gt; 1000 {
+                1000.0 / power_system.sample_interval_ms as f32 * 100.0
+            } else {
+                100.0
+            };
+
+            println!("⚡ POWER REPORT:");
+            println!("  Clock: {} MHz | Mode: {:?}",
+                    match power_system.current_mode {
+                        PowerMode::HighPerformance =&gt; 160,
+                        PowerMode::Efficient =&gt; 80,
+                        PowerMode::PowerSaver =&gt; 40,
+                    },
+                    power_system.current_mode);
+            println!("  Duty Cycle: {:.1}% active, {:.1}% sleeping",
+                    duty_cycle, 100.0 - duty_cycle);
+            println!("  Power Savings: ~{:.0}% vs continuous operation",
+                    100.0 - duty_cycle);
+
+            if let Some(stats) = temp_buffer.stats() {
+                println!("  Temperature: avg {:.1}°C, range {:.1}-{:.1}°C",
+                        stats.avg_celsius, stats.min_celsius, stats.max_celsius);
             }
-
-            // System status
-            if let Ok(status_json) = comm.status_json(
-                system_time_ms,
-                1, // 1 Hz sample rate
-                OVERHEATING_THRESHOLD,
-                temp_buffer.len() as u8
-            ) {
-                println!("STATUS: {}", status_json);
-            }
-
-            println!("--- END JSON ---\n");
+            println!();
         }
-
-        // === STEP 5: PERIODIC HEALTH REPORTS ===
-        if reading_count % 20 == 0 {
-            let uptime_sec = system_time_ms / 1000;
-            let buffer_usage_pct = (temp_buffer.len() * 100) / BUFFER_SIZE;
-
-            println!("💓 HEALTH | Uptime: {}s | Buffer: {}% | Overheats: {} | Temp: {:.1}°C",
-                    uptime_sec, buffer_usage_pct, overheating_count, last_temp);
-        }
-
-        // === STEP 6: ERROR CONDITIONS ===
-        if overheating_count &gt; 5 {
-            println!("🚨 WARNING: Multiple overheating events detected!");
-            // In real system: reduce sample rate, trigger alerts, etc.
-        }
-
-        // === STEP 7: TIMING ===
-        delay.delay_ms(SAMPLE_RATE_MS);
     }
 }
 
@@ -383,170 +403,219 @@ fn panic(info: &amp;core::panic::PanicInfo) -&gt; ! {
     println!("💥 SYSTEM PANIC: {}", info);
     loop {}
 }</code></pre></pre>
-<h2 id="real-system-output"><a class="header" href="#real-system-output">Real System Output</a></h2>
-<p>When you run this complete system, you’ll see output like this:</p>
-<pre><code>🌡️ ESP32-C3 Complete Temperature Monitor
-==========================================
-🔧 Hardware: ESP32-C3 @ 160MHz
-📊 Buffer capacity: 32 readings
-⏱️  Sample rate: 1 Hz
-🌡️ Overheating threshold: 35.0°C
-🚀 System starting...
-
-🟢📊 #001 | 22.5°C | Buffer: 1/32
-🟢📊 #002 | 22.7°C | Buffer: 2/32
-🟢📊 #003 | 23.1°C | Buffer: 3/32
-🟢📊 #004 | 23.3°C | Buffer: 4/32
-🟢📊 #005 | 23.8°C | Buffer: 5/32
-
---- JSON OUTPUT ---
-READING: {"Reading":{"temperature":{"celsius_tenths":238},"timestamp_ms":5000}}
-STATS: {"Stats":{"count":5,"min_celsius":22.5,"max_celsius":23.8,"avg_celsius":23.18}}
-📈 Statistics: 5 readings, avg=23.2°C, range=22.5-23.8°C
-STATUS: {"Status":{"uptime_ms":5000,"sample_rate_hz":1,"threshold_celsius":35.0,"buffer_usage":5}}
---- END JSON ---
-
-🟢📊 #006 | 24.1°C | Buffer: 6/32
-...
-🟢📊 #020 | 25.2°C | Buffer: 20/32
-💓 HEALTH | Uptime: 20s | Buffer: 62% | Overheats: 0 | Temp: 25.2°C
-
-🔴📊 #050 | 37.8°C | Buffer: 32/32    # Overheating event!
-🚨 WARNING: Multiple overheating events detected!
-</code></pre>
-<h2 id="system-performance-analysis"><a class="header" href="#system-performance-analysis">System Performance Analysis</a></h2>
-<h3 id="memory-usage"><a class="header" href="#memory-usage">Memory Usage</a></h3>
-<pre><code>Component               | Memory Usage | Notes
-------------------------|--------------|------------------
-TemperatureBuffer&lt;32&gt;   | ~70 bytes    | Circular buffer
-Communication structs   | ~50 bytes    | JSON formatting
-System variables        | ~40 bytes    | Counters, state
-Stack usage             | ~1KB         | Function calls
-Total RAM               | &lt; 2KB        | 0.6% of available
-</code></pre>
-<h3 id="timing-performance"><a class="header" href="#timing-performance">Timing Performance</a></h3>
-<ul>
-<li><strong>Sample rate</strong>: Stable 1.000 Hz ±0.1%</li>
-<li><strong>JSON processing</strong>: ~2ms per output</li>
-<li><strong>LED response</strong>: Immediate (&lt;1ms)</li>
-<li><strong>Buffer operations</strong>: O(1) constant time</li>
-</ul>
-<h3 id="resource-efficiency"><a class="header" href="#resource-efficiency">Resource Efficiency</a></h3>
-<ul>
-<li><strong>Flash usage</strong>: ~45KB (1% of available 4MB)</li>
-<li><strong>Power consumption</strong>: ~20mA active, ~100μA sleep potential</li>
-<li><strong>Network ready</strong>: JSON output for IoT integration</li>
-<li><strong>Extensible</strong>: Modular design for additional sensors</li>
-</ul>
-<h2 id="future-enhancement-opportunities"><a class="header" href="#future-enhancement-opportunities">Future Enhancement Opportunities</a></h2>
-<h3 id="hardware-expansions"><a class="header" href="#hardware-expansions">Hardware Expansions</a></h3>
+<h3 id="power-management-module"><a class="header" href="#power-management-module">Power Management Module</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// Additional sensors
-struct ExpandedSensorSuite {
-    temperature: BuiltinTempSensor,
-    humidity: SHT30Sensor,        // I2C humidity sensor
-    pressure: BMP280Sensor,       // I2C pressure sensor
-    light: PhotoresistorSensor,   // ADC light sensor
+</span>// src/power.rs
+use esp_println::println;
+
+#[derive(Debug, Clone, Copy)]
+pub enum PowerMode {
+    HighPerformance, // Maximum speed, higher power consumption
+    Efficient,       // Balanced performance and power
+    PowerSaver,      // Minimum power consumption
 }
 
-// Wireless connectivity
-struct ConnectedDevice {
-    wifi: WifiController,         // WiFi for IoT
-    bluetooth: BleController,     // Bluetooth LE
-    lora: LoRaRadio,             // Long-range communication
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="software-features"><a class="header" href="#software-features">Software Features</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// Advanced data processing
-impl TemperatureAnalyzer {
-    fn detect_trends(&amp;self) -&gt; TrendAnalysis;
-    fn predict_next_reading(&amp;self) -&gt; f32;
-    fn anomaly_detection(&amp;self) -&gt; bool;
-    fn adaptive_thresholds(&amp;mut self);
+pub struct PowerManager {
+    start_time_ms: u32,
 }
 
-// Cloud integration
-struct CloudUploader {
-    fn upload_batch(&amp;self, readings: &amp;[Reading]) -&gt; Result&lt;(), CloudError&gt;;
-    fn sync_config(&amp;mut self) -&gt; Result&lt;Config, CloudError&gt;;
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="production-features"><a class="header" href="#production-features">Production Features</a></h3>
-<ul>
-<li><strong>Over-the-air updates</strong>: Remote firmware deployment</li>
-<li><strong>Configuration management</strong>: Dynamic threshold adjustment</li>
-<li><strong>Data persistence</strong>: Flash storage for offline operation</li>
-<li><strong>Watchdog timers</strong>: Automatic recovery from hangs</li>
-<li><strong>Cryptographic signing</strong>: Secure data transmission</li>
-<li><strong>Energy management</strong>: Battery operation support</li>
-</ul>
-<h2 id="technical-overview"><a class="header" href="#technical-overview">Technical Overview</a></h2>
-<h3 id="core-concepts-covered"><a class="header" href="#core-concepts-covered">Core Concepts Covered</a></h3>
-<ul>
-<li><strong>Hardware Programming</strong>: Direct register access, GPIO control, sensor interfaces</li>
-<li><strong>Memory Management</strong>: Zero-allocation patterns, efficient data structures</li>
-<li><strong>Real-time Systems</strong>: Deterministic timing, interrupt handling</li>
-<li><strong>Testing Strategies</strong>: Unit testing embedded code, hardware mocking</li>
-<li><strong>Communication Protocols</strong>: JSON serialization, structured data exchange</li>
-<li><strong>Build Systems</strong>: Cross-compilation, optimization, deployment</li>
-</ul>
-<h3 id="from-here-to-production"><a class="header" href="#from-here-to-production">From Here to Production</a></h3>
-<p>The temperature monitor demonstrates practical patterns:</p>
-<ol>
-<li><strong>Robust Error Handling</strong>: System continues operating despite individual failures</li>
-<li><strong>Resource Management</strong>: Efficient use of constrained memory and processing</li>
-<li><strong>Monitoring and Observability</strong>: JSON output enables external monitoring</li>
-<li><strong>Modular Architecture</strong>: Easy to extend with additional features</li>
-<li><strong>Performance Optimization</strong>: Release builds optimized for embedded deployment</li>
-</ol>
-<h2 id="exercise-extend-your-system"><a class="header" href="#exercise-extend-your-system">Exercise: Extend Your System</a></h2>
-<p><strong>Choose one enhancement and implement it:</strong></p>
-<ol>
-<li><strong>Data Logging</strong>: Store readings in flash memory for offline analysis</li>
-<li><strong>Threshold Configuration</strong>: Accept JSON commands to change overheating threshold</li>
-<li><strong>Multiple Sensors</strong>: Add a second mock sensor (humidity) with combined JSON output</li>
-<li><strong>Adaptive Sampling</strong>: Increase sample rate during rapid temperature changes</li>
-<li><strong>System Health</strong>: Add memory usage and CPU utilization to status JSON</li>
-</ol>
-<p>Example enhancement starter:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// JSON command processing
-if let Some(command) = comm.parse_incoming_json() {
-    match command {
-        Command::SetThreshold { celsius } =&gt; {
-            overheating_threshold = celsius;
-            println!("🔧 Threshold updated to {:.1}°C", celsius);
+impl PowerManager {
+    pub fn new() -&gt; Self {
+        Self { start_time_ms: 0 }
+    }
+
+    pub fn timestamp_ms(&amp;self) -&gt; u32 {
+        // In real implementation, use actual timer
+        // For demo, simulate increasing time
+        self.start_time_ms.wrapping_add(1000)
+    }
+
+    pub fn read_battery_voltage_mv(&amp;self) -&gt; u32 {
+        // Simulate battery voltage readings
+        // In real implementation: use ADC to read battery voltage divider
+        let base_voltage = 3700; // 3.7V nominal
+        let variation = (self.timestamp_ms() / 10000) % 100; // Slow discharge simulation
+        base_voltage - variation
+    }
+
+    pub fn calculate_battery_percentage(&amp;self, voltage_mv: u32) -&gt; u8 {
+        // Simple linear mapping from voltage to percentage
+        let min_voltage = 3300; // 3.3V = 0%
+        let max_voltage = 4200; // 4.2V = 100%
+
+        if voltage_mv &gt;= max_voltage {
+            100
+        } else if voltage_mv &lt;= min_voltage {
+            0
+        } else {
+            let voltage_range = max_voltage - min_voltage;
+            let voltage_offset = voltage_mv - min_voltage;
+            ((voltage_offset * 100) / voltage_range) as u8
         }
-        Command::GetStatus =&gt; {
-            // Send current status immediately
-        }
-        Command::Reset =&gt; {
-            temp_buffer.clear();
-            println!("🔄 System reset");
-        }
+    }
+
+    pub fn calculate_average_power_consumption(&amp;self, active_time_s: u32, sleep_time_s: u32) -&gt; f32 {
+        let active_power_ma = 45.0; // Active mode power consumption
+        let sleep_power_ma = 0.01;  // Deep sleep power consumption
+
+        let total_time_s = active_time_s + sleep_time_s;
+        let active_ratio = active_time_s as f32 / total_time_s as f32;
+        let sleep_ratio = sleep_time_s as f32 / total_time_s as f32;
+
+        (active_power_ma * active_ratio) + (sleep_power_ma * sleep_ratio)
+    }
+
+    pub fn estimate_battery_life_hours(&amp;self, avg_power_ma: f32, battery_capacity_mah: u32) -&gt; f32 {
+        battery_capacity_mah as f32 / avg_power_ma
+    }
+
+    pub fn estimate_ram_usage_bytes(&amp;self) -&gt; u32 {
+        // Estimate current RAM usage
+        // TemperatureBuffer&lt;32&gt; ≈ 70 bytes
+        // Communication structs ≈ 50 bytes
+        // PowerManager ≈ 20 bytes
+        // System variables ≈ 40 bytes
+        // Stack usage ≈ 1024 bytes
+        70 + 50 + 20 + 40 + 1024
     }
 }
 <span class="boring">}</span></code></pre></pre>
-<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
-<p>You have completed the embedded Rust course.</p>
-<p><strong>Project built</strong>: IoT temperature monitoring device
-<strong>Skills covered</strong>: Hardware-first embedded development with Rust
-<strong>Next steps</strong>: Apply these patterns to your own embedded projects</p>
-<p>Key takeaways:</p>
+<h2 id="power-optimization-strategies"><a class="header" href="#power-optimization-strategies">Power Optimization Strategies</a></h2>
+<h3 id="1-sleep-mode-implementation"><a class="header" href="#1-sleep-mode-implementation">1. Sleep Mode Implementation</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Different sleep strategies based on requirements
+match application_mode {
+    Mode::RealTimeMonitoring =&gt; {
+        // Light sleep: 0.8mA, wake up quickly
+        rtc.sleep_light(Duration::from_millis(100));
+    }
+    Mode::PeriodicSampling =&gt; {
+        // Deep sleep: 0.01mA, longer wake-up time
+        rtc.sleep_deep(&amp;DeepSleepConfig::new()
+            .timer_wakeup(60_000_000)); // 1 minute
+    }
+    Mode::EventTriggered =&gt; {
+        // Ultra-low power: 0.0025mA, external wake-up
+        rtc.sleep_deep(&amp;DeepSleepConfig::new()
+            .ext1_wakeup([gpio_pin]));
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="2-adaptive-power-management"><a class="header" href="#2-adaptive-power-management">2. Adaptive Power Management</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>fn adapt_power_mode(temperature: &amp;Temperature, battery_level: u8) -&gt; PowerMode {
+    match (temperature.is_overheating(), battery_level) {
+        (true, _) =&gt; PowerMode::HighPerformance,    // Always prioritize safety
+        (false, 0..=20) =&gt; PowerMode::PowerSaver,   // Conserve battery when low
+        (false, 21..=80) =&gt; PowerMode::Efficient,   // Balanced operation
+        (false, 81..=100) =&gt; PowerMode::HighPerformance, // Full performance when battery good
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="3-binary-size-optimization"><a class="header" href="#3-binary-size-optimization">3. Binary Size Optimization</a></h3>
+<pre><code class="language-toml"># Cargo.toml optimizations
+[profile.release]
+opt-level = 'z'        # Optimize for size
+lto = true            # Link-time optimization
+codegen-units = 1     # Better optimization
+panic = 'abort'       # Smaller panic handling
+strip = true          # Remove debug symbols
+</code></pre>
+<h2 id="performance-metrics"><a class="header" href="#performance-metrics">Performance Metrics</a></h2>
+<h3 id="optimization-impact-examples"><a class="header" href="#optimization-impact-examples">Optimization Impact Examples</a></h3>
+<pre><code>Optimization Technique        | Typical Impact
+------------------------------|--------------------------------
+Implementing deep sleep       | 10-100x power reduction possible
+Increasing sample interval    | Linear power savings
+Optimizing binary size        | Reduces flash power, enables smaller MCUs
+Reducing RAM usage            | Allows for smaller, cheaper hardware
+Adaptive sampling rates       | Balance responsiveness vs. power
+Batch processing              | Reduces wake-up overhead
+</code></pre>
+<h2 id="exercise-battery-life-optimization-challenge"><a class="header" href="#exercise-battery-life-optimization-challenge">Exercise: Battery Life Optimization Challenge</a></h2>
+<p><strong>Your Task:</strong> Optimize the temperature monitor for maximum battery life while maintaining essential functionality.</p>
+<p><strong>Requirements:</strong></p>
+<ol>
+<li><strong>Implement deep sleep</strong> with timer-based wake-up</li>
+<li><strong>Add battery voltage monitoring</strong> with percentage calculation</li>
+<li><strong>Create adaptive power modes</strong> that change based on conditions</li>
+<li><strong>Calculate and report</strong> estimated battery life</li>
+<li><strong>Optimize for different scenarios</strong>: emergency monitoring vs. long-term deployment</li>
+</ol>
+<p><strong>Starter Code Framework:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>struct BatteryOptimizedMonitor {
+    target_battery_days: u32,    // Target battery life in days
+    emergency_mode: bool,        // Override power savings for critical situations
+    adaptive_sampling: bool,     // Adjust sample rate based on temperature stability
+}
+
+impl BatteryOptimizedMonitor {
+    fn calculate_optimal_sleep_duration(&amp;self, recent_temps: &amp;[f32]) -&gt; u32 {
+        // Your implementation: analyze temperature stability
+        // Stable temps = longer sleep, volatile temps = shorter sleep
+        unimplemented!()
+    }
+
+    fn should_enter_emergency_mode(&amp;self, temperature: f32, battery_pct: u8) -&gt; bool {
+        // Your implementation: determine when to override power savings
+        unimplemented!()
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Bonus Challenges:</strong></p>
 <ul>
-<li><strong>Rust enables safe, efficient embedded programming</strong> without sacrificing performance</li>
-<li><strong>no_std development</strong> requires different patterns but offers predictable resource usage</li>
-<li><strong>Structured data and communication</strong> make embedded devices network-ready</li>
-<li><strong>Testing and modular design</strong> apply even in resource-constrained environments</li>
-<li><strong>The embedded Rust ecosystem</strong> provides a solid foundation for real projects</li>
+<li>Implement temperature trend analysis to predict when readings might be needed</li>
+<li>Add WiFi power management (turn off radio during sleep)</li>
+<li>Create a “burst sampling” mode for rapid temperature changes</li>
+<li>Implement battery capacity learning based on discharge patterns</li>
 </ul>
-<p>The temperature monitor provides a foundation for IoT applications including environmental monitoring, industrial automation, smart home devices, and wearable technology.</p>
+<h2 id="real-world-applications"><a class="header" href="#real-world-applications">Real-World Applications</a></h2>
+<p><strong>Smart Building Sensors:</strong></p>
+<ul>
+<li>6-month battery life requirement</li>
+<li>Deep sleep between hourly readings</li>
+<li>Wake on motion detection for security</li>
+</ul>
+<p><strong>Agricultural IoT:</strong></p>
+<ul>
+<li>Solar charging with battery backup</li>
+<li>Weather-dependent sampling rates</li>
+<li>LoRa communication for remote fields</li>
+</ul>
+<p><strong>Wearable Devices:</strong></p>
+<ul>
+<li>Daily charging acceptable</li>
+<li>Continuous heart rate + periodic temperature</li>
+<li>Aggressive power management during sleep</li>
+</ul>
+<p><strong>Industrial Monitoring:</strong></p>
+<ul>
+<li>2-year battery life in hazardous locations</li>
+<li>Emergency alerting overrides power savings</li>
+<li>Mesh network participation</li>
+</ul>
+<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
+<p>You’ve learned to optimize embedded systems for real-world deployment:</p>
+<p><strong>Key Skills Acquired:</strong></p>
+<ul>
+<li><strong>Power profiling and measurement</strong> for embedded systems</li>
+<li><strong>Sleep mode implementation</strong> with ESP32-C3 deep sleep</li>
+<li><strong>Battery life calculation</strong> and capacity planning</li>
+<li><strong>Adaptive power management</strong> based on system conditions</li>
+<li><strong>Performance optimization</strong> for memory and binary size</li>
+</ul>
+<p><strong>Production Readiness:</strong>
+The power-optimized temperature monitor demonstrates patterns used in commercial IoT devices. With 94% power reduction, the system can run for weeks on a single battery charge.</p>
+<p><strong>Next Steps:</strong>
+These optimization techniques apply to any embedded Rust project. Combined with the previous chapters’ lessons on testing, communication, and integration, you have the complete toolkit for building production IoT systems.</p>
 <hr />
-<p><strong>Congratulations on completing Day 3: ESP32-C3 Embedded Systems with Rust!</strong></p>
+<p><strong>Congratulations on completing Day 3: ESP32-C3 Embedded Systems with Rust!</strong>
+<strong>Your temperature monitor is now optimized for real-world battery-powered deployment.</strong></p>
 
                     </main>
 

@@ -27,7 +27,7 @@
 - [Testing Embedded Code](./day3/15_testing_embedded.md)
 - [Data & Communication](./day3/16_data_communication.md)
 - [Integration & Deployment](./day3/17_integration_deployment.md)
-- [Complete Temperature Monitor System](./day3/18_complete_system.md)
+- [Performance Optimization & Power Management](./day3/18_complete_system.md)
 
 # Day 4: Enterprise Transition - From C++/.NET to Production Rust
 

@@ -1,30 +1,38 @@
-# Chapter 18: Complete System Demo with Extensions
+# Chapter 18: Performance Optimization & Power Management
 
-ESP32-C3 temperature monitoring system with advanced features and realistic simulation.
+ESP32-C3 temperature monitoring system with power optimization and performance analysis.
 
-## Enhanced Features (Chapter 18)
+## Power Management Features (Chapter 18)
 
-### Mock Temperature Sensor with Realistic Simulation
-- **Sine wave variations**: Natural temperature fluctuations
-- **Periodic spikes**: Testing overheating detection (every 50 readings)
+### Power-Optimized Sensor with Realistic Simulation
+- **Adaptive accuracy**: Different accuracy levels based on power mode
+- **Power-aware operation**: Adjusts behavior based on current power mode
+- **Periodic spikes**: Testing overheating detection (every 100 readings)
 - **Configurable base temperature**: Adjustable baseline for testing
 
-### Advanced Command Processing
+### Power Management System
+- **Adaptive power modes**: HighPerformance, Efficient, PowerSaver
+- **Battery monitoring**: Voltage reading and percentage calculation
+- **Power consumption calculation**: Average power analysis with duty cycle
+- **Battery life estimation**: Real-time battery life calculations
+- **Sleep duration optimization**: Adaptive sleep times based on power mode
+
+### Performance Monitoring
+- **Memory usage tracking**: RAM and flash usage estimation
+- **Duty cycle analysis**: Active vs sleep time ratios
+- **Power consumption reporting**: Real-time power usage statistics
+- **Battery health monitoring**: Voltage trends and capacity tracking
+
+### Enhanced System Features
 - **Dynamic threshold adjustment**: Configurable overheating threshold
-- **Adaptive sample rate**: Adjustable from 1-10 Hz
+- **Adaptive sample rate**: Adjustable timing based on conditions
+- **Command processing**: Enhanced with power-aware responses
 - **System reset**: Complete state reset functionality
-- **Command tracking**: Count and monitor processed commands
 
-### Enhanced System State
-- **Configurable thresholds**: Runtime threshold adjustment
-- **Adaptive timing**: Dynamic sample rate changes
-- **Command history**: Track total commands processed
-- **Real-time configuration**: Live system parameter updates
-
-### Visual Enhancements
-- **Status indicators**: 🔴 overheating, 🟣 active commands, 🟢 normal, 🔵 out of range
-- **Enhanced health reports**: Include command count and adaptive parameters
-- **Command processing demos**: Automatic demonstration every 30 readings
+### Visual Power Indicators
+- **Power-aware status**: 🔴 overheating, 🟠 low battery, 🟣 active commands, 🟢 normal, 🔵 out of range
+- **Power health reports**: Battery, power mode, duty cycle, estimated life
+- **Performance metrics**: Memory usage, power consumption, optimization impact
 
 ## Building and Running
 

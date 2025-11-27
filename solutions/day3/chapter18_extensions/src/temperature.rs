@@ -183,6 +183,11 @@ impl<const N: usize> TemperatureBuffer<N> {
         self.readings.clear();
         self.total_readings = 0;
     }
+
+    /// Get all readings as a slice
+    pub fn get_readings(&self) -> &[Temperature] {
+        &self.readings
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

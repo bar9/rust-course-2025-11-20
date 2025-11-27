@@ -15,6 +15,7 @@ path = "src/lib.rs"
 [dependencies]
 # Only include ESP dependencies when not testing
 esp-hal = { version = "1.0.0", features = ["esp32c3", "unstable"], optional = true }
+embedded-hal = "1.0"
 esp-bootloader-esp-idf = { version = "0.4.0", features = ["esp32c3"], optional = true }
 esp-println = { version = "0.16", features = ["esp32c3"], optional = true }
 
@@ -27,8 +28,9 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-json-core = "0.6"
 
 [features]
-default = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+default = ["esp-hal", "esp-println", "esp-bootloader-esp-idf", "tsens"]
 embedded = ["esp-hal", "esp-println", "esp-bootloader-esp-idf"]
+tsens = []
 
 
 [profile.dev]
