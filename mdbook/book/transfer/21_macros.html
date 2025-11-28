@@ -173,11 +173,8 @@
 </span>// This macro call
 println!("Hello, {}!", "world");
 
-// Expands to something like this
-::std::io::_print(::std::fmt::Arguments::new_v1(
-    &amp;["Hello, ", "!\n"],
-    &amp;[::std::fmt::ArgumentV1::new("world", ::std::fmt::Display::fmt)]
-));
+// Expands to something like this (simplified)
+std::io::_print(format_args!("Hello, {}!\n", "world"));
 <span class="boring">}</span></code></pre></pre>
 <h2 id="declarative-macros-with-macro_rules"><a class="header" href="#declarative-macros-with-macro_rules">Declarative Macros with <code>macro_rules!</code></a></h2>
 <h3 id="basic-syntax"><a class="header" href="#basic-syntax">Basic Syntax</a></h3>
@@ -350,7 +347,8 @@ optional_print!("Hello", "World");  // Hello World
         $a * $b
     };
     (power $base:expr, $exp:expr) =&gt; {
-        $base.pow($exp)
+        // For integer types, pow requires u32 as exponent
+        ($base as i32).pow($exp as u32)
     };
 }
 
@@ -380,72 +378,540 @@ let ages = hashmap! {
 };
 <span class="boring">}</span></code></pre></pre>
 <h2 id="procedural-macros"><a class="header" href="#procedural-macros">Procedural Macros</a></h2>
-<p>Procedural macros are more powerful but complex. They operate on token streams.</p>
+<p>Procedural macros are more powerful than declarative macros. They operate on token streams using Rust code.</p>
+<h3 id="setting-up-a-proc-macro-crate"><a class="header" href="#setting-up-a-proc-macro-crate">Setting Up a Proc Macro Crate</a></h3>
+<pre><code class="language-toml"># Cargo.toml
+[package]
+name = "my_macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true  # This makes it a proc macro crate
+
+[dependencies]
+syn = { version = "2.0", features = ["full", "extra-traits"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+</code></pre>
+<h3 id="the-three-essential-crates"><a class="header" href="#the-three-essential-crates">The Three Essential Crates</a></h3>
+<ol>
+<li><strong><code>proc-macro</code></strong> - Compiler’s API for procedural macros</li>
+<li><strong><code>proc-macro2</code></strong> - Wrapper that enables testing and better ergonomics</li>
+<li><strong><code>syn</code></strong> - Parsing Rust code into syntax trees</li>
+<li><strong><code>quote</code></strong> - Generating Rust code from syntax trees</li>
+</ol>
 <h3 id="function-like-macros"><a class="header" href="#function-like-macros">Function-like Macros</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// In Cargo.toml:
-// [lib]
-// proc-macro = true
-
+</span>// src/lib.rs
 use proc_macro::TokenStream;
+use quote::quote;
 
 #[proc_macro]
-pub fn make_answer(_item: TokenStream) -&gt; TokenStream {
-    "fn answer() -&gt; u32 { 42 }".parse().unwrap()
+pub fn make_answer(_input: TokenStream) -&gt; TokenStream {
+    let output = quote! {
+        fn answer() -&gt; u32 { 42 }
+    };
+    TokenStream::from(output)
 }
 
-// Usage:
+// Usage in another crate:
+use my_macros::make_answer;
+
 make_answer!();
-println!("{}", answer()); // 42
+assert_eq!(answer(), 42);
 <span class="boring">}</span></code></pre></pre>
 <h3 id="derive-macros"><a class="header" href="#derive-macros">Derive Macros</a></h3>
+<h4 id="basic-derive-macro"><a class="header" href="#basic-derive-macro">Basic Derive Macro</a></h4>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>#[proc_macro_derive(HelloMacro)]
-pub fn hello_macro_derive(input: TokenStream) -&gt; TokenStream {
-    // Parse the input tokens into a syntax tree
-    let ast = syn::parse(input).unwrap();
-    impl_hello_macro(&amp;ast)
+</span>// src/lib.rs
+use proc_macro::TokenStream;
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
+
+#[proc_macro_derive(MyDebug)]
+pub fn my_debug_derive(input: TokenStream) -&gt; TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &amp;input.ident;
+
+    let expanded = quote! {
+        impl std::fmt::Debug for #name {
+            fn fmt(&amp;self, f: &amp;mut std::fmt::Formatter&lt;'_&gt;) -&gt; std::fmt::Result {
+                write!(f, "{}(custom debug)", stringify!(#name))
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
 }
 
 // Usage:
-#[derive(HelloMacro)]
-struct Pancakes;
+#[derive(MyDebug)]
+struct Person {
+    name: String,
+    age: u32,
+}
 
-Pancakes::hello_macro(); // Hello, Macro! My name is Pancakes!
+let p = Person { name: "Alice".into(), age: 30 };
+println!("{:?}", p); // Person(custom debug)
+<span class="boring">}</span></code></pre></pre>
+<h4 id="derive-with-helper-attributes"><a class="header" href="#derive-with-helper-attributes">Derive with Helper Attributes</a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Derive macro with custom attributes
+#[proc_macro_derive(Builder, attributes(builder))]
+pub fn derive_builder(input: TokenStream) -&gt; TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &amp;input.ident;
+    let builder_name = syn::Ident::new(
+        &amp;format!("{}Builder", name),
+        name.span()
+    );
+
+    // Extract fields from struct
+    let fields = match &amp;input.data {
+        syn::Data::Struct(data) =&gt; &amp;data.fields,
+        _ =&gt; panic!("Builder can only be derived for structs"),
+    };
+
+    // Generate builder implementation
+    let builder_fields: Vec&lt;_&gt; = fields.iter().map(|f| {
+        let name = &amp;f.ident;
+        let ty = &amp;f.ty;
+        quote! {
+<span class="boring">            name: Option&lt;#ty&gt;
+</span>        }
+    }).collect();
+
+    let builder_methods = fields.iter().map(|f| {
+        let name = &amp;f.ident;
+        let ty = &amp;f.ty;
+        quote! {
+            pub fn #name(mut self, value: #ty) -&gt; Self {
+                self.#name = Some(value);
+                self
+            }
+        }
+    });
+
+    let build_fields = fields.iter().map(|f| {
+        let name = &amp;f.ident;
+        quote! {
+<span class="boring">            name: self.#name.expect(concat!(stringify!(#name), " is required"))
+</span>        }
+    });
+
+    // Create initial values for builder
+    let builder_init: Vec&lt;_&gt; = fields.iter().map(|f| {
+        let name = &amp;f.ident;
+        quote! {
+<span class="boring">            name: None
+</span>        }
+    }).collect();
+
+    let expanded = quote! {
+        pub struct #builder_name {
+<span class="boring">            (#builder_fields,)*
+</span>        }
+
+        impl #builder_name {
+<span class="boring">            (#builder_methods)*
+</span>
+            pub fn build(self) -&gt; #name {
+<span class="boring">                name {
+</span><span class="boring">                    (#build_fields,)*
+</span>                }
+            }
+        }
+
+        impl #name {
+            pub fn builder() -&gt; #builder_name {
+<span class="boring">                builder_name {
+</span><span class="boring">                    (#builder_init,)*
+</span>                }
+            }
+        }
+    };
+
+    TokenStream::from(expanded)
+}
+
+// Usage:
+#[derive(Builder)]
+struct Config {
+    host: String,
+    port: u16,
+    #[builder(default = "false")]
+    debug: bool,
+}
+
+let config = Config::builder()
+    .host("localhost".into())
+    .port(8080)
+    .build();
 <span class="boring">}</span></code></pre></pre>
 <h3 id="attribute-macros"><a class="header" href="#attribute-macros">Attribute Macros</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>#[proc_macro_attribute]
-pub fn route(args: TokenStream, input: TokenStream) -&gt; TokenStream {
-    // Transform the function based on arguments
-    input // Simplified
+</span>// Attribute macro for logging function calls
+use syn::parse_macro_input;
+
+#[proc_macro_attribute]
+pub fn logged(_args: TokenStream, input: TokenStream) -&gt; TokenStream {
+    let input_fn = parse_macro_input!(input as syn::ItemFn);
+    let fn_name = &amp;input_fn.sig.ident;
+    let fn_body = &amp;input_fn.block;
+    let fn_vis = &amp;input_fn.vis;
+    let fn_sig = &amp;input_fn.sig;
+
+    let output = quote! {
+<span class="boring">        fn_vis #fn_sig {
+</span>            println!("Calling function: {}", stringify!(#fn_name));
+            let result = #fn_body;
+            println!("Function {} completed", stringify!(#fn_name));
+            result
+        }
+    };
+
+    TokenStream::from(output)
 }
 
 // Usage:
-#[route(GET, "/")]
-fn index() -&gt; String {
-    "Hello World".to_string()
+#[logged]
+fn calculate(x: i32, y: i32) -&gt; i32 {
+    x + y
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="advanced-parsing-custom-syntax"><a class="header" href="#advanced-parsing-custom-syntax">Advanced: Parsing Custom Syntax</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use syn::{parse::{Parse, ParseStream}, Result};
+use syn::{Token, Ident, Expr};
+
+// Define custom syntax: name = value
+struct NameValue {
+    name: Ident,
+    equals: Token![=],
+    value: Expr,
+}
+
+impl Parse for NameValue {
+    fn parse(input: ParseStream) -&gt; Result&lt;Self&gt; {
+        Ok(NameValue {
+            name: input.parse()?,
+            equals: input.parse()?,
+            value: input.parse()?,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn config(input: TokenStream) -&gt; TokenStream {
+    let NameValue { name, value, .. } = parse_macro_input!(input as NameValue);
+
+    let output = quote! {
+        const #name: &amp;str = #value;
+    };
+
+    TokenStream::from(output)
+}
+
+// Usage:
+// Usage:
+// config!(DATABASE_URL = "postgresql://localhost/mydb");
+<span class="boring">}</span></code></pre></pre>
+<h2 id="publishing-and-using-macros"><a class="header" href="#publishing-and-using-macros">Publishing and Using Macros</a></h2>
+<h3 id="publishing-a-macro-crate"><a class="header" href="#publishing-a-macro-crate">Publishing a Macro Crate</a></h3>
+<h4 id="directory-structure"><a class="header" href="#directory-structure">Directory Structure</a></h4>
+<pre><code>my_macros/
+├── Cargo.toml
+├── src/
+│   └── lib.rs
+└── tests/
+    └── integration.rs
+</code></pre>
+<h4 id="main-crate-with-re-exports"><a class="header" href="#main-crate-with-re-exports">Main Crate with Re-exports</a></h4>
+<pre><code class="language-toml"># Cargo.toml for a crate that includes macros
+[package]
+name = "my_library"
+version = "0.1.0"
+
+[dependencies]
+my_library_macros = { version = "0.1.0", path = "./macros" }
+
+[features]
+default = ["derive"]
+derive = ["my_library_macros/derive"]
+</code></pre>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// src/lib.rs - Re-exporting macros
+// Re-export derive macros
+#[cfg(feature = "derive")]
+pub use my_library_macros::{MyTrait, Builder};
+
+// Re-export proc macros
+pub use my_library_macros::{config, logged};
+
+// The trait that the derive macro implements
+pub trait MyTrait {
+    fn my_method(&amp;self);
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="using-macros-from-other-crates"><a class="header" href="#using-macros-from-other-crates">Using Macros from Other Crates</a></h3>
+<pre><code class="language-toml"># Consumer's Cargo.toml
+[dependencies]
+# Using derive features
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+
+# Custom macro crate
+my_library = "0.1"
+</code></pre>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Using the macros
+use my_library::{MyTrait, Builder};
+use serde::{Serialize, Deserialize};
+
+#[derive(MyTrait, Builder, Serialize, Deserialize)]
+struct Data {
+    id: u32,
+    name: String,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="optional-dependencies-and-features"><a class="header" href="#optional-dependencies-and-features">Optional Dependencies and Features</a></h3>
+<pre><code class="language-toml"># Advanced Cargo.toml with optional macro features
+[package]
+name = "advanced_lib"
+version = "0.1.0"
+
+[dependencies]
+syn = { version = "2.0", optional = true }
+quote = { version = "1.0", optional = true }
+proc-macro2 = { version = "1.0", optional = true }
+
+# Optional macro dependencies
+[dependencies.advanced_lib_macros]
+version = "0.1.0"
+path = "./macros"
+optional = true
+
+[features]
+default = []
+derive = ["advanced_lib_macros", "syn", "quote", "proc-macro2"]
+full = ["derive"]
+
+# Documentation metadata
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+</code></pre>
+<h2 id="testing-procedural-macros"><a class="header" href="#testing-procedural-macros">Testing Procedural Macros</a></h2>
+<h3 id="unit-testing-with-proc-macro2"><a class="header" href="#unit-testing-with-proc-macro2">Unit Testing with <code>proc-macro2</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// tests/test_macro.rs
+use proc_macro2::TokenStream;
+use quote::quote;
+
+fn test_expansion(input: TokenStream) -&gt; TokenStream {
+    // Your macro logic here, using proc_macro2 types
+    quote! {
+        fn generated_function() {}
+    }
+}
+
+#[test]
+fn test_macro_expansion() {
+    let input = quote! {
+        struct TestStruct;
+    };
+
+    let output = test_expansion(input);
+    let expected = quote! {
+        fn generated_function() {}
+    };
+
+    assert_eq!(output.to_string(), expected.to_string());
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="integration-testing"><a class="header" href="#integration-testing">Integration Testing</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// tests/integration.rs
+// Assuming MyDerive generates a method called generated_method
+use my_macros::MyDerive;
+
+#[derive(MyDerive)]
+struct TestStruct {
+    field: String,
+}
+
+#[test]
+fn test_derive_works() {
+    let instance = TestStruct {
+        field: "test".into(),
+    };
+    // Test the generated code
+    instance.generated_method();
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="compile-time-testing-with-trybuild"><a class="header" href="#compile-time-testing-with-trybuild">Compile-time Testing with <code>trybuild</code></a></h3>
+<pre><code class="language-toml"># Cargo.toml
+[dev-dependencies]
+trybuild = "1.0"
+</code></pre>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// tests/compile_tests.rs
+#[test]
+fn tests() {
+    let t = trybuild::TestCases::new();
+    t.pass("tests/01-parse-struct.rs");
+    t.compile_fail("tests/02-invalid-syntax.rs");
 }
 <span class="boring">}</span></code></pre></pre>
 <h2 id="debugging-macros"><a class="header" href="#debugging-macros">Debugging Macros</a></h2>
-<h3 id="cargo-expand"><a class="header" href="#cargo-expand"><code>cargo expand</code></a></h3>
+<h3 id="using-cargo-expand"><a class="header" href="#using-cargo-expand">Using <code>cargo expand</code></a></h3>
 <pre><code class="language-bash"># Install cargo-expand
 cargo install cargo-expand
 
-# Expand macros in your code
+# Expand all macros
 cargo expand
+
+# Expand specific module
+cargo expand module::submodule
+
+# Expand specific test
+cargo expand --test test_name
+
+# Pretty print with syntax highlighting
+cargo expand --theme=GitHub
 </code></pre>
-<h3 id="debug-printing"><a class="header" href="#debug-printing">Debug Printing</a></h3>
+<h3 id="debug-printing-in-proc-macros"><a class="header" href="#debug-printing-in-proc-macros">Debug Printing in Proc Macros</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>macro_rules! debug_macro {
-    ($($tt:tt)*) =&gt; {
-        println!("Macro input: {}", stringify!($($tt)*));
-        // Your actual macro logic here
+</span>use proc_macro::TokenStream;
+use quote::quote;
+
+#[proc_macro]
+pub fn debug_tokens(input: TokenStream) -&gt; TokenStream {
+    // Print tokens during compilation
+    eprintln!("Input tokens: {:#?}", input);
+
+    let output = quote! {
+        // Generated code
     };
+
+    eprintln!("Output tokens: {}", output);
+    TokenStream::from(output)
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="using-syns-debug-features"><a class="header" href="#using-syns-debug-features">Using <code>syn</code>’s Debug Features</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Enable extra-traits for better debug output
+use syn::{parse_macro_input, DeriveInput};
+
+#[proc_macro_derive(MyMacro)]
+pub fn my_macro(input: TokenStream) -&gt; TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    // Debug print the parsed syntax tree
+    eprintln!("Parsed input: {:#?}", input);
+
+    // Your macro logic
+    TokenStream::from(quote! {})
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="advanced-metaprogramming-features"><a class="header" href="#advanced-metaprogramming-features">Advanced Metaprogramming Features</a></h2>
+<h3 id="const-generics-in-macros"><a class="header" href="#const-generics-in-macros">Const Generics in Macros</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>macro_rules! fixed_array {
+    ($t:ty; $size:expr) =&gt; {
+        [$t; $size]
+    };
+}
+
+type Array32 = fixed_array!(i32; 32);
+<span class="boring">}</span></code></pre></pre>
+<h3 id="type-level-programming"><a class="header" href="#type-level-programming">Type-level Programming</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Type state pattern with macros
+macro_rules! state_machine {
+    (
+        $name:ident {
+            states: [$($state:ident),+],
+            transitions: [
+                $($from:ident -&gt; $to:ident),+
+            ]
+        }
+    ) =&gt; {
+        $(struct $state;)+
+
+        struct $name&lt;State&gt; {
+            _state: std::marker::PhantomData&lt;State&gt;,
+        }
+
+        $(impl $name&lt;$from&gt; {
+            fn transition(self) -&gt; $name&lt;$to&gt; {
+                $name { _state: std::marker::PhantomData }
+            }
+        })+
+    };
+}
+
+state_machine! {
+    Door {
+        states: [Open, Closed, Locked],
+        transitions: [
+            Open -&gt; Closed,
+            Closed -&gt; Open,
+            Closed -&gt; Locked,
+            Locked -&gt; Closed
+        ]
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="compile-time-validation"><a class="header" href="#compile-time-validation">Compile-time Validation</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Macro that validates at compile time
+macro_rules! const_assert {
+    ($cond:expr) =&gt; {
+        const _: () = assert!($cond);
+    };
+}
+
+const_assert!(std::mem::size_of::&lt;u32&gt;() == 4);
+<span class="boring">}</span></code></pre></pre>
+<h3 id="generated-documentation"><a class="header" href="#generated-documentation">Generated Documentation</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Proc macro that generates documentation
+#[proc_macro_derive(Documented, attributes(doc_string))]
+pub fn derive_documented(input: TokenStream) -&gt; TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let name = &amp;input.ident;
+
+    // Extract doc string from attributes (simplified)
+    let doc_string = "Auto-generated documentation";
+
+    let output = quote! {
+        impl #name {
+            #[doc = #doc_string]
+            pub fn description(&amp;self) -&gt; &amp;'static str {
+<span class="boring">                doc_string
+</span>            }
+        }
+    };
+
+    TokenStream::from(output)
 }
 <span class="boring">}</span></code></pre></pre>
 <h2 id="common-patterns"><a class="header" href="#common-patterns">Common Patterns</a></h2>
@@ -465,11 +931,9 @@ cargo expand
 }
 
 let page = html! {
-    html {
-        body {
-            h1 { "Welcome" }
-            p { "Hello World" }
-        }
+    div {
+        h1 { "Welcome" }
+        p { "Hello World" }
     }
 };
 <span class="boring">}</span></code></pre></pre>
@@ -531,30 +995,92 @@ generate_tests!(
 );
 <span class="boring">}</span></code></pre></pre>
 <h2 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h2>
+<h3 id="macro-design"><a class="header" href="#macro-design">Macro Design</a></h3>
 <ul>
-<li><strong>Use declarative macros</strong> for simple code generation</li>
-<li><strong>Prefer functions</strong> when macros aren’t necessary</li>
-<li><strong>Test macro expansions</strong> with <code>cargo expand</code></li>
-<li><strong>Document macro usage</strong> clearly</li>
-<li><strong>Handle edge cases</strong> in pattern matching</li>
-<li><strong>Use meaningful names</strong> for macro parameters</li>
+<li><strong>Use declarative macros</strong> for simple pattern-based code generation</li>
+<li><strong>Use proc macros</strong> for complex AST manipulation</li>
+<li><strong>Prefer functions</strong> when runtime computation suffices</li>
+<li><strong>Make macros composable</strong> - design them to work well together</li>
+<li><strong>Provide good error messages</strong> using <code>syn::Error</code> and spans</li>
 </ul>
+<h3 id="error-handling-in-proc-macros"><a class="header" href="#error-handling-in-proc-macros">Error Handling in Proc Macros</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use syn::{Error, Result};
+use quote::quote;
+
+struct Config {
+    // Config fields
+}
+
+fn parse_attributes(attrs: &amp;[syn::Attribute]) -&gt; Result&lt;Config&gt; {
+    // Return informative errors with correct spans
+    let _attr = attrs.iter()
+        .find(|attr| attr.path().is_ident("my_attr"))
+        .ok_or_else(|| {
+            Error::new(
+                proc_macro2::Span::call_site(),
+                "missing required attribute #[my_attr]"
+            )
+        })?;
+    // ... parse and return Config
+    Ok(Config {})
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="performance-considerations"><a class="header" href="#performance-considerations">Performance Considerations</a></h3>
+<ul>
+<li><strong>Cache parsed data</strong> in proc macros when possible</li>
+<li><strong>Use <code>once_cell</code> or <code>lazy_static</code></strong> for expensive computations</li>
+<li><strong>Minimize dependencies</strong> in proc macro crates</li>
+<li><strong>Consider compile-time impact</strong> of complex macros</li>
+</ul>
+<h3 id="testing-strategy"><a class="header" href="#testing-strategy">Testing Strategy</a></h3>
+<ol>
+<li><strong>Unit test</strong> macro logic with <code>proc-macro2</code></li>
+<li><strong>Integration test</strong> actual macro usage</li>
+<li><strong>Compile-fail tests</strong> with <code>trybuild</code></li>
+<li><strong>Document examples</strong> that are tested by <code>cargo test</code></li>
+<li><strong>Benchmark</strong> compile-time impact for complex macros</li>
+</ol>
 <h2 id="when-to-use-macros"><a class="header" href="#when-to-use-macros">When to Use Macros</a></h2>
 <p>✅ <strong>Good for:</strong></p>
 <ul>
-<li>Reducing boilerplate code</li>
-<li>Creating DSLs</li>
-<li>Code that needs to run at compile time</li>
-<li>When you need the exact tokens/identifiers</li>
+<li>Reducing boilerplate code (derive macros)</li>
+<li>Creating DSLs (declarative macros)</li>
+<li>Compile-time code generation</li>
+<li>Working with exact tokens/identifiers</li>
+<li>Implementing traits for multiple types</li>
+<li>Build-time configuration</li>
+<li>Zero-cost abstractions</li>
 </ul>
 <p>❌ <strong>Avoid for:</strong></p>
 <ul>
-<li>Simple calculations (use functions)</li>
-<li>Type conversions (use traits)</li>
-<li>Logic that can be runtime</li>
+<li>Simple calculations (use const functions)</li>
+<li>Type conversions (use <code>From</code>/<code>Into</code> traits)</li>
+<li>Runtime logic (use regular functions)</li>
+<li>Complex business logic (harder to debug)</li>
+<li>When generics would suffice</li>
+</ul>
+<h2 id="macro-ecosystem"><a class="header" href="#macro-ecosystem">Macro Ecosystem</a></h2>
+<h3 id="popular-macro-crates"><a class="header" href="#popular-macro-crates">Popular Macro Crates</a></h3>
+<ul>
+<li><strong><code>serde</code></strong> - Serialization framework with derive macros</li>
+<li><strong><code>tokio</code></strong> - Async runtime with attribute macros</li>
+<li><strong><code>thiserror</code></strong> - Error type derivation</li>
+<li><strong><code>derive_more</code></strong> - Common trait derivations</li>
+<li><strong><code>paste</code></strong> - Token pasting in macros</li>
+<li><strong><code>quote</code></strong> - Quasi-quoting for code generation</li>
+</ul>
+<h3 id="resources-for-learning"><a class="header" href="#resources-for-learning">Resources for Learning</a></h3>
+<ul>
+<li><a href="https://danielkeep.github.io/tlborm/book/">The Little Book of Rust Macros</a></li>
+<li><a href="https://github.com/dtolnay/proc-macro-workshop">Procedural Macro Workshop</a></li>
+<li><a href="https://docs.rs/syn">syn documentation</a></li>
+<li><a href="https://docs.rs/quote">quote documentation</a></li>
+<li><a href="https://doc.rust-lang.org/cargo/reference/features.html">Cargo Book - Features</a></li>
 </ul>
 <hr />
-<p>Next: <a href="./24_unsafe_ffi.html">Chapter 24: Unsafe Rust &amp; FFI with Bindgen</a></p>
+<p>Next: <a href="./22_unsafe_ffi.html">Chapter 22: Unsafe Rust &amp; FFI with Bindgen</a></p>
 
                     </main>
 

@@ -1,629 +1,814 @@
-# Chapter 22: Unsafe Rust & FFI with Bindgen
+# Chapter 22: Unsafe Rust & FFI - Bridging Languages in Production
 
 ## Learning Objectives
-- Understand when and why to use unsafe Rust
-- Interface with C/C++ libraries using FFI
-- Use bindgen for automatic binding generation
-- Wrap unsafe code in safe abstractions
+- Master unsafe Rust and its safety contracts
+- Build bidirectional FFI bridges between Rust and C/C++
+- Integrate Rust into existing C/C++ build systems and vice versa
+- Understand FFI implications for reproducible builds and safety
+- Use modern tools: bindgen, cbindgen, cxx, and autocxx (2024)
 
-## When Unsafe is Necessary
+## Part 1: Unsafe Rust Foundations
 
-Unsafe Rust allows you to:
-1. Dereference raw pointers
-2. Call unsafe functions
-3. Access or modify mutable static variables
-4. Implement unsafe traits
-5. Access fields of unions
+### The Five Unsafe Superpowers (Rust 2024)
 
-### Common Use Cases
+Unsafe Rust enables:
+1. **Dereference raw pointers** - Direct memory access
+2. **Call unsafe functions/methods** - Including FFI functions
+3. **Access/modify mutable statics** - Global state management
+4. **Implement unsafe traits** - Like `Send` and `Sync`
+5. **Access union fields** - Memory reinterpretation
+
+### Modern Unsafe Patterns (2024 Edition)
 
 ```rust
-// 1. Interfacing with C libraries
+// 1. FFI with C libraries (now with safer extern blocks)
 extern "C" {
     fn strlen(s: *const c_char) -> size_t;
 }
 
-// 2. Performance-critical code
-unsafe fn fast_copy<T>(src: *const T, dst: *mut T, count: usize) {
-    std::ptr::copy_nonoverlapping(src, dst, count);
+// 2. SIMD and performance-critical code
+use std::arch::x86_64::*;
+
+unsafe fn fast_compare_simd(a: &[u8; 32], b: &[u8; 32]) -> bool {
+    let a_vec = _mm256_loadu_si256(a.as_ptr() as *const __m256i);
+    let b_vec = _mm256_loadu_si256(b.as_ptr() as *const __m256i);
+    let result = _mm256_cmpeq_epi8(a_vec, b_vec);
+    _mm256_movemask_epi8(result) == -1
 }
 
-// 3. Hardware register access
-unsafe fn read_register(addr: usize) -> u32 {
-    std::ptr::read_volatile(addr as *const u32)
+// 3. Zero-copy parsing with lifetime guarantees
+#[repr(C)]
+struct PacketHeader {
+    version: u8,
+    flags: u8,
+    length: u16,
 }
-```
 
-## Raw Pointers
-
-### Creating and Using Raw Pointers
-
-```rust
-fn raw_pointer_example() {
-    let mut num = 5;
-
-    // Create raw pointers
-    let r1 = &num as *const i32;
-    let r2 = &mut num as *mut i32;
-
-    unsafe {
-        println!("r1: {}", *r1);
-        *r2 = 10;
-        println!("r2: {}", *r2);
-    }
+unsafe fn parse_packet_zero_copy(data: &[u8]) -> &PacketHeader {
+    assert!(data.len() >= std::mem::size_of::<PacketHeader>());
+    &*(data.as_ptr() as *const PacketHeader)
 }
 ```
 
-### Pointer Arithmetic
+## Part 2: Calling C/C++ from Rust
 
-```rust
-unsafe fn pointer_arithmetic() {
-    let arr = [1, 2, 3, 4, 5];
-    let ptr = arr.as_ptr();
-
-    // Move to second element
-    let second = ptr.add(1);
-    println!("Second: {}", *second);
-
-    // Iterate using raw pointers
-    let mut current = ptr;
-    let end = ptr.add(arr.len());
-
-    while current < end {
-        println!("Value: {}", *current);
-        current = current.add(1);
-    }
-}
-```
-
-## FFI with C
-
-### Basic C Function Binding
+### Manual FFI Bindings
 
 ```rust
 use std::os::raw::{c_char, c_int, c_void};
 use std::ffi::{CString, CStr};
 
-// Modern Rust requires unsafe for extern blocks
-unsafe extern "C" {
-    fn printf(format: *const c_char, ...) -> c_int;
-    fn sqrt(x: f64) -> f64;
-    fn malloc(size: usize) -> *mut c_void;
-    fn free(ptr: *mut c_void);
-}
-
-fn call_c_functions() {
-    unsafe {
-        let result = sqrt(16.0);
-        println!("sqrt(16) = {}", result);
-
-        let format = CString::new("Hello from C: %d\n").unwrap();
-        printf(format.as_ptr(), 42);
-    }
-}
-```
-
-### Calling Rust from C
-
-```rust
-// Modern Rust requires unsafe attribute wrapper
-#[unsafe(no_mangle)]
-pub extern "C" fn add_numbers(a: i32, b: i32) -> i32 {
-    a + b
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn process_string(s: *const c_char) -> *mut c_char {
-    unsafe {
-        if s.is_null() {
-            return std::ptr::null_mut();
-        }
-
-        let c_str = CStr::from_ptr(s);
-        let rust_string = c_str.to_string_lossy().to_uppercase();
-        let c_string = CString::new(rust_string).unwrap();
-        c_string.into_raw()
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "C" fn free_string(s: *mut c_char) {
-    if !s.is_null() {
-        unsafe {
-            let _ = CString::from_raw(s);
-        }
-    }
-}
-```
-
-## C++ Interop
-
-### Simple C++ Wrapper
-
-```cpp
-// wrapper.hpp
-#ifdef __cplusplus
+// Link to system libraries
+#[link(name = "sqlite3")]
 extern "C" {
-#endif
-
-typedef struct Point {
-    double x;
-    double y;
-} Point;
-
-Point* create_point(double x, double y);
-void delete_point(Point* p);
-double distance(const Point* p1, const Point* p2);
-
-#ifdef __cplusplus
-}
-#endif
-```
-
-```rust
-// Rust bindings
-extern "C" {
-    fn create_point(x: f64, y: f64) -> *mut Point;
-    fn delete_point(p: *mut Point);
-    fn distance(p1: *const Point, p2: *const Point) -> f64;
+    fn sqlite3_libversion() -> *const c_char;
+    fn sqlite3_open(filename: *const c_char, ppDb: *mut *mut c_void) -> c_int;
+    fn sqlite3_close(db: *mut c_void) -> c_int;
 }
 
-pub struct SafePoint {
-    ptr: *mut Point,
-}
-
-impl SafePoint {
-    pub fn new(x: f64, y: f64) -> Self {
-        unsafe {
-            SafePoint {
-                ptr: create_point(x, y),
-            }
-        }
-    }
-
-    pub fn distance_to(&self, other: &SafePoint) -> f64 {
-        unsafe {
-            distance(self.ptr, other.ptr)
-        }
-    }
-}
-
-impl Drop for SafePoint {
-    fn drop(&mut self) {
-        unsafe {
-            delete_point(self.ptr);
-        }
+// Safe wrapper
+pub fn get_sqlite_version() -> String {
+    unsafe {
+        let version_ptr = sqlite3_libversion();
+        CStr::from_ptr(version_ptr)
+            .to_string_lossy()
+            .into_owned()
     }
 }
 ```
 
-## Using Bindgen
-
-Bindgen automatically generates Rust FFI bindings from C headers.
-
-### Setup
+### Using Bindgen (Automatic C Binding Generation)
 
 ```toml
 # Cargo.toml
 [build-dependencies]
-bindgen = "0.69"
+bindgen = "0.70"  # Latest 2024 version
+cc = "1.1"
 
 [dependencies]
 libc = "0.2"
 ```
 
-### Build Script
-
 ```rust
 // build.rs
-use bindgen;
+use std::env;
+use std::path::PathBuf;
 
 fn main() {
-    println!("cargo:rustc-link-lib=mylib");
-    println!("cargo:rerun-if-changed=wrapper.h");
+    // Tell cargo to link the system library
+    println!("cargo:rustc-link-lib=ssl");
+    println!("cargo:rustc-link-lib=crypto");
 
+    // Generate bindings
     let bindings = bindgen::Builder::default()
         .header("wrapper.h")
-        .allowlist_function("my_.*")
-        .allowlist_type("MyStruct")
+        // Use Rust 2024 features
+        .rust_target(bindgen::RustTarget::Stable_1_77)
+        .allowlist_function("SSL_.*")
+        .allowlist_type("SSL.*")
         .derive_default(true)
+        .derive_debug(true)
+        // Handle C++ if needed
+        .clang_arg("-x")
+        .clang_arg("c++")
+        .clang_arg("-std=c++17")
         .generate()
         .expect("Unable to generate bindings");
 
-    let out_path = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 }
 ```
 
-### Using Generated Bindings
+### Modern C++ Integration with CXX (2024 Recommended)
+
+```toml
+# Cargo.toml
+[dependencies]
+cxx = "1.0"
+
+[build-dependencies]
+cxx-build = "1.0"
+```
 
 ```rust
-// src/lib.rs
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-
-include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-
-// Safe wrapper around generated bindings
-pub struct SafeMyStruct {
-    inner: MyStruct,
-}
-
-impl SafeMyStruct {
-    pub fn new() -> Option<Self> {
-        unsafe {
-            let inner = my_struct_create();
-            if my_struct_is_valid(&inner) {
-                Some(SafeMyStruct { inner })
-            } else {
-                None
-            }
-        }
+// src/main.rs
+#[cxx::bridge]
+mod ffi {
+    // Shared structs between Rust and C++
+    struct Point {
+        x: f64,
+        y: f64,
     }
 
-    pub fn process(&mut self, data: &[u8]) -> Result<Vec<u8>, String> {
-        unsafe {
-            let result_ptr = my_struct_process(
-                &mut self.inner,
-                data.as_ptr(),
-                data.len()
-            );
+    unsafe extern "C++" {
+        include!("geometry.h");
 
-            if result_ptr.is_null() {
-                return Err("Processing failed".to_string());
-            }
+        type Circle;
 
-            let len = my_struct_result_length(result_ptr);
-            let slice = std::slice::from_raw_parts(result_ptr as *const u8, len);
-            let result = slice.to_vec();
+        fn create_circle(center: Point, radius: f64) -> UniquePtr<Circle>;
+        fn area(self: &Circle) -> f64;
+        fn contains_point(self: &Circle, p: Point) -> bool;
+    }
 
-            my_struct_free_result(result_ptr);
-            Ok(result)
-        }
+    extern "Rust" {
+        fn process_circle(circle: &Circle);
     }
 }
 
-impl Drop for SafeMyStruct {
-    fn drop(&mut self) {
-        unsafe {
-            my_struct_destroy(&mut self.inner);
-        }
-    }
+fn process_circle(circle: &ffi::Circle) {
+    println!("Circle area: {}", circle.area());
+}
+
+fn main() {
+    let circle = ffi::create_circle(
+        ffi::Point { x: 0.0, y: 0.0 },
+        5.0
+    );
+
+    println!("Area: {}", circle.area());
+    println!("Contains (3,4): {}",
+        circle.contains_point(ffi::Point { x: 3.0, y: 4.0 }));
 }
 ```
 
-### Advanced Bindgen Configuration
+## Part 3: Calling Rust from C/C++
+
+### Using cbindgen for C Header Generation
+
+```toml
+# Cargo.toml
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[build-dependencies]
+cbindgen = "0.27"  # Latest 2024 version
+```
 
 ```rust
 // build.rs
-let bindings = bindgen::Builder::default()
-    .header("complex.h")
-    // Include additional headers
-    .clang_arg("-Ivendor/include")
-    // Generate bindings only for specific items
-    .allowlist_function("api_.*")
-    .allowlist_type("Api.*")
-    .allowlist_var("API_.*")
-    // Block problematic items
-    .blocklist_function("internal_.*")
-    // Add derives to generated structs
-    .derive_default(true)
-    .derive_debug(true)
-    .derive_copy(false)
-    // Customize layout
-    .layout_tests(false)
-    .generate_comments(true)
-    .generate()
-    .expect("Unable to generate bindings");
+use std::env;
+
+fn main() {
+    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    cbindgen::Builder::new()
+        .with_crate(crate_dir)
+        .with_language(cbindgen::Language::C)
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file("bindings.h");
+}
 ```
 
-## Safety Contracts: From Unsafe Foundation to Safe Abstraction
-
-Safety contracts are the bridge between unsafe low-level operations and safe high-level APIs. The pattern is:
-1. **Document exact safety requirements** for unsafe operations
-2. **Build safe abstractions** that maintain all invariants
-3. **Provide safe APIs** where contract violations are impossible
-
-### Step 1: Documented Unsafe Operations
-
 ```rust
-use std::alloc::{alloc, dealloc, Layout};
-use std::ptr;
+// src/lib.rs - Rust library to be called from C
+use std::ffi::{c_char, CStr, CString};
 
-/// Allocates uninitialized memory for `count` elements of type `T`
-///
-/// # Safety
-/// - Caller must ensure `count > 0`
-/// - Caller must call `deallocate_array` with the same count and layout
-/// - Returned pointer must not be used after deallocation
-/// - Memory is uninitialized - caller must initialize before reading
-unsafe fn allocate_array<T>(count: usize) -> *mut T {
-    assert!(count > 0, "Count must be greater than zero");
+/// Opaque Rust type for C
+#[repr(C)]
+pub struct RustProcessor {
+    _private: [u8; 0],
+}
 
-    let layout = Layout::array::<T>(count).expect("Invalid layout");
-    let ptr = alloc(layout) as *mut T;
+/// Create a new processor instance
+#[no_mangle]
+pub extern "C" fn rust_processor_new() -> *mut RustProcessor {
+    let processor = Box::new(ProcessorImpl::new());
+    Box::into_raw(processor) as *mut RustProcessor
+}
 
-    if ptr.is_null() {
-        panic!("Allocation failed");
+/// Process data with the Rust implementation
+#[no_mangle]
+pub extern "C" fn rust_processor_process(
+    processor: *mut RustProcessor,
+    input: *const c_char,
+    output: *mut c_char,
+    output_len: usize,
+) -> i32 {
+    if processor.is_null() || input.is_null() || output.is_null() {
+        return -1;
     }
 
-    ptr
-}
-
-/// Deallocates memory previously allocated by `allocate_array`
-///
-/// # Safety
-/// - `ptr` must have been returned by `allocate_array` with the same `count`
-/// - `ptr` must not be used after this call
-/// - This function must be called exactly once for each allocation
-/// - All elements must have been properly dropped before calling this
-unsafe fn deallocate_array<T>(ptr: *mut T, count: usize) {
-    let layout = Layout::array::<T>(count).expect("Invalid layout");
-    dealloc(ptr as *mut u8, layout);
-}
-
-/// Initializes an element at the given index in an allocated array
-///
-/// # Safety
-/// - `ptr` must point to valid allocated memory for at least `index + 1` elements
-/// - `index` must be within bounds of the allocated array
-/// - The element at `index` must not be already initialized
-/// - Caller is responsible for ensuring element gets properly dropped
-unsafe fn initialize_element<T>(ptr: *mut T, index: usize, value: T) {
-    ptr::write(ptr.add(index), value);
-}
-```
-
-### Step 2: Safe Abstraction That Maintains All Invariants
-
-```rust
-/// A dynamically-allocated array that maintains safety invariants
-///
-/// This safe wrapper ensures:
-/// - Memory is properly allocated and deallocated
-/// - All elements are properly initialized before access
-/// - Bounds checking prevents out-of-bounds access
-/// - Proper cleanup occurs even if panics happen
-pub struct SafeArray<T> {
-    ptr: *mut T,
-    len: usize,
-    capacity: usize,
-}
-
-impl<T> SafeArray<T> {
-    /// Creates a new SafeArray with the specified capacity
-    pub fn with_capacity(capacity: usize) -> Self {
-        if capacity == 0 {
-            return SafeArray {
-                ptr: std::ptr::NonNull::dangling().as_ptr(),
-                len: 0,
-                capacity: 0,
-            };
-        }
-
-        let ptr = unsafe {
-            // SAFETY: capacity > 0 (checked above)
-            // We store the capacity and will deallocate with same count
-            allocate_array::<T>(capacity)
+    unsafe {
+        let processor = &mut *(processor as *mut ProcessorImpl);
+        let input_str = match CStr::from_ptr(input).to_str() {
+            Ok(s) => s,
+            Err(_) => return -2,
         };
 
-        SafeArray {
-            ptr,
-            len: 0,
-            capacity,
+        let result = processor.process(input_str);
+        let result_bytes = result.as_bytes();
+
+        if result_bytes.len() >= output_len {
+            return -3;
         }
+
+        std::ptr::copy_nonoverlapping(
+            result_bytes.as_ptr(),
+            output as *mut u8,
+            result_bytes.len(),
+        );
+        *output.add(result_bytes.len()) = 0;
+
+        result_bytes.len() as i32
     }
+}
 
-    /// Pushes a new element to the end of the array
-    ///
-    /// This is safe because it:
-    /// - Checks bounds before writing
-    /// - Only writes to uninitialized memory (len..capacity)
-    /// - Updates len after successful initialization
-    pub fn push(&mut self, value: T) -> Result<(), T> {
-        if self.len >= self.capacity {
-            return Err(value); // Array is full
-        }
-
+/// Free the processor instance
+#[no_mangle]
+pub extern "C" fn rust_processor_free(processor: *mut RustProcessor) {
+    if !processor.is_null() {
         unsafe {
-            // SAFETY:
-            // - ptr is valid (allocated in constructor)
-            // - len < capacity (checked above)
-            // - Element at len is uninitialized (guaranteed by len invariant)
-            initialize_element(self.ptr, self.len, value);
-        }
-
-        self.len += 1;
-        Ok(())
-    }
-
-    /// Gets a reference to an element at the given index
-    ///
-    /// This is safe because it:
-    /// - Performs bounds checking
-    /// - Only accesses initialized memory (0..len)
-    /// - Returns a proper Rust reference with lifetime tied to self
-    pub fn get(&self, index: usize) -> Option<&T> {
-        if index < self.len {
-            unsafe {
-                // SAFETY:
-                // - ptr is valid (allocated in constructor)
-                // - index < len (checked above)
-                // - Element is initialized (guaranteed by len invariant)
-                Some(&*self.ptr.add(index))
-            }
-        } else {
-            None
+            let _ = Box::from_raw(processor as *mut ProcessorImpl);
         }
     }
+}
 
-    pub fn len(&self) -> usize {
-        self.len
+// Internal implementation
+struct ProcessorImpl {
+    counter: u32,
+}
+
+impl ProcessorImpl {
+    fn new() -> Self {
+        ProcessorImpl { counter: 0 }
+    }
+
+    fn process(&mut self, input: &str) -> String {
+        self.counter += 1;
+        format!("Processed #{}: {}", self.counter, input.to_uppercase())
     }
 }
 ```
 
-### Step 3: Automatic Safety Through Drop
+### C Usage Example
 
-```rust
-impl<T> Drop for SafeArray<T> {
-    /// Ensures proper cleanup of all resources
-    ///
-    /// This is safe because it:
-    /// - Only drops initialized elements (0..len)
-    /// - Deallocates with the same parameters used for allocation
-    /// - Handles the zero-capacity case correctly
-    fn drop(&mut self) {
-        // Drop all initialized elements
-        for i in 0..self.len {
-            unsafe {
-                // SAFETY: i < len, so element is initialized
-                ptr::drop_in_place(self.ptr.add(i));
-            }
-        }
+```c
+// main.c - Using the Rust library from C
+#include "bindings.h"
+#include <stdio.h>
 
-        // Deallocate memory
-        if self.capacity > 0 {
-            unsafe {
-                // SAFETY:
-                // - ptr was allocated with allocate_array(capacity)
-                // - All elements have been dropped above
-                // - We're calling this exactly once
-                deallocate_array(self.ptr, self.capacity);
-            }
-        }
+int main() {
+    // Create Rust processor
+    RustProcessor* processor = rust_processor_new();
+    if (!processor) {
+        fprintf(stderr, "Failed to create processor\n");
+        return 1;
     }
+
+    // Process some data
+    char output[256];
+    int result = rust_processor_process(
+        processor,
+        "hello from c",
+        output,
+        sizeof(output)
+    );
+
+    if (result > 0) {
+        printf("Result: %s\n", output);
+    }
+
+    // Clean up
+    rust_processor_free(processor);
+    return 0;
 }
 ```
 
-### Step 4: The Result - Safe API
+```makefile
+# Makefile
+RUST_LIB = target/release/libmyrust.a
+
+main: main.c $(RUST_LIB)
+	gcc -o main main.c $(RUST_LIB) -lpthread -ldl
+
+$(RUST_LIB):
+	cargo build --release
+
+clean:
+	rm -f main
+	cargo clean
+```
+
+## Part 4: Build System Integration
+
+### Integrating Rust into CMake Projects
+
+```cmake
+# CMakeLists.txt - Adding Rust to existing C++ project
+cmake_minimum_required(VERSION 3.22)
+project(MixedProject)
+
+# Find or bootstrap Cargo
+find_program(CARGO cargo REQUIRED)
+
+# Rust library target
+set(RUST_LIB_NAME myrust)
+set(RUST_LIB_PATH ${CMAKE_BINARY_DIR}/rust/${CMAKE_BUILD_TYPE}/lib${RUST_LIB_NAME}.a)
+
+add_custom_command(
+    OUTPUT ${RUST_LIB_PATH}
+    COMMAND ${CMAKE_COMMAND} -E env
+        CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/rust
+        ${CARGO} build
+        --manifest-path ${CMAKE_SOURCE_DIR}/rust-lib/Cargo.toml
+        $<$<CONFIG:Release>:--release>
+    DEPENDS
+        ${CMAKE_SOURCE_DIR}/rust-lib/Cargo.toml
+        ${CMAKE_SOURCE_DIR}/rust-lib/src/lib.rs
+    COMMENT "Building Rust library"
+)
+
+add_custom_target(rust_lib ALL DEPENDS ${RUST_LIB_PATH})
+
+# C++ executable that uses Rust
+add_executable(main main.cpp)
+add_dependencies(main rust_lib)
+target_link_libraries(main PRIVATE ${RUST_LIB_PATH} pthread dl)
+```
+
+### Using Cargo to Build C Dependencies
 
 ```rust
+// build.rs - Building C code from Rust
+use cc;
+use cmake;
+
 fn main() {
-    // Safe usage - contract violations are impossible
-    let mut safe_array = SafeArray::with_capacity(3);
+    // Option 1: Using cc crate for simple C files
+    cc::Build::new()
+        .file("src/native/helper.c")
+        .include("src/native")
+        .compile("helper");
 
-    safe_array.push(10).unwrap();
-    safe_array.push(20).unwrap();
+    // Option 2: Using cmake crate for complex projects
+    let dst = cmake::Config::new("libfoo")
+        .define("BUILD_SHARED_LIBS", "OFF")
+        .build();
 
-    // Bounds checking prevents errors
-    println!("Element at index 1: {:?}", safe_array.get(1));  // Some(20)
-    println!("Out of bounds: {:?}", safe_array.get(10));      // None
+    println!("cargo:rustc-link-search=native={}/lib", dst.display());
+    println!("cargo:rustc-link-lib=static=foo");
 
-    // Automatic cleanup happens when safe_array is dropped
+    // Option 3: Using pkg-config for system libraries
+    pkg_config::Config::new()
+        .atleast_version("2.0")
+        .probe("openssl")
+        .unwrap();
 }
 ```
 
-### Key Benefits of This Pattern
+### Real-World Examples from Major Projects
 
-- **Unsafe operations** document exact safety requirements
-- **Safe abstractions** maintain all invariants internally
-- **Users get memory safety** without thinking about contracts
-- **Panic safety** is handled by the Drop implementation
-- **Bounds checking** prevents common errors
-- **Zero runtime cost** - compiles to same performance as manual unsafe code
+```toml
+# Firefox (Gecko) - Rust components in C++ browser
+# Uses custom build system integration
+# See: mozilla-central/toolkit/library/rust/
 
-This is the same pattern used throughout Rust's standard library: unsafe foundations with documented contracts, wrapped in safe abstractions that make contract violations impossible.
+# Librsvg - GNOME's SVG library, migrated from C to Rust
+# Uses Meson build system with Rust integration
+# See: gitlab.gnome.org/GNOME/librsvg
 
-## Common Pitfalls
+# curl - HTTP library with optional Rust HTTP/3 backend
+# Uses autotools with Rust detection
+# See: github.com/curl/curl (--with-quiche option)
 
-### 1. Dangling Pointers
+# Linux Kernel - Rust support since 6.1
+# Uses Kbuild with custom Rust integration
+# See: kernel.org/doc/html/latest/rust/
+```
+
+## Part 5: Reproducible Builds and FFI
+
+### FFI Impact on Reproducibility
+
+FFI introduces several challenges for reproducible builds:
+
+1. **System Library Versions** - Different platforms have different versions
+2. **Build Tool Versions** - bindgen, clang versions affect output
+3. **Header File Paths** - System headers vary across distributions
+4. **Symbol Visibility** - Platform-specific linking behavior
+
+### Strategies for Reproducible FFI Builds
+
+```toml
+# Cargo.toml - Lock dependencies and specify exact versions
+[dependencies]
+libc = "=0.2.155"  # Exact version
+
+[build-dependencies]
+bindgen = "=0.70.1"  # Exact version
+cc = "=1.1.6"
+
+# Use cargo-vendor for offline builds
+# cargo vendor
+# Create .cargo/config.toml:
+# [source.crates-io]
+# replace-with = "vendored-sources"
+# [source.vendored-sources]
+# directory = "vendor"
+```
 
 ```rust
-// BAD: Returning pointer to local variable
-fn bad_pointer() -> *const i32 {
-    let x = 42;
-    &x as *const i32  // x is dropped, pointer becomes invalid
-}
+// build.rs - Reproducible bindgen configuration
+use std::path::PathBuf;
 
-// GOOD: Return owned data or use proper lifetimes
-fn good_pointer() -> i32 {
-    42  // Return the value itself
+fn main() {
+    // Use vendored headers instead of system headers
+    let bindings = bindgen::Builder::default()
+        .header("vendor/include/library.h")
+        // Explicitly set target for cross-platform consistency
+        .clang_arg("--target=x86_64-unknown-linux-gnu")
+        // Use specific sysroot for headers
+        .clang_arg("--sysroot=/path/to/sysroot")
+        // Disable time-dependent macros
+        .clang_arg("-D__DATE__=\"\"")
+        .clang_arg("-D__TIME__=\"\"")
+        // Generate deterministic output
+        .generate_comments(false)
+        .layout_tests(false)
+        .generate()
+        .expect("Unable to generate bindings");
+
+    // Use OUT_DIR for generated files
+    let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("bindings.rs"))
+        .expect("Couldn't write bindings!");
 }
 ```
 
-### 2. Data Races
+### Container-Based Reproducible Builds
+
+```dockerfile
+# Dockerfile for reproducible FFI builds
+FROM rust:1.77-bookworm AS builder
+
+# Install specific versions of build dependencies
+RUN apt-get update && apt-get install -y \
+    clang-15=1:15.0.7-1 \
+    libssl-dev=3.0.11-1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pin Rust toolchain
+RUN rustup default 1.77.0
+RUN rustup component add rustfmt clippy
+
+# Copy and build
+WORKDIR /app
+COPY . .
+RUN cargo build --release --locked
+
+# Runtime stage
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y \
+    libssl3=3.0.11-1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/target/release/myapp /usr/local/bin/
+CMD ["myapp"]
+```
+
+## Part 6: Safety Considerations and Best Practices
+
+### FFI Safety Checklist
 
 ```rust
-// BAD: Unsynchronized access to static
-static mut COUNTER: i32 = 0;
+// ✅ GOOD: Validate all inputs from FFI boundary
+#[no_mangle]
+pub extern "C" fn safe_function(ptr: *const u8, len: usize) -> i32 {
+    // Check for null pointers
+    if ptr.is_null() {
+        return -1;
+    }
 
-fn bad_increment() {
+    // Validate length to prevent overflow
+    if len > isize::MAX as usize {
+        return -2;
+    }
+
+    // Create slice with explicit lifetime
+    let slice = unsafe {
+        std::slice::from_raw_parts(ptr, len)
+    };
+
+    // Use safe Rust from here
+    process_data(slice)
+}
+
+// ❌ BAD: Trusting FFI inputs
+#[no_mangle]
+pub extern "C" fn unsafe_function(ptr: *const u8, len: usize) -> i32 {
+    // Direct usage without validation!
+    let slice = unsafe {
+        std::slice::from_raw_parts(ptr, len)
+    };
+    process_data(slice)
+}
+```
+
+### Thread Safety Across FFI
+
+```rust
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
+
+// Thread-safe global state for FFI
+static GLOBAL_STATE: Lazy<Mutex<State>> = Lazy::new(|| {
+    Mutex::new(State::new())
+});
+
+#[no_mangle]
+pub extern "C" fn thread_safe_operation(value: i32) -> i32 {
+    let mut state = GLOBAL_STATE.lock().unwrap();
+    state.process(value)
+}
+
+// Mark functions that require external synchronization
+/// # Safety
+/// This function is NOT thread-safe. Caller must ensure
+/// exclusive access during calls.
+#[no_mangle]
+pub unsafe extern "C" fn not_thread_safe_operation(ptr: *mut State) -> i32 {
+    if ptr.is_null() {
+        return -1;
+    }
+    (*ptr).process(42)
+}
+```
+
+### Memory Management Patterns
+
+```rust
+// Pattern 1: Rust allocates, Rust frees
+#[no_mangle]
+pub extern "C" fn rust_alloc_string(s: *const c_char) -> *mut c_char {
+    if s.is_null() {
+        return std::ptr::null_mut();
+    }
+
     unsafe {
-        COUNTER += 1;  // Data race if called from multiple threads
+        let input = CStr::from_ptr(s).to_string_lossy();
+        let output = CString::new(format!("Processed: {}", input))
+            .unwrap();
+        output.into_raw()
     }
 }
 
-// GOOD: Use atomic types
-use std::sync::atomic::{AtomicI32, Ordering};
-static COUNTER: AtomicI32 = AtomicI32::new(0);
+#[no_mangle]
+pub extern "C" fn rust_free_string(s: *mut c_char) {
+    if !s.is_null() {
+        unsafe {
+            let _ = CString::from_raw(s);
+        }
+    }
+}
 
-fn good_increment() {
-    COUNTER.fetch_add(1, Ordering::SeqCst);
+// Pattern 2: Caller provides buffer
+#[no_mangle]
+pub extern "C" fn process_into_buffer(
+    input: *const c_char,
+    output: *mut c_char,
+    output_size: usize,
+) -> i32 {
+    if input.is_null() || output.is_null() || output_size == 0 {
+        return -1;
+    }
+
+    unsafe {
+        let input_str = CStr::from_ptr(input).to_string_lossy();
+        let processed = format!("Result: {}", input_str.to_uppercase());
+        let bytes = processed.as_bytes();
+
+        if bytes.len() >= output_size {
+            return -2;  // Buffer too small
+        }
+
+        std::ptr::copy_nonoverlapping(
+            bytes.as_ptr(),
+            output as *mut u8,
+            bytes.len(),
+        );
+        *output.add(bytes.len()) = 0;  // Null terminator
+
+        bytes.len() as i32
+    }
 }
 ```
 
-### 3. Buffer Overflows
+## Part 7: Common FFI Pitfalls and Solutions
+
+### ABI Compatibility Issues
 
 ```rust
-// BAD: No bounds checking
-unsafe fn bad_array_access(arr: *mut i32, index: usize, value: i32) {
-    *arr.add(index) = value;  // No bounds checking!
+// ❌ BAD: Using Rust-specific types across FFI
+#[no_mangle]
+pub extern "C" fn bad_ffi(s: String) -> Vec<u8> {  // Won't work!
+    s.into_bytes()
 }
 
-// GOOD: Use safe abstractions when possible
-fn good_array_access(arr: &mut [i32], index: usize, value: i32) -> Result<(), &'static str> {
-    if index < arr.len() {
-        arr[index] = value;
-        Ok(())
-    } else {
-        Err("Index out of bounds")
+// ✅ GOOD: Use C-compatible types
+#[no_mangle]
+pub extern "C" fn good_ffi(s: *const c_char, out: *mut u8, out_len: *mut usize) -> i32 {
+    if s.is_null() || out.is_null() || out_len.is_null() {
+        return -1;
     }
+    // Implementation...
+    0
 }
+```
+
+### Lifetime and Ownership Confusion
+
+```rust
+// ❌ BAD: Returning references across FFI
+#[no_mangle]
+pub extern "C" fn get_static_str() -> *const c_char {
+    let s = String::from("temporary");
+    s.as_ptr() as *const c_char  // Dangling pointer!
+}
+
+// ✅ GOOD: Return static or heap-allocated data
+static STATIC_STR: &[u8] = b"permanent\0";
+
+#[no_mangle]
+pub extern "C" fn get_static_str() -> *const c_char {
+    STATIC_STR.as_ptr() as *const c_char
+}
+```
+
+### Platform-Specific Size Assumptions
+
+```rust
+// ❌ BAD: Assuming size_t is usize
+extern "C" {
+    fn process(data: *const u8, size: usize);  // May not match C's size_t!
+}
+
+// ✅ GOOD: Use libc types
+use libc::size_t;
+
+extern "C" {
+    fn process(data: *const u8, size: size_t);
+}
+```
+
+## Part 8: Modern FFI Tools Comparison (2024)
+
+| Tool | Use Case | Pros | Cons |
+|------|----------|------|------|
+| **bindgen** | C → Rust | Automatic, handles complex headers | Requires clang, unsafe bindings |
+| **cbindgen** | Rust → C | Simple, generates clean headers | Manual memory management |
+| **cxx** | C++ ↔ Rust | Type-safe, zero-cost | Limited C++ feature support |
+| **autocxx** | C++ → Rust | Handles more C++ features | Larger compile times |
+| **diplomat** | Rust → Multiple | Multi-language support | Additional complexity |
+
+### Quick Decision Guide
+
+```mermaid
+graph TD
+    A[FFI Need] --> B{Language?}
+    B -->|Pure C| C{Direction?}
+    B -->|C++| D{Complexity?}
+    C -->|C to Rust| E[bindgen]
+    C -->|Rust to C| F[cbindgen]
+    D -->|Simple| G[cxx]
+    D -->|Complex| H[autocxx]
+    A --> I{Multi-language?}
+    I -->|Yes| J[diplomat]
 ```
 
 ## Try It Yourself
 
-### Exercise 1: Safe Buffer
-Implement a growing buffer that safely handles reallocation:
+### Exercise 1: Cross-Language Data Structure
+Create a Rust library that exposes a thread-safe queue to C:
 ```rust
-struct GrowingBuffer {
-    // TODO: Add fields
-}
+// Requirements:
+// - Thread-safe push/pop operations
+// - C-compatible interface
+// - Proper memory management
+// - Error codes for empty queue
+```
 
-impl GrowingBuffer {
-    fn new() -> Self { todo!() }
-    fn push(&mut self, byte: u8) { todo!() }
-    fn as_slice(&self) -> &[u8] { todo!() }
+### Exercise 2: Build System Integration
+Set up a CMake project that:
+- Builds a Rust static library
+- Links it with a C++ application
+- Handles cross-compilation to ARM64
+- Ensures reproducible builds
+
+### Exercise 3: Safety Audit
+Review this FFI code and identify all safety issues:
+```rust
+#[no_mangle]
+pub extern "C" fn process_data(input: *const u8, len: usize) -> *mut u8 {
+    let slice = unsafe { std::slice::from_raw_parts(input, len) };
+    let processed = slice.iter().map(|x| x + 1).collect::<Vec<_>>();
+    Box::into_raw(processed.into_boxed_slice()) as *mut u8
 }
 ```
 
-### Exercise 2: C Library Wrapper
-Create a safe wrapper for a C string manipulation library:
-```rust
-extern "C" {
-    fn str_reverse(s: *mut c_char);
-    fn str_upper(s: *mut c_char);
-}
+## Best Practices Summary (2024)
 
-// TODO: Create safe wrappers
-```
+### Safety First
+- **Always validate** FFI inputs (null checks, bounds checks)
+- **Document safety contracts** explicitly in comments
+- **Use safe wrappers** - never expose raw unsafe APIs
+- **Test with sanitizers** - Use AddressSanitizer, ThreadSanitizer
+- **Run Miri** on FFI code to catch UB
 
-### Exercise 3: Bindgen Practice
-Use bindgen to create bindings for a simple math library and wrap the unsafe functions in safe Rust APIs.
+### Build Reproducibility
+- **Pin all versions** - Use exact versions in Cargo.toml
+- **Vendor dependencies** - Use cargo-vendor for offline builds
+- **Container builds** - Use Docker for consistent environments
+- **Document toolchain** - Specify exact Rust, clang, GCC versions
 
-## Best Practices
+### Performance
+- **Minimize allocations** across FFI boundary
+- **Use repr(C)** for zero-cost struct passing
+- **Batch operations** to reduce FFI overhead
+- **Profile FFI calls** - They can be surprisingly expensive
 
-- **Minimize unsafe scope** - Keep `unsafe` blocks as small as possible
-- **Document safety contracts** - Explain what makes the code safe
-- **Provide safe abstractions** - Wrap unsafe code in safe interfaces
-- **Use existing solutions** - Don't reinvent memory management
-- **Test thoroughly** - Unsafe code needs extra testing
-- **Consider Miri** - Use Miri to detect undefined behavior
+### Maintenance
+- **Generate bindings** in CI to catch breaking changes
+- **Version your C API** with proper symbol versioning
+- **Use integration tests** that exercise FFI paths
+- **Document ownership** clearly for every pointer
+
+## Real-World Case Studies
+
+### Firecracker (Amazon)
+- Uses Rust for VMM, interfaces with KVM (C API)
+- Clean FFI abstractions for system calls
+- See: github.com/firecracker-microvm/firecracker
+
+### Stylo (Mozilla Firefox)
+- Rust CSS engine integrated into C++ browser
+- Complex bidirectional FFI with careful lifetime management
+- See: github.com/servo/servo
+
+### Rustls (Used by curl, nginx)
+- Pure Rust TLS replacing OpenSSL
+- C API via rustls-ffi for drop-in replacement
+- See: github.com/rustls/rustls-ffi
+
+### Linux Kernel Rust Support
+- Kernel modules in Rust calling C kernel APIs
+- Custom abstractions for kernel-specific patterns
+- See: rust-for-linux.com
+
+## Summary
+
+FFI is powerful but requires careful attention to:
+- **Safety contracts** - Document and enforce invariants
+- **Build reproducibility** - Control all dependencies
+- **Performance** - Measure and optimize FFI overhead
+- **Maintainability** - Use tools and automation
+
+Modern tools (cxx, diplomat) make FFI safer and easier than ever, but understanding the fundamentals remains crucial for production systems.
 
 ---
 
-Next: [Chapter 25: Embedded HAL - Registers, SVD2Rust & Volatile Access](./25_embedded_hal.md)
+Next: [Chapter 23: Embedded HAL - Hardware Register Access & Volatile Memory](./23_embedded_hal.md)

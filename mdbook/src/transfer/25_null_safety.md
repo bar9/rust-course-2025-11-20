@@ -326,4 +326,4 @@ fn size_comparison() {
 
 ---
 
-Next: [Chapter 28: Type System Differences](./28_type_differences.md)
+Next: [Chapter 26: Type System Differences](./26_type_differences.md)

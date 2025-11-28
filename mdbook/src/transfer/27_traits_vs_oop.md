@@ -433,4 +433,4 @@ This leads to more flexible, composable, and maintainable designs.
 
 ---
 
-Next: [Chapter 32: Idiomatic Rust Patterns for Production Systems](./32_idiomatic_patterns.md)
+Next: [Chapter 28: Idiomatic Rust Patterns for Production Systems](./28_idiomatic_patterns.md)

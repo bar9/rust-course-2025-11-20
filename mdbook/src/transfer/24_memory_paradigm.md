@@ -976,4 +976,4 @@ The ownership system may feel restrictive initially, but it enables fearless ref
 
 ---
 
-Next: [Chapter 28: Null Safety & Error Handling](./28_null_safety.md)
+Next: [Chapter 25: Null Safety & Error Handling](./25_null_safety.md)

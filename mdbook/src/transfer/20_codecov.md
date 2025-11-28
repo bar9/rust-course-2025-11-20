@@ -1,42 +1,216 @@
 # Chapter 20: Code Coverage with cargo llvm-cov
 
-Code coverage is essential for understanding test quality and identifying untested code paths. The `cargo llvm-cov` tool provides precise, LLVM-based coverage analysis for Rust projects. However, achieving meaningful coverage metrics requires careful configuration to exclude third-party code, handle test coverage properly, and manage mock code appropriately.
+Code coverage is a critical metric for understanding test effectiveness and identifying untested code paths in your Rust projects. The `cargo llvm-cov` tool provides source-based code coverage using LLVM's instrumentation capabilities, offering precise and efficient coverage analysis that integrates seamlessly with Rust's toolchain.
 
 ## Chapter Overview
 
-This chapter addresses practical code coverage challenges:
+This chapter covers comprehensive code coverage implementation:
 
-- **Excluding third-party dependencies** from coverage metrics
-- **Handling test code coverage** and assertion failures
-- **Managing mock code** in coverage reports
-- **Configuring precise project-only coverage**
-- **Best practices** for enterprise coverage policies
-- **Integration** with CI/CD and reporting tools
+- **Installation and setup** of cargo llvm-cov
+- **Basic usage** and common commands
+- **Report formats** (HTML, JSON, LCOV, Cobertura)
+- **Filtering and exclusions** for focused coverage
+- **Workspace and multi-crate** coverage strategies
+- **CI/CD integration** with GitHub Actions and GitLab
+- **Advanced configuration** and customization
+- **Best practices** for meaningful coverage metrics
 
 ---
 
-## 1. The Third-Party Code Problem
+## 1. Installation and Setup
 
-### Issue: Serde and Dependencies Affecting Coverage
+### Installing cargo llvm-cov
 
-**The Problem:** When using `cargo llvm-cov --open`, you notice function coverage appears lower because third-party crate code (like serde, tokio, etc.) is included in coverage calculations.
+```bash
+# Install from crates.io
+cargo install cargo-llvm-cov
+
+# Ensure you have the required LLVM tools
+rustup component add llvm-tools-preview
+```
+
+### Verify Installation
+
+```bash
+# Check version
+cargo llvm-cov --version
+
+# View available options
+cargo llvm-cov --help
+```
+
+### System Requirements
+
+- Rust 1.60.0 or newer (Rust 1.82+ uses LLVM 19)
+- LLVM tools preview component
+- Supported platforms: Linux, macOS, Windows
+- Note: Different Rust versions use different LLVM versions:
+  - Rust 1.60-1.77: LLVM 14-17
+  - Rust 1.78-1.81: LLVM 18
+  - Rust 1.82+: LLVM 19+
+
+---
+
+## 2. Basic Usage
+
+### Generate Coverage for All Tests
+
+```bash
+# Run tests and generate coverage
+cargo llvm-cov
+
+# Clean previous coverage data and run
+cargo llvm-cov clean
+cargo llvm-cov
+```
+
+### View Coverage in Browser
+
+```bash
+# Generate HTML report and open in browser
+cargo llvm-cov --open
+
+# Generate HTML report without opening
+cargo llvm-cov --html
+```
+
+### Example Output
+
+```
+Finished test [unoptimized + debuginfo] target(s) in 2.14s
+
+Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+src/calculator.rs                  12                 2    83.33%           4                 0   100.00%          45                 3    93.33%           8                 2    75.00%
+src/parser.rs                      25                 5    80.00%           8                 1    87.50%         120                15    87.50%          20                 4    80.00%
+src/lib.rs                          8                 0   100.00%           3                 0   100.00%          30                 0   100.00%           4                 0   100.00%
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+TOTAL                              45                 7    84.44%          15                 1    93.33%         195                18    90.77%          32                 6    81.25%
+```
+
+---
+
+## 3. Report Formats
+
+### HTML Reports
+
+```bash
+# Generate HTML report
+cargo llvm-cov --html
+
+# HTML output location: target/llvm-cov/html/index.html
+```
+
+### JSON Format
+
+```bash
+# Generate JSON report for programmatic processing
+cargo llvm-cov --json --output-path coverage.json
+
+# Pretty-printed JSON
+cargo llvm-cov --json --output-path coverage.json --json-pretty
+```
+
+### LCOV Format
+
+```bash
+# Generate LCOV format (for integration with coverage services)
+cargo llvm-cov --lcov --output-path lcov.info
+```
+
+### Cobertura XML
+
+```bash
+# Generate Cobertura format (for CI/CD tools)
+cargo llvm-cov --cobertura --output-path cobertura.xml
+```
+
+### Text Summary
+
+```bash
+# Display only summary without detailed output
+cargo llvm-cov --summary-only
+```
+
+---
+
+## 4. Practical Example: Calculator Library
+
+Let's create a calculator library to demonstrate coverage analysis:
+
+### Project Setup
+
+```bash
+cargo new calculator --lib
+cd calculator
+```
+
+### Implementation (src/lib.rs)
 
 ```rust
-use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize)]
-pub struct User {
-    pub name: String,
-    pub age: u32,
+#[derive(Debug, PartialEq)]
+pub enum Operation {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 }
 
-impl User {
-    pub fn new(name: String, age: u32) -> Self {
-        Self { name, age }  // Your code: covered
+pub struct Calculator {
+    precision: usize,
+}
+
+impl Calculator {
+    pub fn new() -> Self {
+        Self { precision: 2 }
     }
 
-    pub fn to_json(&self) -> String {
-        serde_json::to_string(self).unwrap()  // Calls serde internals
+    pub fn with_precision(precision: usize) -> Self {
+        Self { precision }
+    }
+
+    pub fn calculate(&self, op: Operation, a: f64, b: f64) -> Result<f64, String> {
+        let result = match op {
+            Operation::Add => a + b,
+            Operation::Subtract => a - b,
+            Operation::Multiply => a * b,
+            Operation::Divide => {
+                if b == 0.0 {
+                    return Err("Division by zero".to_string());
+                }
+                a / b
+            }
+        };
+
+        Ok(self.round_to_precision(result))
+    }
+
+    fn round_to_precision(&self, value: f64) -> f64 {
+        let multiplier = 10_f64.powi(self.precision as i32);
+        (value * multiplier).round() / multiplier
+    }
+
+    pub fn chain_operations(&self, initial: f64, operations: Vec<(Operation, f64)>) -> Result<f64, String> {
+        operations.iter().try_fold(initial, |acc, (op, value)| {
+            self.calculate(op.clone(), acc, *value)
+        })
+    }
+}
+
+impl Default for Calculator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Clone for Operation {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Add => Self::Add,
+            Self::Subtract => Self::Subtract,
+            Self::Multiply => Self::Multiply,
+            Self::Divide => Self::Divide,
+        }
     }
 }
 
@@ -45,633 +219,502 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_user_creation() {
-        let user = User::new("Alice".to_string(), 25);
-        let json = user.to_json();
-        assert!(json.contains("Alice"));
+    fn test_addition() {
+        let calc = Calculator::new();
+        assert_eq!(calc.calculate(Operation::Add, 5.0, 3.0), Ok(8.0));
     }
+
+    #[test]
+    fn test_subtraction() {
+        let calc = Calculator::new();
+        assert_eq!(calc.calculate(Operation::Subtract, 10.0, 4.0), Ok(6.0));
+    }
+
+    #[test]
+    fn test_multiplication() {
+        let calc = Calculator::new();
+        assert_eq!(calc.calculate(Operation::Multiply, 3.0, 7.0), Ok(21.0));
+    }
+
+    #[test]
+    fn test_division() {
+        let calc = Calculator::new();
+        assert_eq!(calc.calculate(Operation::Divide, 20.0, 4.0), Ok(5.0));
+    }
+
+    #[test]
+    fn test_division_by_zero() {
+        let calc = Calculator::new();
+        assert_eq!(
+            calc.calculate(Operation::Divide, 10.0, 0.0),
+            Err("Division by zero".to_string())
+        );
+    }
+
+    // Note: with_precision, chain_operations, and round_to_precision are not tested
 }
 ```
 
-**What happens:** Coverage report includes serde's serialization code, making your project coverage appear lower than actual.
+### Analyze Coverage
 
-### Solution: Exclude Dependencies
-
-**Method 1: Source-based exclusion (Recommended)**
 ```bash
-# Only include your project source
-cargo llvm-cov --open --ignore-filename-regex '\.cargo|target'
-
-# More precise: only include src/ directory
-cargo llvm-cov --open --include-ffi --ignore-filename-regex '^(?!src/)'
+# Generate and view coverage
+cargo llvm-cov --open
 ```
 
-**Method 2: Using lcov.excludes configuration**
-```toml
-# Cargo.toml
-[package.metadata.coverage.excludes]
-paths = [
-    "target/*",
-    ".cargo/*",
-    "*/src/lib.rs",  # If you want to exclude serde's lib.rs
-]
-```
+The report will show:
+- `with_precision()` is not covered
+- `chain_operations()` is not covered
+- `Default` implementation is not tested
 
-**Method 3: Workspace-aware coverage**
-```bash
-# For workspace projects - only measure workspace members
-cargo llvm-cov --workspace --open --ignore-filename-regex '\.cargo'
+### Improve Coverage
 
-# Or specific packages only
-cargo llvm-cov --package my-app --package my-lib --open
-```
+```rust
+#[cfg(test)]
+mod additional_tests {
+    use super::*;
 
-### Project Structure Example
+    #[test]
+    fn test_custom_precision() {
+        let calc = Calculator::with_precision(4);
+        assert_eq!(calc.calculate(Operation::Divide, 10.0, 3.0), Ok(3.3333));
+    }
 
-```
-my-project/
-├── src/
-│   ├── lib.rs           ✅ Include in coverage
-│   ├── main.rs          ✅ Include in coverage
-│   └── models/
-│       └── user.rs      ✅ Include in coverage
-├── tests/
-│   └── integration.rs   ⚠️  Configurable
-├── target/              ❌ Exclude from coverage
-└── .cargo/              ❌ Exclude from coverage
-```
+    #[test]
+    fn test_chain_operations() {
+        let calc = Calculator::new();
+        let operations = vec![
+            (Operation::Add, 5.0),      // 10 + 5 = 15
+            (Operation::Multiply, 2.0), // 15 * 2 = 30
+            (Operation::Subtract, 10.0), // 30 - 10 = 20
+        ];
+        assert_eq!(calc.chain_operations(10.0, operations), Ok(20.0));
+    }
 
-**Recommended command:**
-```bash
-cargo llvm-cov --open --ignore-filename-regex '^(?!src/)'
+    #[test]
+    fn test_default_impl() {
+        let calc = Calculator::default();
+        assert_eq!(calc.precision, 2);
+    }
+}
 ```
 
 ---
 
-## 2. Test Code Coverage Dilemma
+## 5. Filtering and Exclusions
 
-### Issue: Test Code Appears in Coverage Reports
-
-**The Problem:** Test code itself appears in coverage reports, especially assertion failures that never execute in successful tests.
-
-```rust
-pub fn divide(a: f64, b: f64) -> Result<f64, String> {
-    if b == 0.0 {
-        return Err("Division by zero".to_string());
-    }
-    Ok(a / b)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_divide_success() {
-        assert_eq!(divide(10.0, 2.0), Ok(5.0));  // ✅ This line is "covered"
-    }
-
-    #[test]
-    fn test_divide_by_zero() {
-        assert_eq!(divide(10.0, 0.0), Err("Division by zero".to_string()));
-        // The assertion success path is covered, but what about assert failure?
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_divide_panic_case() {
-        // This test might show missing coverage on panic paths
-        assert_eq!(divide(10.0, 0.0), Ok(5.0));  // ❌ Assertion fails - uncovered path
-    }
-}
-```
-
-### Solution 1: Exclude Test Files
+### Exclude Test Code
 
 ```bash
-# Exclude test files and directories
-cargo llvm-cov --open --ignore-filename-regex 'tests?/|test_'
+# Measure only library code
+cargo llvm-cov --lib
 
-# More comprehensive exclusion
-cargo llvm-cov --open --ignore-filename-regex '(tests?/|test_|_test\.rs$|mock)'
+# Measure library and binaries
+cargo llvm-cov --lib --bins
 ```
 
-### Solution 2: Library-Only Coverage
+### File Pattern Exclusion
 
 ```bash
-# Only measure library code, not tests or binaries
-cargo llvm-cov --lib --open
+# Exclude files matching regex patterns
+cargo llvm-cov --ignore-filename-regex '(tests?/|benches/|examples/)'
 
-# Measure specific targets
-cargo llvm-cov --lib --bins --open --ignore-filename-regex 'tests?/'
+# Exclude test modules
+cargo llvm-cov --ignore-filename-regex '_test\.rs$'
 ```
 
-### Solution 3: Configuration File
+### Include Specific Files
 
-Create `.cargo/config.toml`:
+```bash
+# Include only specific patterns
+cargo llvm-cov --include-ffi --ignore-filename-regex '^(?!src/)'
+```
+
+### Workspace Coverage
+
+```bash
+# Coverage for entire workspace
+cargo llvm-cov --workspace
+
+# Specific packages only
+cargo llvm-cov --package core-lib --package api-server
+
+# Exclude specific packages
+cargo llvm-cov --workspace --exclude integration-tests
+```
+
+---
+
+## 6. Configuration File
+
+### Create .cargo/config.toml
+
 ```toml
 [alias]
-cov = "llvm-cov --lib --open --ignore-filename-regex '(tests?/|test_|_test\\.rs$|bench|mock)'"
-cov-ci = "llvm-cov --lib --lcov --output-path lcov.info --ignore-filename-regex '(tests?/|test_|_test\\.rs$|bench|mock)'"
+# Local development coverage with browser
+cov = "llvm-cov --open"
+
+# Quick coverage check
+cov-check = "llvm-cov --summary-only"
+
+# CI coverage with LCOV output
+cov-ci = "llvm-cov --lcov --output-path lcov.info"
+
+# Detailed coverage with all formats
+cov-full = """llvm-cov --html --json --output-path coverage.json
+              --lcov --output-path lcov.info"""
 ```
 
-Usage:
-```bash
-cargo cov        # Local development
-cargo cov-ci     # CI/CD pipeline
-```
-
----
-
-## 3. Mock Code Coverage Management
-
-### Issue: Mock Code Inflating Coverage
-
-**The Problem:** Mock implementations appear in coverage reports and can create misleading metrics.
-
-```rust
-// src/database.rs
-pub trait DatabaseTrait {
-    fn get_user(&self, id: u64) -> Result<User, DatabaseError>;
-    fn save_user(&self, user: &User) -> Result<(), DatabaseError>;
-}
-
-pub struct PostgresDatabase {
-    // Real implementation
-}
-
-impl DatabaseTrait for PostgresDatabase {
-    fn get_user(&self, id: u64) -> Result<User, DatabaseError> {
-        // Real database logic - ✅ Should be covered
-        todo!()
-    }
-
-    fn save_user(&self, user: &User) -> Result<(), DatabaseError> {
-        // Real database logic - ✅ Should be covered
-        todo!()
-    }
-}
-
-// src/mocks.rs or tests/mocks.rs
-pub struct MockDatabase {
-    pub users: std::collections::HashMap<u64, User>,
-}
-
-impl DatabaseTrait for MockDatabase {
-    fn get_user(&self, id: u64) -> Result<User, DatabaseError> {
-        // Mock logic - ❓ Should this count toward coverage?
-        self.users.get(&id).cloned()
-            .ok_or(DatabaseError::NotFound)
-    }
-
-    fn save_user(&self, user: &User) -> Result<(), DatabaseError> {
-        // Mock logic - ❓ Should this count toward coverage?
-        Ok(())
-    }
-}
-```
-
-### Best Practices for Mock Code
-
-**Option 1: Separate Mock Module (Recommended)**
-```
-src/
-├── lib.rs
-├── database.rs          ✅ Include in coverage
-├── models.rs            ✅ Include in coverage
-└── mocks/               ❌ Exclude from coverage
-    ├── mod.rs
-    └── database.rs
-
-tests/
-├── integration.rs       ❌ Exclude from coverage
-└── mocks/               ❌ Exclude from coverage
-    └── external_api.rs
-```
-
-**Configuration:**
-```bash
-cargo llvm-cov --open --ignore-filename-regex '(tests?/|test_|_test\.rs$|mock|benches?/)'
-```
-
-**Option 2: Conditional Compilation**
-```rust
-#[cfg(test)]
-pub mod mocks {
-    use super::*;
-
-    pub struct MockDatabase {
-        // Mock implementation - excluded via #[cfg(test)]
-    }
-}
-```
-
-**Option 3: Feature-Based Exclusion**
-```toml
-# Cargo.toml
-[features]
-default = []
-testing = []  # Enable mocks only for testing
-
-[dependencies]
-# Mock dependencies only when testing feature is enabled
-mockall = { version = "0.11", optional = true }
-```
-
-```rust
-#[cfg(feature = "testing")]
-pub mod mocks {
-    // Mock implementations
-}
-```
-
-Run coverage without testing feature:
-```bash
-cargo llvm-cov --no-default-features --open
-```
-
----
-
-## 4. Comprehensive Coverage Configuration
-
-### Complete Coverage Script
-
-Create `scripts/coverage.sh`:
-```bash
-#!/bin/bash
-set -e
-
-# Coverage configuration
-IGNORE_PATTERNS="(tests?/|test_|_test\.rs$|bench|mock|examples?/)"
-SRC_ONLY="^src/"
-
-case "${1:-local}" in
-    "local")
-        echo "🔍 Running local coverage analysis..."
-        cargo llvm-cov clean
-        cargo llvm-cov --lib --open \
-            --ignore-filename-regex "$IGNORE_PATTERNS" \
-            --include-ffi
-        ;;
-
-    "ci")
-        echo "🤖 Running CI coverage analysis..."
-        cargo llvm-cov clean
-        cargo llvm-cov --lib \
-            --lcov --output-path lcov.info \
-            --ignore-filename-regex "$IGNORE_PATTERNS"
-
-        # Extract coverage percentage
-        coverage=$(cargo llvm-cov --lib --summary-only \
-            --ignore-filename-regex "$IGNORE_PATTERNS" \
-            | grep "TOTAL" | awk '{print $4}' | tr -d '%')
-
-        echo "📊 Coverage: ${coverage}%"
-
-        # Check threshold
-        if (( $(echo "$coverage < 80" | bc -l) )); then
-            echo "❌ Coverage ${coverage}% below threshold"
-            exit 1
-        fi
-        ;;
-
-    "detailed")
-        echo "📋 Running detailed coverage analysis..."
-        cargo llvm-cov clean
-
-        # Generate multiple reports
-        cargo llvm-cov --lib --html \
-            --ignore-filename-regex "$IGNORE_PATTERNS"
-
-        cargo llvm-cov --lib --json \
-            --ignore-filename-regex "$IGNORE_PATTERNS" \
-            --output-path coverage.json
-
-        echo "📂 Reports generated:"
-        echo "  - HTML: target/llvm-cov/html/index.html"
-        echo "  - JSON: coverage.json"
-        ;;
-
-    *)
-        echo "Usage: $0 [local|ci|detailed]"
-        exit 1
-        ;;
-esac
-```
-
-### Cargo.toml Configuration
+### Project-specific Configuration
 
 ```toml
 # Cargo.toml
-[package.metadata.coverage]
+[package.metadata.llvm_cov]
+# Workspace members to include
+workspace-members = ["core", "api", "cli"]
+
+# Files to exclude
 exclude-files = [
-    "tests/*",
-    "benches/*",
-    "examples/*",
-    "src/mocks/*",
-    "*/mock*",
+    "src/generated/*",
+    "src/vendor/*",
 ]
 
-[profile.coverage]
-inherits = "test"
-debug = true
-```
-
-### Workspace Configuration
-
-For multi-crate workspaces:
-```toml
-# Workspace Cargo.toml
-[workspace.metadata.coverage]
-exclude-packages = [
-    "integration-tests",
-    "benchmarks",
-    "examples",
-]
-
-# Only measure core packages
-include-packages = [
-    "my-core",
-    "my-api",
-    "my-models",
-]
-```
-
-```bash
-# Workspace coverage
-cargo llvm-cov --workspace \
-    --ignore-filename-regex "(tests?/|test_|_test\.rs$|bench|mock)" \
-    --exclude integration-tests \
-    --exclude benchmarks \
-    --open
+# Use .gitignore patterns
+ignore-gitignore = true
 ```
 
 ---
 
-## 5. Advanced Coverage Patterns
+## 7. CI/CD Integration
 
-### Function-Level Coverage Analysis
+### GitHub Actions
 
-```rust
-pub struct PaymentProcessor {
-    api_key: String,
-}
-
-impl PaymentProcessor {
-    pub fn new(api_key: String) -> Self {
-        Self { api_key }  // ✅ Constructor coverage
-    }
-
-    pub fn process_payment(&self, amount: f64) -> Result<PaymentResult, PaymentError> {
-        if amount <= 0.0 {  // ✅ Validation coverage
-            return Err(PaymentError::InvalidAmount);
-        }
-
-        if amount > 10000.0 {  // ⚠️ High amount path - might not be tested
-            self.process_high_value_payment(amount)
-        } else {
-            self.process_standard_payment(amount)  // ✅ Standard path coverage
-        }
-    }
-
-    fn process_high_value_payment(&self, amount: f64) -> Result<PaymentResult, PaymentError> {
-        // ❌ Might be uncovered - requires specific test
-        unimplemented!("High value payments require manual approval")
-    }
-
-    fn process_standard_payment(&self, amount: f64) -> Result<PaymentResult, PaymentError> {
-        // ✅ Covered by standard tests
-        Ok(PaymentResult::Success { amount })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_standard_payment() {
-        let processor = PaymentProcessor::new("test-key".to_string());
-        let result = processor.process_payment(100.0);
-        assert!(matches!(result, Ok(PaymentResult::Success { amount: 100.0 })));
-    }
-
-    #[test]
-    fn test_invalid_amount() {
-        let processor = PaymentProcessor::new("test-key".to_string());
-        let result = processor.process_payment(-10.0);
-        assert!(matches!(result, Err(PaymentError::InvalidAmount)));
-    }
-
-    // Missing: test_high_value_payment - this causes low coverage
-    #[test]
-    #[ignore = "requires manual testing"]
-    fn test_high_value_payment() {
-        let processor = PaymentProcessor::new("test-key".to_string());
-        let result = processor.process_payment(15000.0);
-        // This test is ignored, so high value path is uncovered
-    }
-}
-```
-
-**Coverage analysis:**
-```bash
-# See function-level coverage
-cargo llvm-cov --open --ignore-filename-regex "(tests?/|test_|_test\.rs$)"
-
-# Include ignored tests to improve coverage
-cargo llvm-cov --open --ignored --ignore-filename-regex "(tests?/|test_|_test\.rs$)"
-```
-
-### Platform-Specific Coverage
-
-```rust
-pub fn get_temp_dir() -> PathBuf {
-    #[cfg(windows)]
-    {
-        std::env::var("TEMP")  // Windows path - only covered on Windows
-            .unwrap_or_else(|_| "C:\\tmp".to_string())
-            .into()
-    }
-
-    #[cfg(unix)]
-    {
-        std::env::var("TMPDIR")  // Unix path - only covered on Unix
-            .unwrap_or_else(|_| "/tmp".to_string())
-            .into()
-    }
-
-    #[cfg(not(any(windows, unix)))]
-    {
-        PathBuf::from("tmp")  // Fallback - might never be covered
-    }
-}
-```
-
-Coverage will only show the platform-specific branch that's tested.
-
----
-
-## 6. Enterprise Coverage Policies
-
-### Coverage Gate Configuration
-
-**GitHub Actions Example:**
 ```yaml
-# .github/workflows/coverage.yml
-name: Coverage Gate
+name: Coverage
 
 on:
-  pull_request:
+  push:
     branches: [main]
+  pull_request:
 
 jobs:
   coverage:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Install Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
         components: llvm-tools-preview
 
     - name: Install cargo-llvm-cov
-      run: cargo install cargo-llvm-cov
+      uses: taiki-e/install-action@cargo-llvm-cov
 
     - name: Generate coverage
       run: |
-        cargo llvm-cov clean
-        cargo llvm-cov --lib \
-          --lcov --output-path lcov.info \
-          --ignore-filename-regex "(tests?/|test_|_test\.rs$|bench|mock)"
-
-    - name: Check coverage threshold
-      run: |
-        coverage=$(cargo llvm-cov --lib --summary-only \
-          --ignore-filename-regex "(tests?/|test_|_test\.rs$|bench|mock)" \
-          | grep "TOTAL" | awk '{print $4}' | tr -d '%')
-
-        echo "Current coverage: ${coverage}%"
-
-        if (( $(echo "$coverage < 80" | bc -l) )); then
-          echo "❌ Coverage ${coverage}% is below minimum 80%"
-          echo "Run 'cargo llvm-cov --lib --open' to see detailed report"
-          exit 1
-        fi
-
-        echo "✅ Coverage requirement met: ${coverage}%"
+        cargo llvm-cov clean --workspace
+        cargo llvm-cov --workspace --lcov --output-path lcov.info
 
     - name: Upload to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         files: lcov.info
-        fail_ci_if_error: false
+        fail_ci_if_error: true
+        verbose: true
+        token: ${{ secrets.CODECOV_TOKEN }}  # Required for v5
+
+    - name: Archive coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: target/llvm-cov/html/
 ```
 
-### Pre-commit Hook
+### GitLab CI
 
-```bash
-#!/bin/sh
-# .git/hooks/pre-commit
-set -e
+```yaml
+coverage:
+  stage: test
+  image: rust:latest
 
-echo "🔍 Checking code coverage..."
+  before_script:
+    - rustup component add llvm-tools-preview
+    - cargo install cargo-llvm-cov
 
-# Generate coverage report
-cargo llvm-cov clean >/dev/null 2>&1
-coverage=$(cargo llvm-cov --lib --summary-only \
-  --ignore-filename-regex "(tests?/|test_|_test\.rs$|bench|mock)" \
-  | grep "TOTAL" | awk '{print $4}' | tr -d '%')
+  script:
+    - cargo llvm-cov clean --workspace
+    - cargo llvm-cov --workspace --cobertura --output-path cobertura.xml
+    - cargo llvm-cov --workspace --text --output-dir coverage
 
-echo "Current coverage: ${coverage}%"
+  coverage: '/TOTAL\s+\d+\s+\d+\s+([\d\.]+)%/'
 
-# Check minimum threshold
-MIN_COVERAGE=75
-if (( $(echo "$coverage < $MIN_COVERAGE" | bc -l) )); then
-    echo "❌ Coverage ${coverage}% is below minimum ${MIN_COVERAGE}%"
-    echo ""
-    echo "To see detailed coverage report, run:"
-    echo "  cargo llvm-cov --lib --open"
-    echo ""
-    echo "To bypass this check, commit with --no-verify"
-    exit 1
-fi
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: cobertura.xml
+    paths:
+      - coverage/
+```
 
-echo "✅ Coverage check passed"
+### Coverage Badge
+
+```markdown
+[![Coverage Status](https://codecov.io/gh/username/repo/branch/main/graph/badge.svg)](https://codecov.io/gh/username/repo)
 ```
 
 ---
 
-## 7. Best Practices Summary
+## 8. Advanced Usage
 
-### What to Include in Coverage
-
-✅ **Include:**
-- Application source code (`src/lib.rs`, `src/main.rs`, `src/**/*.rs`)
-- Business logic implementations
-- Error handling paths
-- Public API functions
-- Critical utility functions
-
-### What to Exclude from Coverage
-
-❌ **Exclude:**
-- Third-party dependencies (`.cargo/*`, `target/*`)
-- Test code (`tests/*`, `*_test.rs`, `test_*.rs`)
-- Mock implementations (`mocks/*`, `mock_*.rs`)
-- Benchmark code (`benches/*`)
-- Examples (`examples/*`)
-- Generated code (protobuf, bindgen output)
-- Platform-specific code not relevant to deployment
-
-### Recommended Commands
+### Continuous Monitoring
 
 ```bash
-# Local development
-cargo llvm-cov --lib --open \
-  --ignore-filename-regex "(tests?/|test_|_test\.rs$|bench|mock|examples?/)"
-
-# CI/CD pipeline
-cargo llvm-cov --lib --lcov --output-path lcov.info \
-  --ignore-filename-regex "(tests?/|test_|_test\.rs$|bench|mock|examples?/)"
-
-# Detailed analysis
-cargo llvm-cov --lib --html \
-  --ignore-filename-regex "(tests?/|test_|_test\.rs$|bench|mock|examples?/)"
+# Watch mode for development (requires cargo-watch)
+cargo watch -x "llvm-cov --summary-only"
 ```
 
-### Coverage Targets by Code Type
+### MC/DC Coverage (Modified Condition/Decision Coverage)
 
-| Code Type | Target Coverage | Rationale |
-|-----------|----------------|-----------|
-| Business Logic | 85-95% | Critical functionality |
-| API Endpoints | 80-90% | User-facing interfaces |
-| Utility Functions | 70-80% | Supporting code |
-| Error Handling | 90-95% | Failure scenarios |
-| Integration Code | 60-70% | External dependencies |
+```bash
+# Enable MC/DC coverage (unstable feature as of 2024)
+cargo llvm-cov --mcdc
+
+# Note: Requires nightly Rust and may change
+```
+
+### Profile-Guided Coverage
+
+```toml
+# Cargo.toml
+[profile.coverage]
+inherits = "test"
+opt-level = 0
+overflow-checks = false
+debug-assertions = true
+
+[profile.coverage.package."*"]
+opt-level = 0
+```
+
+```bash
+# Use coverage profile
+cargo llvm-cov --profile coverage
+```
+
+### Environment Variables
+
+```bash
+# Set output directory
+CARGO_LLVM_COV_TARGET_DIR=./coverage cargo llvm-cov
+
+# Disable colored output
+NO_COLOR=1 cargo llvm-cov
+
+# Increase verbosity
+RUST_LOG=debug cargo llvm-cov
+```
+
+### Custom Test Runner
+
+```bash
+# Run specific tests
+cargo llvm-cov --test integration_tests
+
+# With test arguments
+cargo llvm-cov -- --test-threads=1 --nocapture
+
+# Run doctests
+cargo llvm-cov --doctests
+```
+
+---
+
+## 9. Troubleshooting Common Issues
+
+### Issue: Low Coverage Due to Generic Code
+
+```rust
+// Generic functions may show as uncovered
+pub fn process<T: Display>(item: T) -> String {
+    format!("Processing: {}", item)
+}
+
+// Solution: Test with multiple types
+#[test]
+fn test_process_multiple_types() {
+    assert_eq!(process(42), "Processing: 42");
+    assert_eq!(process("hello"), "Processing: hello");
+    assert_eq!(process(3.14), "Processing: 3.14");
+}
+```
+
+### Issue: Macro-Generated Code
+
+```rust
+// Macros can generate uncovered code
+macro_rules! impl_ops {
+    ($($t:ty),*) => {
+        $(
+            impl MyTrait for $t {
+                fn process(&self) -> String {
+                    format!("{:?}", self)
+                }
+            }
+        )*
+    };
+}
+
+impl_ops!(i32, i64, f32, f64);
+
+// Solution: Test each generated implementation
+#[test]
+fn test_macro_implementations() {
+    assert!((42i32).process().contains("42"));
+    assert!((42i64).process().contains("42"));
+    assert!((3.14f32).process().contains("3.14"));
+    assert!((3.14f64).process().contains("3.14"));
+}
+```
+
+### Issue: Platform-Specific Code
+
+```rust
+#[cfg(unix)]
+fn unix_specific() -> &'static str {
+    "Unix implementation"
+}
+
+#[cfg(windows)]
+fn windows_specific() -> &'static str {
+    "Windows implementation"
+}
+
+// Solution: Use cfg_attr for tests
+#[test]
+#[cfg_attr(not(unix), ignore = "Unix only test")]
+fn test_unix_specific() {
+    #[cfg(unix)]
+    assert_eq!(unix_specific(), "Unix implementation");
+}
+
+#[test]
+#[cfg_attr(not(windows), ignore = "Windows only test")]
+fn test_windows_specific() {
+    #[cfg(windows)]
+    assert_eq!(windows_specific(), "Windows implementation");
+}
+```
+
+---
+
+## 10. Best Practices
+
+### Coverage Thresholds
+
+```bash
+#!/bin/bash
+# coverage-check.sh
+
+THRESHOLD=80
+COVERAGE=$(cargo llvm-cov --summary-only --json | jq '.data[0].totals.lines.percent')
+
+if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+    echo "❌ Coverage $COVERAGE% is below threshold $THRESHOLD%"
+    exit 1
+fi
+
+echo "✅ Coverage $COVERAGE% meets threshold"
+```
+
+### Meaningful Coverage Metrics
+
+**DO Focus On:**
+- Business logic coverage (aim for 85-95%)
+- Error handling paths (aim for 90%+)
+- Public API surface (aim for 95%+)
+- Critical safety code (aim for 100%)
+
+**DON'T Focus On:**
+- Simple getters/setters
+- Debug/Display implementations
+- Boilerplate code
+- Generated code
+
+### Integration with Development Workflow
+
+```bash
+# Pre-push hook (.git/hooks/pre-push)
+#!/bin/sh
+
+echo "Running coverage check..."
+cargo llvm-cov --summary-only
+
+read -p "Push with current coverage? (y/n) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 1
+fi
+```
+
+### Documentation
+
+```rust
+/// Calculate the factorial of a number
+///
+/// # Examples
+///
+/// ```
+/// use calculator::factorial;
+///
+/// assert_eq!(factorial(5), 120);
+/// assert_eq!(factorial(0), 1);
+/// ```
+pub fn factorial(n: u32) -> u32 {
+    match n {
+        0 => 1,
+        _ => n * factorial(n - 1),
+    }
+}
+
+// Doctests are included in coverage!
+```
 
 ---
 
 ## Summary
 
-Effective code coverage in Rust requires careful configuration of `cargo llvm-cov` to focus on project-specific code:
+`cargo llvm-cov` provides comprehensive, source-based code coverage for Rust projects with minimal setup and excellent integration capabilities.
 
 **Key Takeaways:**
-- **Exclude third-party code** using `--ignore-filename-regex` patterns
-- **Exclude test and mock code** to focus on production logic
-- **Use `--lib` flag** to avoid coverage pollution from test binaries
-- **Set appropriate thresholds** based on code criticality
-- **Automate coverage checks** in CI/CD pipelines
 
-The goal is meaningful coverage metrics that help identify untested business logic, not artificially high numbers that include irrelevant code paths.
+- **Easy Installation**: Single cargo install command with LLVM tools
+- **Multiple Formats**: HTML, JSON, LCOV, Cobertura for different needs
+- **Flexible Filtering**: Exclude tests, dependencies, and irrelevant code
+- **CI/CD Ready**: Integrates with GitHub Actions, GitLab CI, and other platforms
+- **Accurate Metrics**: Source-based coverage provides precise line and branch coverage
+- **Development Friendly**: Fast execution and helpful visualization
+- **Active Development**: Regular updates with new features like MC/DC coverage
 
-**Recommended alias for daily use:**
+**Quick Start Commands:**
+
 ```bash
-# Add to .cargo/config.toml
-[alias]
-cov = "llvm-cov --lib --open --ignore-filename-regex '(tests?/|test_|_test\\.rs$|bench|mock|examples?/)'"
+# Install
+cargo install cargo-llvm-cov
+rustup component add llvm-tools-preview
+
+# Basic usage
+cargo llvm-cov --open           # View in browser
+cargo llvm-cov --summary-only   # Quick check
+cargo llvm-cov --lcov --output-path lcov.info  # CI/CD
+
+# Workspace
+cargo llvm-cov --workspace --lib --bins
+
+# With exclusions
+cargo llvm-cov --ignore-filename-regex '(tests|benches|examples)/'
 ```
 
-This provides clean, project-focused coverage analysis that developers can trust and act upon.
+Code coverage is not about achieving 100% coverage, but about ensuring critical paths are tested and maintaining confidence in code changes. Use `cargo llvm-cov` as a tool to identify gaps in testing and guide test development efforts.
