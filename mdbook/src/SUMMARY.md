@@ -18,7 +18,7 @@
 - [Enums & Pattern Matching](./day2/09_pattern_matching.md)
 - [Error Handling Deep Dive](./day2/10_error_handling.md)
 - [Iterators & Functional Programming](./day2/11_iterators.md)
-- [Modules & Visibility](./day2/13_modules_visibility.md)
+- [Modules & Visibility](./day2/12_modules_visibility.md)
 
 # Day 3: ESP32-C3 Temperature Monitor - From Sensor to System
 
@@ -36,8 +36,5 @@
 - [Macros & Code Generation](./transfer/21_macros.md)
 - [Unsafe Rust & FFI with Bindgen](./transfer/22_unsafe_ffi.md)
 - [Embedded HAL - Hardware Register Access & Volatile Memory](./transfer/23_embedded_hal.md)
-- [Memory Management Paradigm Shift](./transfer/24_memory_paradigm.md)
-- [Null Safety & Error Handling](./transfer/25_null_safety.md)
-- [Type System Differences](./transfer/26_type_differences.md)
-- [Traits vs OOP - From Inheritance to Composition](./transfer/27_traits_vs_oop.md)
-- [Idiomatic Rust Patterns for Production Systems](./transfer/28_idiomatic_patterns.md)
+- [Async and Concurrency](./transfer/24_async_concurrency.md)
+- [Rust Patterns](./transfer/25_rust_patterns.md)

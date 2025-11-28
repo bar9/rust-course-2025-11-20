@@ -1,18 +1,12 @@
 # Chapter 23: Embedded HAL - Hardware Register Access & Volatile Memory
 
-## Learning Objectives
-- Understand why volatile access is critical for memory-mapped I/O
-- Master raw register manipulation with `ptr::read_volatile` and `ptr::write_volatile`
-- Use SVD2Rust to generate type-safe peripheral access crates
-- Implement safe abstractions over unsafe hardware access
-- Apply embedded HAL traits for portable embedded code
-- Build drivers that work across different microcontrollers
+This chapter covers hardware abstraction in embedded Rust, focusing on memory-mapped I/O, volatile access patterns, and the embedded-hal ecosystem. These concepts are essential for writing safe, portable embedded code.
 
 ## Part 1: Why Volatile Access Matters
 
 ### The Compiler Optimization Problem
 
-When you write to a memory location in regular code, the compiler assumes it has complete control over that memory. It can optimize away "redundant" reads and writes:
+When accessing regular memory, the compiler assumes it has complete control and can optimize away "redundant" operations:
 
 ```rust
 // Regular memory access - compiler can optimize
@@ -28,7 +22,7 @@ fn regular_memory() {
 }
 ```
 
-But hardware registers are different. They're not regular memory - they're windows into hardware state:
+Hardware registers are different - they're windows into hardware state that can change independently:
 
 ```rust
 // Hardware register at address 0x4000_0000
@@ -100,127 +94,48 @@ unsafe fn wait_for_timeout() {
     use core::ptr;
 
     // ❌ WRONG: Compiler might read once and cache
-    let start = *TIMER_COUNTER;
-    while *TIMER_COUNTER - start < 1000 {
-        // Might become infinite loop if compiler optimizes!
+    while *TIMER_COUNTER < 1000 {
+        // Infinite loop - compiler assumes value never changes!
     }
 
     // ✅ CORRECT: Each read goes to hardware
-    let start = ptr::read_volatile(TIMER_COUNTER);
-    while ptr::read_volatile(TIMER_COUNTER) - start < 1000 {
-        // Will actually read the changing timer value
+    while ptr::read_volatile(TIMER_COUNTER) < 1000 {
+        // Works correctly - reads actual hardware value
     }
 }
 ```
 
-## Part 2: Raw Register Access Patterns
+## Part 2: Safe Register Abstractions
 
-### Basic Volatile Operations
+### Building Type-Safe Register Access
 
 ```rust
-use core::ptr;
+use core::marker::PhantomData;
 
-/// Safe wrapper for a hardware register
+/// Type-safe register wrapper
 pub struct Register<T> {
-    addr: *mut T,
+    address: *mut T,
 }
 
 impl<T> Register<T> {
-    /// Create a new register at the given address
-    pub const fn new(addr: usize) -> Self {
+    pub const fn new(address: usize) -> Self {
         Self {
-            addr: addr as *mut T,
+            address: address as *mut T,
         }
     }
 
-    /// Read the current value (volatile)
-    pub unsafe fn read(&self) -> T
+    pub fn read(&self) -> T
     where
         T: Copy,
     {
-        ptr::read_volatile(self.addr)
+        unsafe { core::ptr::read_volatile(self.address) }
     }
 
-    /// Write a new value (volatile)
-    pub unsafe fn write(&self, value: T) {
-        ptr::write_volatile(self.addr, value);
+    pub fn write(&self, value: T) {
+        unsafe { core::ptr::write_volatile(self.address, value) }
     }
 
-    /// Modify the register with read-modify-write
-    pub unsafe fn modify<F>(&self, f: F)
-    where
-        T: Copy,
-        F: FnOnce(T) -> T,
-    {
-        let value = self.read();
-        self.write(f(value));
-    }
-}
-
-// Usage example
-const PORTA_OUT: Register<u32> = Register::new(0x4000_0000);
-
-unsafe fn toggle_pin(pin: u8) {
-    PORTA_OUT.modify(|v| v ^ (1 << pin));
-}
-```
-
-### Register Types and Access Patterns
-
-Different registers have different access rules:
-
-```rust
-/// Read-only register
-pub struct ReadOnly<T> {
-    addr: *const T,
-}
-
-impl<T> ReadOnly<T> {
-    pub const fn new(addr: usize) -> Self {
-        Self { addr: addr as *const T }
-    }
-
-    pub unsafe fn read(&self) -> T
-    where T: Copy
-    {
-        ptr::read_volatile(self.addr)
-    }
-}
-
-/// Write-only register
-pub struct WriteOnly<T> {
-    addr: *mut T,
-}
-
-impl<T> WriteOnly<T> {
-    pub const fn new(addr: usize) -> Self {
-        Self { addr: addr as *mut T }
-    }
-
-    pub unsafe fn write(&self, value: T) {
-        ptr::write_volatile(self.addr, value);
-    }
-}
-
-/// Read-write register
-pub struct ReadWrite<T> {
-    addr: *mut T,
-}
-
-impl<T> ReadWrite<T> {
-    pub const fn new(addr: usize) -> Self {
-        Self { addr: addr as *mut T }
-    }
-
-    pub unsafe fn read(&self) -> T where T: Copy {
-        ptr::read_volatile(self.addr)
-    }
-
-    pub unsafe fn write(&self, value: T) {
-        ptr::write_volatile(self.addr, value);
-    }
-
-    pub unsafe fn modify<F>(&self, f: F)
+    pub fn modify<F>(&self, f: F)
     where
         T: Copy,
         F: FnOnce(T) -> T,
@@ -228,334 +143,205 @@ impl<T> ReadWrite<T> {
         self.write(f(self.read()));
     }
 }
+
+// Usage
+const GPIO_OUT: Register<u32> = Register::new(0x4000_0004);
+
+fn toggle_led() {
+    GPIO_OUT.modify(|val| val ^ (1 << 5));  // Toggle bit 5
+}
 ```
 
-### Bitfield Manipulation
-
-Most hardware registers pack multiple fields into single words:
+### Field Access with Bitfields
 
 ```rust
-/// GPIO Configuration Register Layout (ESP32-C3 example)
-/// Bits 0-1:   Drive strength
-/// Bits 2-3:   Pin function
-/// Bit 4:      Pull-up enable
-/// Bit 5:      Pull-down enable
-/// Bit 6:      Input enable
-/// Bit 7:      Output enable
+use modular_bitfield::prelude::*;
 
-pub struct GpioConfig {
-    reg: ReadWrite<u32>,
+#[bitfield]
+#[derive(Clone, Copy)]
+pub struct TimerControl {
+    pub enable: bool,      // Bit 0
+    pub interrupt: bool,   // Bit 1
+    pub mode: B2,         // Bits 2-3
+    #[skip] __: B4,       // Bits 4-7 reserved
+    pub prescaler: B8,    // Bits 8-15
+    pub reload: B16,      // Bits 16-31
 }
 
-impl GpioConfig {
-    const DRIVE_MASK: u32 = 0b11;
-    const DRIVE_SHIFT: u32 = 0;
+pub struct TimerPeripheral {
+    control: Register<TimerControl>,
+    counter: Register<u32>,
+}
 
-    const FUNC_MASK: u32 = 0b11;
-    const FUNC_SHIFT: u32 = 2;
-
-    const PULLUP_BIT: u32 = 4;
-    const PULLDOWN_BIT: u32 = 5;
-    const INPUT_BIT: u32 = 6;
-    const OUTPUT_BIT: u32 = 7;
-
-    pub unsafe fn set_drive_strength(&self, strength: u8) {
-        self.reg.modify(|v| {
-            (v & !(Self::DRIVE_MASK << Self::DRIVE_SHIFT))
-                | ((strength as u32 & Self::DRIVE_MASK) << Self::DRIVE_SHIFT)
-        });
-    }
-
-    pub unsafe fn enable_pullup(&self, enable: bool) {
-        self.reg.modify(|v| {
-            if enable {
-                v | (1 << Self::PULLUP_BIT)
-            } else {
-                v & !(1 << Self::PULLUP_BIT)
-            }
-        });
-    }
-
-    pub unsafe fn set_as_output(&self) {
-        self.reg.modify(|v| {
-            v | (1 << Self::OUTPUT_BIT) | (1 << Self::INPUT_BIT)
-        });
+impl TimerPeripheral {
+    pub fn configure(&self, prescaler: u8, reload: u16) {
+        let mut ctrl = self.control.read();
+        ctrl.set_prescaler(prescaler);
+        ctrl.set_reload(reload);
+        ctrl.set_enable(true);
+        self.control.write(ctrl);
     }
 }
 ```
 
-## Part 3: SVD Files and Code Generation
+## Part 3: PAC Generation with svd2rust
 
-### What is SVD?
+### What is an SVD File?
 
-SVD (System View Description) files are XML descriptions of microcontroller peripherals. Manufacturers provide these to describe:
-- Memory map layout
-- Peripheral registers
-- Register fields and bits
-- Access permissions
-- Reset values
+System View Description (SVD) files describe microcontroller peripherals in XML format. The `svd2rust` tool generates Rust code from these descriptions.
 
-Example SVD snippet:
-```xml
-<peripheral>
-    <name>GPIO</name>
-    <baseAddress>0x60004000</baseAddress>
-    <registers>
-        <register>
-            <name>OUT</name>
-            <addressOffset>0x0004</addressOffset>
-            <description>GPIO output register</description>
-            <access>read-write</access>
-            <fields>
-                <field>
-                    <name>DATA</name>
-                    <bitRange>[31:0]</bitRange>
-                </field>
-            </fields>
-        </register>
-    </registers>
-</peripheral>
-```
-
-### SVD2Rust Workflow
-
-1. **Get the SVD file** from your chip manufacturer
-2. **Install svd2rust**:
-   ```bash
-   cargo install svd2rust
-   cargo install form
-   ```
-
-3. **Generate the PAC** (Peripheral Access Crate):
-   ```bash
-   svd2rust -i esp32c3.svd --target riscv
-   form -i lib.rs -o src/
-   cargo fmt
-   ```
-
-4. **Use the generated code**:
+### Generated PAC Structure
 
 ```rust
-// Generated code provides type-safe register access
-use esp32c3_pac::GPIO;
+// Generated by svd2rust from manufacturer SVD
+pub mod gpio {
+    use core::ptr;
 
-fn configure_gpio(gpio: &GPIO) {
-    // Type-safe register access
-    gpio.out_w1ts.write(|w| unsafe { w.bits(1 << 5) });
-
-    // Named fields with documentation
-    gpio.func_out_sel_cfg[5].write(|w| {
-        w.out_sel().variant(0x80)  // Connect to GPIO matrix
-    });
-}
-```
-
-### Generated Code Structure
-
-SVD2Rust generates a hierarchy of types:
-
-```rust
-// Peripheral block
-pub struct GPIO {
-    pub bt_select: BT_SELECT,
-    pub out: OUT,
-    pub out_w1ts: OUT_W1TS,
-    pub out_w1tc: OUT_W1TC,
-    // ... more registers
-}
-
-// Register
-pub struct OUT {
-    register: vcell::VolatileCell<u32>,
-}
-
-impl OUT {
-    // Read access
-    pub fn read(&self) -> R {
-        R { bits: self.register.get() }
+    pub struct RegisterBlock {
+        pub moder: MODER,     // Mode register
+        pub otyper: OTYPER,   // Output type register
+        pub ospeedr: OSPEEDR, // Output speed register
+        pub pupdr: PUPDR,     // Pull-up/pull-down register
+        pub idr: IDR,         // Input data register
+        pub odr: ODR,         // Output data register
+        pub bsrr: BSRR,       // Bit set/reset register
     }
 
-    // Write access
-    pub fn write<F>(&self, f: F)
-    where
-        F: FnOnce(&mut W) -> &mut W,
-    {
-        let mut w = W::reset_value();
-        f(&mut w);
-        self.register.set(w.bits);
+    pub struct MODER {
+        register: vcell::VolatileCell<u32>,
     }
 
-    // Modify (read-modify-write)
-    pub fn modify<F>(&self, f: F)
-    where
-        for<'w> F: FnOnce(&R, &'w mut W) -> &'w mut W,
-    {
-        let bits = self.register.get();
-        let r = R { bits };
-        let mut w = W { bits };
-        f(&r, &mut w);
-        self.register.set(w.bits);
+    impl MODER {
+        pub fn read(&self) -> u32 {
+            self.register.get()
+        }
+
+        pub fn write(&self, value: u32) {
+            self.register.set(value)
+        }
+
+        pub fn modify<F>(&self, f: F)
+        where
+            F: FnOnce(u32) -> u32,
+        {
+            self.write(f(self.read()));
+        }
     }
 }
-```
 
-## Part 4: Building Safe Abstractions
-
-### The Ownership Pattern for Peripherals
-
-Peripherals should have single ownership to prevent conflicts:
-
-```rust
-/// Singleton peripherals structure
+// Safe peripheral access
 pub struct Peripherals {
-    pub GPIO: GPIO,
-    pub UART0: UART0,
-    pub SPI1: SPI1,
-    pub TIMER0: TIMER0,
-    // ... more peripherals
+    pub GPIO: gpio::RegisterBlock,
 }
 
 impl Peripherals {
-    /// Take ownership of peripherals (can only be called once)
     pub fn take() -> Option<Self> {
+        // Ensure single instance (singleton pattern)
         static mut TAKEN: bool = false;
 
-        // This is safe because we're in single-threaded context
-        // and we only allow one caller to succeed
-        if unsafe { TAKEN } {
-            None
-        } else {
-            unsafe { TAKEN = true; }
-
-            Some(Peripherals {
-                GPIO: GPIO { _private: () },
-                UART0: UART0 { _private: () },
-                SPI1: SPI1 { _private: () },
-                TIMER0: TIMER0 { _private: () },
-            })
-        }
+        cortex_m::interrupt::free(|_| unsafe {
+            if TAKEN {
+                None
+            } else {
+                TAKEN = true;
+                Some(Peripherals {
+                    GPIO: gpio::RegisterBlock {
+                        // Initialize with hardware addresses
+                    },
+                })
+            }
+        })
     }
-}
-
-// Usage
-fn main() {
-    let peripherals = Peripherals::take().unwrap();
-    let gpio = peripherals.GPIO;  // Now we own GPIO
-
-    // let peripherals2 = Peripherals::take();  // Returns None!
 }
 ```
 
-### Type-State Programming for Hardware Configuration
-
-Use types to enforce correct hardware state transitions:
+### Using a PAC
 
 ```rust
-/// Pin states
-pub struct Input;
-pub struct Output;
-pub struct Analog;
+use esp32c3_pac::{Peripherals, GPIO};
 
-/// Pin with compile-time state
-pub struct Pin<MODE> {
-    pin_number: u8,
-    _mode: core::marker::PhantomData<MODE>,
-}
+fn configure_gpio() {
+    let peripherals = Peripherals::take().unwrap();
+    let gpio = peripherals.GPIO;
 
-impl Pin<Input> {
-    /// Read the pin state
-    pub fn is_high(&self) -> bool {
-        unsafe {
-            let gpio = &*GPIO::ptr();
-            let value = ptr::read_volatile(&gpio.in_);
-            (value >> self.pin_number) & 1 == 1
-        }
-    }
+    // Configure pin as output
+    gpio.enable_w1ts.write(|w| w.bits(1 << 5));
+    gpio.func5_out_sel_cfg.write(|w| w.out_sel().bits(0x80));
 
-    /// Convert to output pin
-    pub fn into_output(self) -> Pin<Output> {
-        unsafe {
-            // Configure hardware for output
-            let gpio = &*GPIO::ptr();
-            gpio.enable_w1ts.write(|w| w.bits(1 << self.pin_number));
-        }
-
-        Pin {
-            pin_number: self.pin_number,
-            _mode: core::marker::PhantomData,
-        }
-    }
-}
-
-impl Pin<Output> {
-    /// Set pin high
-    pub fn set_high(&mut self) {
-        unsafe {
-            let gpio = &*GPIO::ptr();
-            ptr::write_volatile(
-                &gpio.out_w1ts as *const _ as *mut u32,
-                1 << self.pin_number
-            );
-        }
-    }
-
-    /// Set pin low
-    pub fn set_low(&mut self) {
-        unsafe {
-            let gpio = &*GPIO::ptr();
-            ptr::write_volatile(
-                &gpio.out_w1tc as *const _ as *mut u32,
-                1 << self.pin_number
-            );
-        }
-    }
-
-    /// Convert to input pin
-    pub fn into_input(self) -> Pin<Input> {
-        unsafe {
-            // Configure hardware for input
-            let gpio = &*GPIO::ptr();
-            gpio.enable_w1tc.write(|w| w.bits(1 << self.pin_number));
-        }
-
-        Pin {
-            pin_number: self.pin_number,
-            _mode: core::marker::PhantomData,
-        }
-    }
-}
-
-// Usage - compile-time safety!
-fn demo() {
-    let pin = Pin::<Input>::new(5);
-    let _state = pin.is_high();  // OK: can read input
-    // pin.set_high();  // Compile error: no such method for Input!
-
-    let mut pin = pin.into_output();  // Transform to output
-    pin.set_high();  // Now OK!
-    // let state = pin.is_high();  // Compile error: no such method for Output!
+    // Set pin high
+    gpio.out_w1ts.write(|w| w.bits(1 << 5));
 }
 ```
 
-## Part 5: Embedded HAL Traits
+**Modern Alternatives (2024)**: While svd2rust remains popular, newer tools like `chiptool` and `metapac` offer alternative approaches. Metapac provides additional metadata (memory layout, interrupt tables) alongside register access, useful for HAL frameworks like Embassy.
 
-### The embedded-hal Ecosystem
+## Part 4: The Embedded HAL Traits
 
-The `embedded-hal` crate defines standard traits that work across all microcontrollers:
+### Core Traits
+
+The embedded-hal provides standard traits for common peripherals:
 
 ```rust
 use embedded_hal::digital::v2::{OutputPin, InputPin};
+use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::blocking::spi::{Write, Transfer};
 use embedded_hal::blocking::i2c::{Read, Write as I2cWrite};
 
-/// Driver that works with any microcontroller!
-pub struct LedDriver<P: OutputPin> {
+// GPIO traits
+pub trait OutputPin {
+    type Error;
+    fn set_low(&mut self) -> Result<(), Self::Error>;
+    fn set_high(&mut self) -> Result<(), Self::Error>;
+}
+
+pub trait InputPin {
+    type Error;
+    fn is_high(&self) -> Result<bool, Self::Error>;
+    fn is_low(&self) -> Result<bool, Self::Error>;
+}
+```
+
+### Implementing HAL Traits
+
+```rust
+use embedded_hal::digital::v2::OutputPin;
+use core::convert::Infallible;
+
+pub struct GpioPin {
+    pin_number: u8,
+    gpio_out: &'static Register<u32>,
+}
+
+impl OutputPin for GpioPin {
+    type Error = Infallible;
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        self.gpio_out.modify(|val| val | (1 << self.pin_number));
+        Ok(())
+    }
+
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        self.gpio_out.modify(|val| val & !(1 << self.pin_number));
+        Ok(())
+    }
+}
+```
+
+### Driver Portability
+
+Write drivers that work with any HAL implementation:
+
+```rust
+use embedded_hal::blocking::delay::DelayMs;
+use embedded_hal::digital::v2::OutputPin;
+
+pub struct Led<P: OutputPin> {
     pin: P,
 }
 
-impl<P: OutputPin> LedDriver<P> {
+impl<P: OutputPin> Led<P> {
     pub fn new(pin: P) -> Self {
-        LedDriver { pin }
+        Led { pin }
     }
 
     pub fn on(&mut self) -> Result<(), P::Error> {
@@ -565,486 +351,303 @@ impl<P: OutputPin> LedDriver<P> {
     pub fn off(&mut self) -> Result<(), P::Error> {
         self.pin.set_low()
     }
-}
 
-/// SPI device driver
-pub struct SpiDevice<SPI> {
+    pub fn blink<D: DelayMs<u32>>(
+        &mut self,
+        delay: &mut D,
+        ms: u32,
+    ) -> Result<(), P::Error> {
+        self.on()?;
+        delay.delay_ms(ms);
+        self.off()?;
+        delay.delay_ms(ms);
+        Ok(())
+    }
+}
+```
+
+## Part 5: Real-World Example - SPI Display Driver
+
+### Portable Display Driver
+
+```rust
+use embedded_hal::blocking::spi::Write;
+use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::blocking::delay::DelayMs;
+
+pub struct ST7789<SPI, DC, RST, DELAY> {
     spi: SPI,
+    dc: DC,
+    rst: RST,
+    delay: DELAY,
 }
 
-impl<SPI> SpiDevice<SPI>
+impl<SPI, DC, RST, DELAY> ST7789<SPI, DC, RST, DELAY>
 where
     SPI: Write<u8>,
+    DC: OutputPin,
+    RST: OutputPin,
+    DELAY: DelayMs<u32>,
 {
-    pub fn send_command(&mut self, cmd: u8) -> Result<(), SPI::Error> {
-        self.spi.write(&[cmd])
+    pub fn new(spi: SPI, dc: DC, rst: RST, delay: DELAY) -> Self {
+        ST7789 { spi, dc, rst, delay }
     }
 
-    pub fn send_data(&mut self, data: &[u8]) -> Result<(), SPI::Error> {
-        self.spi.write(data)
-    }
-}
-```
+    pub fn init(&mut self) -> Result<(), Error> {
+        // Reset sequence
+        self.rst.set_low().map_err(|_| Error::Gpio)?;
+        self.delay.delay_ms(10);
+        self.rst.set_high().map_err(|_| Error::Gpio)?;
+        self.delay.delay_ms(120);
 
-### Implementing HAL Traits
+        // Initialization commands
+        self.command(0x01)?;  // Software reset
+        self.delay.delay_ms(150);
 
-Here's how to implement embedded-hal traits for your hardware:
+        self.command(0x11)?;  // Sleep out
+        self.delay.delay_ms(10);
 
-```rust
-use embedded_hal::digital::v2::{OutputPin, InputPin};
+        self.command(0x3A)?;  // Pixel format
+        self.data(&[0x55])?;  // 16-bit color
 
-impl OutputPin for Pin<Output> {
-    type Error = core::convert::Infallible;
+        self.command(0x29)?;  // Display on
 
-    fn set_high(&mut self) -> Result<(), Self::Error> {
-        unsafe {
-            ptr::write_volatile(GPIO_OUT_W1TS, 1 << self.pin_number);
-        }
         Ok(())
     }
 
-    fn set_low(&mut self) -> Result<(), Self::Error> {
-        unsafe {
-            ptr::write_volatile(GPIO_OUT_W1TC, 1 << self.pin_number);
-        }
+    fn command(&mut self, cmd: u8) -> Result<(), Error> {
+        self.dc.set_low().map_err(|_| Error::Gpio)?;
+        self.spi.write(&[cmd]).map_err(|_| Error::Spi)?;
+        Ok(())
+    }
+
+    fn data(&mut self, data: &[u8]) -> Result<(), Error> {
+        self.dc.set_high().map_err(|_| Error::Gpio)?;
+        self.spi.write(data).map_err(|_| Error::Spi)?;
+        Ok(())
+    }
+
+    pub fn draw_pixel(&mut self, x: u16, y: u16, color: u16) -> Result<(), Error> {
+        self.set_window(x, y, x, y)?;
+        self.command(0x2C)?;  // Memory write
+        self.data(&color.to_be_bytes())?;
+        Ok(())
+    }
+
+    fn set_window(&mut self, x0: u16, y0: u16, x1: u16, y1: u16) -> Result<(), Error> {
+        self.command(0x2A)?;  // Column address set
+        self.data(&x0.to_be_bytes())?;
+        self.data(&x1.to_be_bytes())?;
+
+        self.command(0x2B)?;  // Row address set
+        self.data(&y0.to_be_bytes())?;
+        self.data(&y1.to_be_bytes())?;
+
         Ok(())
     }
 }
 
-impl InputPin for Pin<Input> {
-    type Error = core::convert::Infallible;
-
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        unsafe {
-            let value = ptr::read_volatile(GPIO_IN);
-            Ok((value >> self.pin_number) & 1 == 1)
-        }
-    }
-
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        self.is_high().map(|h| !h)
-    }
+#[derive(Debug)]
+pub enum Error {
+    Spi,
+    Gpio,
 }
 ```
 
-## Part 6: Real-World Examples
+## Part 6: Interrupt Handling
 
-### Example 1: Interrupt Controller with Volatile Access
-
-```rust
-/// ESP32-C3 Interrupt Controller
-const INTERRUPT_BASE: usize = 0x600C_2000;
-
-pub struct InterruptController {
-    /// Interrupt enable register
-    enable: ReadWrite<u32>,
-    /// Interrupt pending register (read-only)
-    pending: ReadOnly<u32>,
-    /// Interrupt clear register (write-only)
-    clear: WriteOnly<u32>,
-}
-
-impl InterruptController {
-    pub const fn new() -> Self {
-        Self {
-            enable: ReadWrite::new(INTERRUPT_BASE + 0x00),
-            pending: ReadOnly::new(INTERRUPT_BASE + 0x04),
-            clear: WriteOnly::new(INTERRUPT_BASE + 0x08),
-        }
-    }
-
-    /// Enable an interrupt
-    pub unsafe fn enable_interrupt(&self, irq: u8) {
-        self.enable.modify(|v| v | (1 << irq));
-    }
-
-    /// Check if interrupt is pending
-    pub unsafe fn is_pending(&self, irq: u8) -> bool {
-        (self.pending.read() >> irq) & 1 == 1
-    }
-
-    /// Clear a pending interrupt
-    pub unsafe fn clear_interrupt(&self, irq: u8) {
-        self.clear.write(1 << irq);
-    }
-
-    /// Handle all pending interrupts
-    pub unsafe fn handle_pending(&self) {
-        let pending = self.pending.read();
-
-        // Process each pending interrupt
-        for irq in 0..32 {
-            if (pending >> irq) & 1 == 1 {
-                // Handle interrupt
-                self.handle_irq(irq);
-                // Clear it
-                self.clear.write(1 << irq);
-            }
-        }
-    }
-
-    fn handle_irq(&self, irq: u8) {
-        // Dispatch to appropriate handler
-        match irq {
-            0 => handle_timer_interrupt(),
-            1 => handle_uart_interrupt(),
-            2 => handle_gpio_interrupt(),
-            _ => handle_unknown_interrupt(irq),
-        }
-    }
-}
-```
-
-### Example 2: DMA Controller with Ownership
+### Critical Sections and Atomics
 
 ```rust
-/// DMA Channel with ownership semantics
-pub struct DmaChannel<const N: usize> {
-    regs: &'static mut DmaRegisters,
-    _phantom: core::marker::PhantomData<()>,
+use cortex_m::interrupt;
+use core::cell::RefCell;
+use cortex_m::interrupt::Mutex;
+
+// Shared state between interrupt and main
+static COUNTER: Mutex<RefCell<u32>> = Mutex::new(RefCell::new(0));
+
+#[interrupt]
+fn TIMER0() {
+    interrupt::free(|cs| {
+        let mut counter = COUNTER.borrow(cs).borrow_mut();
+        *counter += 1;
+    });
 }
 
-#[repr(C)]
-struct DmaRegisters {
-    control: u32,
-    source: u32,
-    destination: u32,
-    count: u32,
-    status: u32,
-}
-
-impl<const N: usize> DmaChannel<N> {
-    const BASE: usize = 0x6003_F000 + N * 0x100;
-
-    /// Take ownership of DMA channel N
-    pub fn take() -> Option<Self> {
-        static mut TAKEN: [bool; 8] = [false; 8];
-
-        unsafe {
-            if TAKEN[N] {
-                None
-            } else {
-                TAKEN[N] = true;
-                Some(Self {
-                    regs: &mut *(Self::BASE as *mut DmaRegisters),
-                    _phantom: core::marker::PhantomData,
-                })
-            }
-        }
-    }
-
-    /// Start a DMA transfer
-    pub fn transfer(&mut self, src: *const u8, dst: *mut u8, len: usize) {
-        unsafe {
-            // Configure source and destination
-            ptr::write_volatile(&mut self.regs.source, src as u32);
-            ptr::write_volatile(&mut self.regs.destination, dst as u32);
-            ptr::write_volatile(&mut self.regs.count, len as u32);
-
-            // Start transfer
-            ptr::write_volatile(&mut self.regs.control, 0x01);
-        }
-    }
-
-    /// Check if transfer is complete
-    pub fn is_complete(&self) -> bool {
-        unsafe {
-            ptr::read_volatile(&self.regs.status) & 0x01 != 0
-        }
-    }
-
-    /// Wait for transfer to complete
-    pub fn wait(&self) {
-        while !self.is_complete() {
-            // Could add timeout logic here
-            core::hint::spin_loop();
-        }
-    }
-}
-```
-
-### Example 3: Timer with Precise Volatile Access
-
-```rust
-/// Hardware timer with microsecond precision
-pub struct Timer {
-    /// Timer counter register (64-bit, read-only)
-    counter_lo: ReadOnly<u32>,
-    counter_hi: ReadOnly<u32>,
-    /// Timer reload value (write-only)
-    reload: WriteOnly<u32>,
-    /// Timer control register
-    control: ReadWrite<u32>,
-}
-
-impl Timer {
-    const BASE: usize = 0x6002_0000;
-
-    pub const fn new() -> Self {
-        Self {
-            counter_lo: ReadOnly::new(Self::BASE + 0x00),
-            counter_hi: ReadOnly::new(Self::BASE + 0x04),
-            reload: WriteOnly::new(Self::BASE + 0x08),
-            control: ReadWrite::new(Self::BASE + 0x0C),
-        }
-    }
-
-    /// Read 64-bit counter atomically
-    pub unsafe fn read_counter(&self) -> u64 {
-        // Must read in correct order to handle rollover
-        loop {
-            let hi1 = self.counter_hi.read();
-            let lo = self.counter_lo.read();
-            let hi2 = self.counter_hi.read();
-
-            // If high didn't change, we got a consistent read
-            if hi1 == hi2 {
-                return ((hi1 as u64) << 32) | (lo as u64);
-            }
-            // Otherwise retry (rollover happened during read)
-        }
-    }
-
-    /// Set timer period in microseconds
-    pub unsafe fn set_period_us(&self, us: u32) {
-        // Assuming 160MHz clock
-        const TICKS_PER_US: u32 = 160;
-        self.reload.write(us * TICKS_PER_US);
-    }
-
-    /// Enable timer with interrupt
-    pub unsafe fn enable_with_interrupt(&self) {
-        self.control.modify(|v| {
-            v | (1 << 0)  // Enable bit
-              | (1 << 1)  // Auto-reload bit
-              | (1 << 2)  // Interrupt enable bit
-        });
-    }
-}
-```
-
-## Part 7: Common Patterns and Best Practices
-
-### Critical Sections for Atomic Operations
-
-When modifying shared registers, use critical sections:
-
-```rust
-use critical_section;
-
-pub fn modify_shared_register() {
-    critical_section::with(|_cs| {
-        unsafe {
-            // No interrupts can occur here
-            let value = ptr::read_volatile(SHARED_REG);
-            let new_value = value | 0x10;
-            ptr::write_volatile(SHARED_REG, new_value);
-        }
+fn main() {
+    // Access shared state safely
+    let count = interrupt::free(|cs| {
+        *COUNTER.borrow(cs).borrow()
     });
 }
 ```
 
-### Memory Barriers
-
-Ensure ordering of volatile operations:
+### DMA with Volatile Buffers
 
 ```rust
-use core::sync::atomic::{fence, Ordering};
+use core::sync::atomic::{AtomicBool, Ordering};
 
-unsafe fn configure_peripheral() {
-    // Write configuration
-    ptr::write_volatile(CONFIG_REG, 0x1234);
+#[repr(C, align(4))]
+struct DmaBuffer {
+    data: [u8; 1024],
+}
 
-    // Ensure configuration is written before enabling
-    fence(Ordering::SeqCst);
+static mut DMA_BUFFER: DmaBuffer = DmaBuffer { data: [0; 1024] };
+static DMA_COMPLETE: AtomicBool = AtomicBool::new(false);
 
-    // Enable peripheral
-    ptr::write_volatile(ENABLE_REG, 1);
+fn start_dma_transfer() {
+    unsafe {
+        // Configure DMA to write to DMA_BUFFER
+        let buffer_addr = &DMA_BUFFER as *const _ as u32;
+
+        // Set up DMA registers (hardware-specific)
+        const DMA_SRC: *mut u32 = 0x4002_0000 as *mut u32;
+        const DMA_DST: *mut u32 = 0x4002_0004 as *mut u32;
+        const DMA_LEN: *mut u32 = 0x4002_0008 as *mut u32;
+        const DMA_CTRL: *mut u32 = 0x4002_000C as *mut u32;
+
+        core::ptr::write_volatile(DMA_SRC, 0x2000_0000);  // Source address
+        core::ptr::write_volatile(DMA_DST, buffer_addr);   // Destination
+        core::ptr::write_volatile(DMA_LEN, 1024);          // Transfer length
+        core::ptr::write_volatile(DMA_CTRL, 0x01);         // Start transfer
+    }
+}
+
+#[interrupt]
+fn DMA_DONE() {
+    DMA_COMPLETE.store(true, Ordering::Release);
+}
+
+fn wait_for_dma() {
+    while !DMA_COMPLETE.load(Ordering::Acquire) {
+        cortex_m::asm::wfi();  // Wait for interrupt
+    }
+
+    // DMA complete - buffer contents are valid
+    unsafe {
+        // Must use volatile reads since DMA wrote the data
+        let first_byte = core::ptr::read_volatile(&DMA_BUFFER.data[0]);
+    }
 }
 ```
 
-### Error Handling for Hardware Operations
+## Part 7: Power Management
+
+### Low-Power Modes
 
 ```rust
-#[derive(Debug)]
-pub enum HardwareError {
-    Timeout,
-    InvalidState,
-    BusError,
+pub enum PowerMode {
+    Active,
+    Sleep,
+    DeepSleep,
+    Hibernate,
 }
 
-pub fn read_with_timeout(reg: *const u32, timeout_us: u32) -> Result<u32, HardwareError> {
-    let start = unsafe { TIMER.read_counter() };
+pub struct PowerController {
+    pwr_ctrl: &'static Register<u32>,
+}
 
+impl PowerController {
+    pub fn set_mode(&self, mode: PowerMode) {
+        let ctrl_value = match mode {
+            PowerMode::Active => 0x00,
+            PowerMode::Sleep => 0x01,
+            PowerMode::DeepSleep => 0x02,
+            PowerMode::Hibernate => 0x03,
+        };
+
+        self.pwr_ctrl.write(ctrl_value);
+
+        // Execute wait-for-interrupt to enter low-power mode
+        cortex_m::asm::wfi();
+    }
+
+    pub fn configure_wakeup_sources(&self, sources: u32) {
+        const WAKEUP_EN: Register<u32> = Register::new(0x4000_1000);
+        WAKEUP_EN.write(sources);
+    }
+}
+```
+
+## Part 8: Real Hardware Example - ESP32-C3
+
+### Complete Blinky Example
+
+```rust
+#![no_std]
+#![no_main]
+
+use esp32c3_hal::{clock::ClockControl, pac::Peripherals, prelude::*, timer::TimerGroup, Rtc};
+use esp_backtrace as _;
+use riscv_rt::entry;
+
+#[entry]
+fn main() -> ! {
+    let peripherals = Peripherals::take().unwrap();
+    let system = peripherals.SYSTEM.split();
+    let clocks = ClockControl::boot_defaults(system.clock_control).freeze();
+
+    let mut rtc = Rtc::new(peripherals.RTC_CNTL);
+    let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
+    let mut wdt0 = timer_group0.wdt;
+    let timer_group1 = TimerGroup::new(peripherals.TIMG1, &clocks);
+    let mut wdt1 = timer_group1.wdt;
+
+    // Disable watchdogs
+    rtc.rwdt.disable();
+    wdt0.disable();
+    wdt1.disable();
+
+    // Configure GPIO
+    let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+    let mut led = io.pins.gpio7.into_push_pull_output();
+
+    // Main loop
     loop {
-        unsafe {
-            // Check for ready bit
-            if ptr::read_volatile(STATUS_REG) & READY_BIT != 0 {
-                return Ok(ptr::read_volatile(reg));
-            }
+        led.toggle().unwrap();
+        delay(500_000);
+    }
+}
 
-            // Check timeout
-            let elapsed = TIMER.read_counter() - start;
-            if elapsed > timeout_us as u64 {
-                return Err(HardwareError::Timeout);
-            }
-        }
-
-        core::hint::spin_loop();
+fn delay(cycles: u32) {
+    for _ in 0..cycles {
+        unsafe { riscv::asm::nop() };
     }
 }
 ```
 
-## Part 8: Exercises
+## Best Practices
 
-### Exercise 1: Basic Register Control
+1. **Always Use Volatile**: Hardware registers require volatile access
+2. **Type Safety**: Use strong types to prevent register misuse
+3. **Singleton Pattern**: Ensure single ownership of peripherals
+4. **Critical Sections**: Protect shared state in interrupts
+5. **Zero-Cost Abstractions**: HAL traits compile to direct register access
+6. **Test on Hardware**: Emulators may not match real hardware behavior
 
-Create a safe LED controller using volatile access:
+## Common Pitfalls
 
-```rust
-// Your task: implement a safe LED controller
-pub struct LedController {
-    // Add fields
-}
-
-impl LedController {
-    /// Create new LED controller for given pin
-    pub fn new(pin: u8) -> Self {
-        todo!("Initialize LED on given pin")
-    }
-
-    /// Turn LED on
-    pub fn on(&mut self) {
-        todo!("Use volatile write to set pin high")
-    }
-
-    /// Turn LED off
-    pub fn off(&mut self) {
-        todo!("Use volatile write to set pin low")
-    }
-
-    /// Toggle LED state
-    pub fn toggle(&mut self) {
-        todo!("Read current state and toggle")
-    }
-}
-```
-
-### Exercise 2: Implement a UART Driver
-
-Build a basic UART driver with volatile register access:
-
-```rust
-/// UART peripheral registers
-#[repr(C)]
-struct UartRegisters {
-    data: u32,      // Data register (read/write)
-    status: u32,    // Status register (read-only)
-    control: u32,   // Control register (read/write)
-    baud: u32,      // Baud rate register (write-only)
-}
-
-const UART_TX_READY: u32 = 1 << 0;
-const UART_RX_READY: u32 = 1 << 1;
-
-pub struct Uart {
-    regs: *mut UartRegisters,
-}
-
-impl Uart {
-    /// Initialize UART with given baud rate
-    pub fn init(baud_rate: u32) -> Self {
-        todo!("Initialize UART with volatile writes")
-    }
-
-    /// Send a byte
-    pub fn write_byte(&mut self, byte: u8) {
-        todo!("Wait for TX ready, then write byte")
-    }
-
-    /// Receive a byte
-    pub fn read_byte(&mut self) -> Option<u8> {
-        todo!("Check RX ready, read if available")
-    }
-
-    /// Send a string
-    pub fn write_str(&mut self, s: &str) {
-        todo!("Send each byte of the string")
-    }
-}
-```
-
-### Exercise 3: Create a PAC-style Interface
-
-Design a type-safe register interface:
-
-```rust
-/// Your task: Create a PAC-style interface for a PWM peripheral
-///
-/// PWM Registers:
-/// - DUTY (0x00): 16-bit duty cycle value
-/// - PERIOD (0x04): 16-bit period value
-/// - CONTROL (0x08): Control bits [0: Enable, 1: Interrupt Enable]
-/// - STATUS (0x0C): Status bits [0: Running, 1: Interrupt Pending]
-
-// TODO: Define register types with appropriate read/write permissions
-
-// TODO: Implement safe register access methods
-
-// TODO: Add builder pattern for configuration
-
-pub struct PwmConfig {
-    duty: u16,
-    period: u16,
-    enable_interrupt: bool,
-}
-
-impl PwmConfig {
-    pub fn new() -> Self {
-        todo!("Create default config")
-    }
-
-    pub fn duty_cycle(mut self, percent: u8) -> Self {
-        todo!("Set duty cycle as percentage")
-    }
-
-    pub fn frequency(mut self, hz: u32) -> Self {
-        todo!("Calculate period from frequency")
-    }
-}
-```
-
-## Key Takeaways
-
-✅ **Volatile access is mandatory** for memory-mapped I/O - regular memory access won't work
-
-✅ **SVD2Rust generates safe abstractions** from manufacturer-provided hardware descriptions
-
-✅ **Type-state patterns** prevent hardware misuse at compile time
-
-✅ **Ownership patterns** ensure exclusive peripheral access
-
-✅ **embedded-hal traits** enable portable drivers across different chips
-
-✅ **Critical sections and barriers** ensure correct operation ordering
-
-✅ **PACs provide the foundation** but HALs make embedded Rust ergonomic
+1. **Forgetting Volatile**: Regular access leads to optimization bugs
+2. **Race Conditions**: Unprotected access from interrupts
+3. **Alignment Issues**: DMA buffers need proper alignment
+4. **Clock Configuration**: Wrong clock setup causes timing issues
+5. **Power States**: Peripherals may need re-initialization after sleep
 
 ## Summary
 
-Hardware register access requires volatile operations because:
-1. **Compiler optimizations** would break hardware communication
-2. **Registers change independently** of program execution
-3. **Each access has side effects** that must not be optimized away
+Embedded HAL in Rust provides:
 
-Modern embedded Rust provides multiple abstraction layers:
-- **Raw volatile pointers** - Maximum control, maximum danger
-- **PACs from SVD2Rust** - Type-safe register access
-- **HAL implementations** - Ergonomic, safe APIs
-- **embedded-hal traits** - Portable driver ecosystem
+- **Volatile access patterns** for hardware registers
+- **Type-safe abstractions** over raw memory access
+- **PAC generation** from SVD files
+- **Portable drivers** via HAL traits
+- **Memory safety** in embedded contexts
 
-This layered approach gives you both the power to control hardware directly and the safety to avoid common embedded programming pitfalls.
+The embedded-hal ecosystem enables writing portable, reusable drivers while maintaining the performance of direct hardware access.
 
----
+## Additional Resources
 
-Next: [Chapter 24: Memory Management Paradigm Shift](./24_memory_paradigm.md)
+- [The Embedded Rust Book](https://docs.rust-embedded.org/book/)
+- [embedded-hal Documentation](https://docs.rs/embedded-hal/)
+- [svd2rust](https://github.com/rust-embedded/svd2rust)
+- [awesome-embedded-rust](https://github.com/rust-embedded/awesome-embedded-rust)

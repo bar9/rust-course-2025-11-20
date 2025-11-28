@@ -1,52 +1,140 @@
-# Chapter 22: Unsafe Rust & FFI - Bridging Languages in Production
+# Chapter 22: Unsafe Rust & FFI
 
-## Learning Objectives
-- Master unsafe Rust and its safety contracts
-- Build bidirectional FFI bridges between Rust and C/C++
-- Integrate Rust into existing C/C++ build systems and vice versa
-- Understand FFI implications for reproducible builds and safety
-- Use modern tools: bindgen, cbindgen, cxx, and autocxx (2024)
+This chapter covers unsafe Rust operations and Foreign Function Interface (FFI) for interfacing with C/C++ code. Unsafe Rust provides low-level control when needed while FFI enables integration with existing system libraries and codebases.
+
+**Edition 2024 Note**: Starting with Rust 1.82 and Edition 2024, all `extern` blocks must be marked as `unsafe extern` to make the unsafety of FFI calls explicit. This change improves clarity about where unsafe operations occur.
 
 ## Part 1: Unsafe Rust Foundations
 
-### The Five Unsafe Superpowers (Rust 2024)
+### The Five Unsafe Superpowers
 
-Unsafe Rust enables:
+Unsafe Rust enables five specific operations that bypass Rust's safety guarantees:
+
 1. **Dereference raw pointers** - Direct memory access
 2. **Call unsafe functions/methods** - Including FFI functions
 3. **Access/modify mutable statics** - Global state management
 4. **Implement unsafe traits** - Like `Send` and `Sync`
 5. **Access union fields** - Memory reinterpretation
 
-### Modern Unsafe Patterns (2024 Edition)
+### Raw Pointers
 
 ```rust
-// 1. FFI with C libraries (now with safer extern blocks)
-extern "C" {
-    fn strlen(s: *const c_char) -> size_t;
+use std::ptr;
+
+// Creating raw pointers
+let mut num = 5;
+let r1 = &num as *const i32;        // Immutable raw pointer
+let r2 = &mut num as *mut i32;      // Mutable raw pointer
+
+// Dereferencing requires unsafe
+unsafe {
+    println!("r1: {}", *r1);
+    *r2 = 10;
+    println!("r2: {}", *r2);
 }
 
-// 2. SIMD and performance-critical code
-use std::arch::x86_64::*;
+// Pointer arithmetic
+unsafe {
+    let array = [1, 2, 3, 4, 5];
+    let ptr = array.as_ptr();
 
-unsafe fn fast_compare_simd(a: &[u8; 32], b: &[u8; 32]) -> bool {
-    let a_vec = _mm256_loadu_si256(a.as_ptr() as *const __m256i);
-    let b_vec = _mm256_loadu_si256(b.as_ptr() as *const __m256i);
-    let result = _mm256_cmpeq_epi8(a_vec, b_vec);
-    _mm256_movemask_epi8(result) == -1
+    for i in 0..5 {
+        println!("Value at offset {}: {}", i, *ptr.add(i));
+    }
+}
+```
+
+### Unsafe Functions and Methods
+
+```rust
+unsafe fn dangerous() {
+    // Function body can perform unsafe operations
 }
 
-// 3. Zero-copy parsing with lifetime guarantees
+// Calling unsafe functions
+unsafe {
+    dangerous();
+}
+
+// Safe abstraction over unsafe code
+fn split_at_mut(values: &mut [i32], mid: usize) -> (&mut [i32], &mut [i32]) {
+    let len = values.len();
+    let ptr = values.as_mut_ptr();
+
+    assert!(mid <= len);
+
+    unsafe {
+        (
+            std::slice::from_raw_parts_mut(ptr, mid),
+            std::slice::from_raw_parts_mut(ptr.add(mid), len - mid),
+        )
+    }
+}
+```
+
+### Mutable Static Variables
+
+```rust
+static mut COUNTER: u32 = 0;
+
+fn increment_counter() {
+    unsafe {
+        COUNTER += 1;
+    }
+}
+
+fn get_counter() -> u32 {
+    unsafe {
+        COUNTER
+    }
+}
+
+// Better alternative: use atomic types
+use std::sync::atomic::{AtomicU32, Ordering};
+
+static ATOMIC_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+fn safe_increment() {
+    ATOMIC_COUNTER.fetch_add(1, Ordering::SeqCst);
+}
+```
+
+### Unsafe Traits
+
+```rust
+unsafe trait Zeroable {
+    // Trait is unsafe because implementor must guarantee safety
+}
+
+unsafe impl Zeroable for i32 {
+    // We guarantee i32 can be safely zeroed
+}
+
+// Send and Sync are unsafe traits
+struct RawPointer(*const u8);
+
+unsafe impl Send for RawPointer {}
+unsafe impl Sync for RawPointer {}
+```
+
+### Unions
+
+```rust
 #[repr(C)]
-struct PacketHeader {
-    version: u8,
-    flags: u8,
-    length: u16,
+union IntOrFloat {
+    i: i32,
+    f: f32,
 }
 
-unsafe fn parse_packet_zero_copy(data: &[u8]) -> &PacketHeader {
-    assert!(data.len() >= std::mem::size_of::<PacketHeader>());
-    &*(data.as_ptr() as *const PacketHeader)
+let mut u = IntOrFloat { i: 42 };
+
+unsafe {
+    // Accessing union fields is unsafe
+    u.f = 3.14;
+    println!("Float: {}", u.f);
+
+    // Type punning (reinterpreting bits)
+    println!("As int: {}", u.i);  // Undefined behavior!
 }
 ```
 
@@ -59,34 +147,71 @@ use std::os::raw::{c_char, c_int, c_void};
 use std::ffi::{CString, CStr};
 
 // Link to system libraries
-#[link(name = "sqlite3")]
+#[link(name = "m")]  // Math library
 extern "C" {
-    fn sqlite3_libversion() -> *const c_char;
-    fn sqlite3_open(filename: *const c_char, ppDb: *mut *mut c_void) -> c_int;
-    fn sqlite3_close(db: *mut c_void) -> c_int;
+    fn sqrt(x: f64) -> f64;
+    fn pow(base: f64, exponent: f64) -> f64;
 }
 
+// Note: In Edition 2024 (Rust 1.82+), extern blocks must be marked unsafe:
+// unsafe extern "C" {
+//     fn sqrt(x: f64) -> f64;
+// }
+
 // Safe wrapper
-pub fn get_sqlite_version() -> String {
+pub fn safe_sqrt(x: f64) -> f64 {
+    if x < 0.0 {
+        panic!("Cannot take square root of negative number");
+    }
+    unsafe { sqrt(x) }
+}
+
+// Working with strings
+extern "C" {
+    fn strlen(s: *const c_char) -> usize;
+}
+
+pub fn string_length(s: &str) -> usize {
+    let c_string = CString::new(s).expect("CString creation failed");
     unsafe {
-        let version_ptr = sqlite3_libversion();
-        CStr::from_ptr(version_ptr)
-            .to_string_lossy()
-            .into_owned()
+        strlen(c_string.as_ptr())
     }
 }
 ```
 
-### Using Bindgen (Automatic C Binding Generation)
+### Complex C Structures
+
+```rust
+#[repr(C)]
+struct Point {
+    x: f64,
+    y: f64,
+}
+
+#[repr(C)]
+struct Rectangle {
+    top_left: Point,
+    bottom_right: Point,
+}
+
+extern "C" {
+    fn calculate_area(rect: *const Rectangle) -> f64;
+}
+
+pub fn rect_area(rect: &Rectangle) -> f64 {
+    unsafe {
+        calculate_area(rect as *const Rectangle)
+    }
+}
+```
+
+### Using Bindgen
 
 ```toml
 # Cargo.toml
 [build-dependencies]
-bindgen = "0.70"  # Latest 2024 version
+bindgen = "0.70"
 cc = "1.1"
-
-[dependencies]
-libc = "0.2"
 ```
 
 ```rust
@@ -95,23 +220,15 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    // Tell cargo to link the system library
-    println!("cargo:rustc-link-lib=ssl");
-    println!("cargo:rustc-link-lib=crypto");
+    // Compile C code
+    cc::Build::new()
+        .file("src/native.c")
+        .compile("native");
 
     // Generate bindings
     let bindings = bindgen::Builder::default()
-        .header("wrapper.h")
-        // Use Rust 2024 features
-        .rust_target(bindgen::RustTarget::Stable_1_77)
-        .allowlist_function("SSL_.*")
-        .allowlist_type("SSL.*")
-        .derive_default(true)
-        .derive_debug(true)
-        // Handle C++ if needed
-        .clang_arg("-x")
-        .clang_arg("c++")
-        .clang_arg("-std=c++17")
+        .header("src/wrapper.h")
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks))
         .generate()
         .expect("Unable to generate bindings");
 
@@ -122,7 +239,85 @@ fn main() {
 }
 ```
 
-### Modern C++ Integration with CXX (2024 Recommended)
+```rust
+// src/lib.rs
+include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+// Use generated bindings
+pub fn use_native_function() {
+    unsafe {
+        let result = native_function(42);
+        println!("Result: {}", result);
+    }
+}
+```
+
+## Part 3: Exposing Rust to C/C++
+
+### Using cbindgen
+
+```toml
+# Cargo.toml
+[lib]
+crate-type = ["cdylib", "staticlib"]
+
+[build-dependencies]
+cbindgen = "0.26"
+```
+
+```rust
+// src/lib.rs
+use std::ffi::{c_char, CStr};
+use std::os::raw::c_int;
+
+#[no_mangle]
+pub extern "C" fn rust_add(a: c_int, b: c_int) -> c_int {
+    a + b
+}
+
+#[no_mangle]
+pub extern "C" fn rust_greet(name: *const c_char) -> *mut c_char {
+    let name = unsafe {
+        assert!(!name.is_null());
+        CStr::from_ptr(name)
+    };
+
+    let greeting = format!("Hello, {}!", name.to_string_lossy());
+    let c_string = std::ffi::CString::new(greeting).unwrap();
+    c_string.into_raw()
+}
+
+#[no_mangle]
+pub extern "C" fn rust_free_string(s: *mut c_char) {
+    if s.is_null() {
+        return;
+    }
+    unsafe {
+        let _ = std::ffi::CString::from_raw(s);
+    }
+}
+```
+
+```rust
+// build.rs
+use cbindgen;
+use std::env;
+
+fn main() {
+    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    cbindgen::Builder::new()
+        .with_crate(crate_dir)
+        .with_language(cbindgen::Language::C)
+        .generate()
+        .expect("Unable to generate bindings")
+        .write_to_file("include/rust_lib.h");
+}
+```
+
+## Part 4: C++ Integration with cxx
+
+### Using cxx for Safe C++ FFI
 
 ```toml
 # Cargo.toml
@@ -134,681 +329,339 @@ cxx-build = "1.0"
 ```
 
 ```rust
-// src/main.rs
+// src/lib.rs
 #[cxx::bridge]
 mod ffi {
-    // Shared structs between Rust and C++
-    struct Point {
-        x: f64,
-        y: f64,
-    }
-
     unsafe extern "C++" {
-        include!("geometry.h");
+        include!("cpp/include/blobstore.h");
 
-        type Circle;
+        type BlobstoreClient;
 
-        fn create_circle(center: Point, radius: f64) -> UniquePtr<Circle>;
-        fn area(self: &Circle) -> f64;
-        fn contains_point(self: &Circle, p: Point) -> bool;
+        fn new_blobstore_client() -> UniquePtr<BlobstoreClient>;
+        fn put(&self, key: &str, value: &[u8]) -> Result<()>;
+        fn get(&self, key: &str) -> Vec<u8>;
     }
 
     extern "Rust" {
-        fn process_circle(circle: &Circle);
+        fn process_blob(data: &[u8]) -> Vec<u8>;
     }
 }
 
-fn process_circle(circle: &ffi::Circle) {
-    println!("Circle area: {}", circle.area());
+pub fn process_blob(data: &[u8]) -> Vec<u8> {
+    // Rust implementation
+    data.iter().map(|&b| b.wrapping_add(1)).collect()
 }
 
-fn main() {
-    let circle = ffi::create_circle(
-        ffi::Point { x: 0.0, y: 0.0 },
-        5.0
-    );
+pub fn use_blobstore() -> Result<(), Box<dyn std::error::Error>> {
+    let client = ffi::new_blobstore_client();
+    let key = "test_key";
+    let data = b"hello world";
 
-    println!("Area: {}", circle.area());
-    println!("Contains (3,4): {}",
-        circle.contains_point(ffi::Point { x: 3.0, y: 4.0 }));
+    client.put(key, data)?;
+    let retrieved = client.get(key);
+
+    Ok(())
 }
-```
-
-## Part 3: Calling Rust from C/C++
-
-### Using cbindgen for C Header Generation
-
-```toml
-# Cargo.toml
-[lib]
-crate-type = ["cdylib", "staticlib"]
-
-[build-dependencies]
-cbindgen = "0.27"  # Latest 2024 version
 ```
 
 ```rust
 // build.rs
-use std::env;
-
 fn main() {
-    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    cxx_build::bridge("src/lib.rs")
+        .file("cpp/src/blobstore.cc")
+        .std("c++17")
+        .compile("cxx-demo");
 
-    cbindgen::Builder::new()
-        .with_crate(crate_dir)
-        .with_language(cbindgen::Language::C)
-        .generate()
-        .expect("Unable to generate bindings")
-        .write_to_file("bindings.h");
+    println!("cargo:rerun-if-changed=src/lib.rs");
+    println!("cargo:rerun-if-changed=cpp/include/blobstore.h");
+    println!("cargo:rerun-if-changed=cpp/src/blobstore.cc");
 }
 ```
 
+## Part 5: Platform-Specific Code
+
+### Conditional Compilation
+
 ```rust
-// src/lib.rs - Rust library to be called from C
-use std::ffi::{c_char, CStr, CString};
+#[cfg(target_os = "windows")]
+mod windows {
+    use winapi::um::fileapi::GetFileAttributesW;
+    use winapi::um::winnt::FILE_ATTRIBUTE_HIDDEN;
+    use std::os::windows::ffi::OsStrExt;
+    use std::ffi::OsStr;
 
-/// Opaque Rust type for C
-#[repr(C)]
-pub struct RustProcessor {
-    _private: [u8; 0],
+    pub fn is_hidden(path: &std::path::Path) -> bool {
+        let wide: Vec<u16> = OsStr::new(path)
+            .encode_wide()
+            .chain(Some(0))
+            .collect();
+
+        unsafe {
+            let attrs = GetFileAttributesW(wide.as_ptr());
+            attrs != u32::MAX && (attrs & FILE_ATTRIBUTE_HIDDEN) != 0
+        }
+    }
 }
 
-/// Create a new processor instance
-#[no_mangle]
-pub extern "C" fn rust_processor_new() -> *mut RustProcessor {
-    let processor = Box::new(ProcessorImpl::new());
-    Box::into_raw(processor) as *mut RustProcessor
+#[cfg(target_os = "linux")]
+mod linux {
+    pub fn is_hidden(path: &std::path::Path) -> bool {
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.starts_with('.'))
+            .unwrap_or(false)
+    }
 }
+```
 
-/// Process data with the Rust implementation
-#[no_mangle]
-pub extern "C" fn rust_processor_process(
-    processor: *mut RustProcessor,
-    input: *const c_char,
-    output: *mut c_char,
-    output_len: usize,
-) -> i32 {
-    if processor.is_null() || input.is_null() || output.is_null() {
-        return -1;
+### SIMD Operations
+
+```rust
+#[cfg(target_arch = "x86_64")]
+use std::arch::x86_64::*;
+
+#[cfg(target_arch = "x86_64")]
+unsafe fn dot_product_simd(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len());
+    assert!(a.len() % 8 == 0);
+
+    let mut sum = _mm256_setzero_ps();
+
+    for i in (0..a.len()).step_by(8) {
+        let a_vec = _mm256_loadu_ps(a.as_ptr().add(i));
+        let b_vec = _mm256_loadu_ps(b.as_ptr().add(i));
+        let prod = _mm256_mul_ps(a_vec, b_vec);
+        sum = _mm256_add_ps(sum, prod);
     }
 
-    unsafe {
-        let processor = &mut *(processor as *mut ProcessorImpl);
-        let input_str = match CStr::from_ptr(input).to_str() {
+    // Horizontal sum
+    let mut result = [0.0f32; 8];
+    _mm256_storeu_ps(result.as_mut_ptr(), sum);
+    result.iter().sum()
+}
+```
+
+## Part 6: Safety Patterns and Best Practices
+
+### Safe Abstraction Pattern
+
+```rust
+pub struct SafeWrapper {
+    ptr: *mut SomeFFIType,
+}
+
+impl SafeWrapper {
+    pub fn new() -> Option<Self> {
+        unsafe {
+            let ptr = ffi_create_object();
+            if ptr.is_null() {
+                None
+            } else {
+                Some(SafeWrapper { ptr })
+            }
+        }
+    }
+
+    pub fn do_something(&self) -> Result<i32, String> {
+        unsafe {
+            let result = ffi_do_something(self.ptr);
+            if result < 0 {
+                Err("Operation failed".to_string())
+            } else {
+                Ok(result)
+            }
+        }
+    }
+}
+
+impl Drop for SafeWrapper {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.ptr.is_null() {
+                ffi_destroy_object(self.ptr);
+            }
+        }
+    }
+}
+
+// Ensure thread safety only if the C library supports it
+unsafe impl Send for SafeWrapper {}
+unsafe impl Sync for SafeWrapper {}
+```
+
+### Error Handling Across FFI
+
+```rust
+use std::ffi::CString;
+use std::ptr;
+
+#[repr(C)]
+pub struct ErrorInfo {
+    code: i32,
+    message: *mut c_char,
+}
+
+#[no_mangle]
+pub extern "C" fn rust_operation(
+    input: *const c_char,
+    error: *mut ErrorInfo,
+) -> *mut c_char {
+    // Clear error initially
+    if !error.is_null() {
+        unsafe {
+            (*error).code = 0;
+            (*error).message = ptr::null_mut();
+        }
+    }
+
+    // Parse input
+    let input_str = unsafe {
+        if input.is_null() {
+            set_error(error, 1, "Null input");
+            return ptr::null_mut();
+        }
+        match CStr::from_ptr(input).to_str() {
             Ok(s) => s,
-            Err(_) => return -2,
+            Err(_) => {
+                set_error(error, 2, "Invalid UTF-8");
+                return ptr::null_mut();
+            }
+        }
+    };
+
+    // Perform operation
+    match perform_operation(input_str) {
+        Ok(result) => {
+            CString::new(result)
+                .map(|s| s.into_raw())
+                .unwrap_or_else(|_| {
+                    set_error(error, 3, "Failed to create result");
+                    ptr::null_mut()
+                })
+        }
+        Err(e) => {
+            set_error(error, 4, &e.to_string());
+            ptr::null_mut()
+        }
+    }
+}
+
+fn set_error(error: *mut ErrorInfo, code: i32, message: &str) {
+    if !error.is_null() {
+        unsafe {
+            (*error).code = code;
+            (*error).message = CString::new(message)
+                .map(|s| s.into_raw())
+                .unwrap_or(ptr::null_mut());
+        }
+    }
+}
+
+fn perform_operation(input: &str) -> Result<String, Box<dyn std::error::Error>> {
+    // Your actual operation here
+    Ok(format!("Processed: {}", input))
+}
+```
+
+## Part 7: Testing FFI Code
+
+### Unit Testing with Mocking
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ffi_wrapper() {
+        // Mock the FFI functions in tests
+        struct MockFFI;
+
+        impl MockFFI {
+            fn mock_function(&self, input: i32) -> i32 {
+                input * 2
+            }
+        }
+
+        let mock = MockFFI;
+        assert_eq!(mock.mock_function(21), 42);
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let mut error = ErrorInfo {
+            code: 0,
+            message: ptr::null_mut(),
         };
 
-        let result = processor.process(input_str);
-        let result_bytes = result.as_bytes();
-
-        if result_bytes.len() >= output_len {
-            return -3;
-        }
-
-        std::ptr::copy_nonoverlapping(
-            result_bytes.as_ptr(),
-            output as *mut u8,
-            result_bytes.len(),
+        let result = rust_operation(
+            ptr::null(),
+            &mut error as *mut ErrorInfo,
         );
-        *output.add(result_bytes.len()) = 0;
 
-        result_bytes.len() as i32
-    }
-}
-
-/// Free the processor instance
-#[no_mangle]
-pub extern "C" fn rust_processor_free(processor: *mut RustProcessor) {
-    if !processor.is_null() {
-        unsafe {
-            let _ = Box::from_raw(processor as *mut ProcessorImpl);
-        }
-    }
-}
-
-// Internal implementation
-struct ProcessorImpl {
-    counter: u32,
-}
-
-impl ProcessorImpl {
-    fn new() -> Self {
-        ProcessorImpl { counter: 0 }
-    }
-
-    fn process(&mut self, input: &str) -> String {
-        self.counter += 1;
-        format!("Processed #{}: {}", self.counter, input.to_uppercase())
+        assert!(result.is_null());
+        assert_eq!(unsafe { error.code }, 1);
     }
 }
 ```
 
-### C Usage Example
-
-```c
-// main.c - Using the Rust library from C
-#include "bindings.h"
-#include <stdio.h>
-
-int main() {
-    // Create Rust processor
-    RustProcessor* processor = rust_processor_new();
-    if (!processor) {
-        fprintf(stderr, "Failed to create processor\n");
-        return 1;
-    }
-
-    // Process some data
-    char output[256];
-    int result = rust_processor_process(
-        processor,
-        "hello from c",
-        output,
-        sizeof(output)
-    );
-
-    if (result > 0) {
-        printf("Result: %s\n", output);
-    }
-
-    // Clean up
-    rust_processor_free(processor);
-    return 0;
-}
-```
-
-```makefile
-# Makefile
-RUST_LIB = target/release/libmyrust.a
-
-main: main.c $(RUST_LIB)
-	gcc -o main main.c $(RUST_LIB) -lpthread -ldl
-
-$(RUST_LIB):
-	cargo build --release
-
-clean:
-	rm -f main
-	cargo clean
-```
-
-## Part 4: Build System Integration
-
-### Integrating Rust into CMake Projects
-
-```cmake
-# CMakeLists.txt - Adding Rust to existing C++ project
-cmake_minimum_required(VERSION 3.22)
-project(MixedProject)
-
-# Find or bootstrap Cargo
-find_program(CARGO cargo REQUIRED)
-
-# Rust library target
-set(RUST_LIB_NAME myrust)
-set(RUST_LIB_PATH ${CMAKE_BINARY_DIR}/rust/${CMAKE_BUILD_TYPE}/lib${RUST_LIB_NAME}.a)
-
-add_custom_command(
-    OUTPUT ${RUST_LIB_PATH}
-    COMMAND ${CMAKE_COMMAND} -E env
-        CARGO_TARGET_DIR=${CMAKE_BINARY_DIR}/rust
-        ${CARGO} build
-        --manifest-path ${CMAKE_SOURCE_DIR}/rust-lib/Cargo.toml
-        $<$<CONFIG:Release>:--release>
-    DEPENDS
-        ${CMAKE_SOURCE_DIR}/rust-lib/Cargo.toml
-        ${CMAKE_SOURCE_DIR}/rust-lib/src/lib.rs
-    COMMENT "Building Rust library"
-)
-
-add_custom_target(rust_lib ALL DEPENDS ${RUST_LIB_PATH})
-
-# C++ executable that uses Rust
-add_executable(main main.cpp)
-add_dependencies(main rust_lib)
-target_link_libraries(main PRIVATE ${RUST_LIB_PATH} pthread dl)
-```
-
-### Using Cargo to Build C Dependencies
+### Integration Testing
 
 ```rust
-// build.rs - Building C code from Rust
-use cc;
-use cmake;
-
-fn main() {
-    // Option 1: Using cc crate for simple C files
-    cc::Build::new()
-        .file("src/native/helper.c")
-        .include("src/native")
-        .compile("helper");
-
-    // Option 2: Using cmake crate for complex projects
-    let dst = cmake::Config::new("libfoo")
-        .define("BUILD_SHARED_LIBS", "OFF")
-        .build();
-
-    println!("cargo:rustc-link-search=native={}/lib", dst.display());
-    println!("cargo:rustc-link-lib=static=foo");
-
-    // Option 3: Using pkg-config for system libraries
-    pkg_config::Config::new()
-        .atleast_version("2.0")
-        .probe("openssl")
-        .unwrap();
-}
-```
-
-### Real-World Examples from Major Projects
-
-```toml
-# Firefox (Gecko) - Rust components in C++ browser
-# Uses custom build system integration
-# See: mozilla-central/toolkit/library/rust/
-
-# Librsvg - GNOME's SVG library, migrated from C to Rust
-# Uses Meson build system with Rust integration
-# See: gitlab.gnome.org/GNOME/librsvg
-
-# curl - HTTP library with optional Rust HTTP/3 backend
-# Uses autotools with Rust detection
-# See: github.com/curl/curl (--with-quiche option)
-
-# Linux Kernel - Rust support since 6.1
-# Uses Kbuild with custom Rust integration
-# See: kernel.org/doc/html/latest/rust/
-```
-
-## Part 5: Reproducible Builds and FFI
-
-### FFI Impact on Reproducibility
-
-FFI introduces several challenges for reproducible builds:
-
-1. **System Library Versions** - Different platforms have different versions
-2. **Build Tool Versions** - bindgen, clang versions affect output
-3. **Header File Paths** - System headers vary across distributions
-4. **Symbol Visibility** - Platform-specific linking behavior
-
-### Strategies for Reproducible FFI Builds
-
-```toml
-# Cargo.toml - Lock dependencies and specify exact versions
-[dependencies]
-libc = "=0.2.155"  # Exact version
-
-[build-dependencies]
-bindgen = "=0.70.1"  # Exact version
-cc = "=1.1.6"
-
-# Use cargo-vendor for offline builds
-# cargo vendor
-# Create .cargo/config.toml:
-# [source.crates-io]
-# replace-with = "vendored-sources"
-# [source.vendored-sources]
-# directory = "vendor"
-```
-
-```rust
-// build.rs - Reproducible bindgen configuration
-use std::path::PathBuf;
-
-fn main() {
-    // Use vendored headers instead of system headers
-    let bindings = bindgen::Builder::default()
-        .header("vendor/include/library.h")
-        // Explicitly set target for cross-platform consistency
-        .clang_arg("--target=x86_64-unknown-linux-gnu")
-        // Use specific sysroot for headers
-        .clang_arg("--sysroot=/path/to/sysroot")
-        // Disable time-dependent macros
-        .clang_arg("-D__DATE__=\"\"")
-        .clang_arg("-D__TIME__=\"\"")
-        // Generate deterministic output
-        .generate_comments(false)
-        .layout_tests(false)
-        .generate()
-        .expect("Unable to generate bindings");
-
-    // Use OUT_DIR for generated files
-    let out_path = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
-}
-```
-
-### Container-Based Reproducible Builds
-
-```dockerfile
-# Dockerfile for reproducible FFI builds
-FROM rust:1.77-bookworm AS builder
-
-# Install specific versions of build dependencies
-RUN apt-get update && apt-get install -y \
-    clang-15=1:15.0.7-1 \
-    libssl-dev=3.0.11-1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Pin Rust toolchain
-RUN rustup default 1.77.0
-RUN rustup component add rustfmt clippy
-
-# Copy and build
-WORKDIR /app
-COPY . .
-RUN cargo build --release --locked
-
-# Runtime stage
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y \
-    libssl3=3.0.11-1 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /app/target/release/myapp /usr/local/bin/
-CMD ["myapp"]
-```
-
-## Part 6: Safety Considerations and Best Practices
-
-### FFI Safety Checklist
-
-```rust
-// ✅ GOOD: Validate all inputs from FFI boundary
-#[no_mangle]
-pub extern "C" fn safe_function(ptr: *const u8, len: usize) -> i32 {
-    // Check for null pointers
-    if ptr.is_null() {
-        return -1;
-    }
-
-    // Validate length to prevent overflow
-    if len > isize::MAX as usize {
-        return -2;
-    }
-
-    // Create slice with explicit lifetime
-    let slice = unsafe {
-        std::slice::from_raw_parts(ptr, len)
+// tests/integration_test.rs
+#[test]
+fn test_full_ffi_roundtrip() {
+    // Load the library
+    let lib = unsafe {
+        libloading::Library::new("./target/debug/libmylib.so")
+            .expect("Failed to load library")
     };
 
-    // Use safe Rust from here
-    process_data(slice)
-}
-
-// ❌ BAD: Trusting FFI inputs
-#[no_mangle]
-pub extern "C" fn unsafe_function(ptr: *const u8, len: usize) -> i32 {
-    // Direct usage without validation!
-    let slice = unsafe {
-        std::slice::from_raw_parts(ptr, len)
-    };
-    process_data(slice)
-}
-```
-
-### Thread Safety Across FFI
-
-```rust
-use std::sync::Mutex;
-use once_cell::sync::Lazy;
-
-// Thread-safe global state for FFI
-static GLOBAL_STATE: Lazy<Mutex<State>> = Lazy::new(|| {
-    Mutex::new(State::new())
-});
-
-#[no_mangle]
-pub extern "C" fn thread_safe_operation(value: i32) -> i32 {
-    let mut state = GLOBAL_STATE.lock().unwrap();
-    state.process(value)
-}
-
-// Mark functions that require external synchronization
-/// # Safety
-/// This function is NOT thread-safe. Caller must ensure
-/// exclusive access during calls.
-#[no_mangle]
-pub unsafe extern "C" fn not_thread_safe_operation(ptr: *mut State) -> i32 {
-    if ptr.is_null() {
-        return -1;
-    }
-    (*ptr).process(42)
-}
-```
-
-### Memory Management Patterns
-
-```rust
-// Pattern 1: Rust allocates, Rust frees
-#[no_mangle]
-pub extern "C" fn rust_alloc_string(s: *const c_char) -> *mut c_char {
-    if s.is_null() {
-        return std::ptr::null_mut();
-    }
-
-    unsafe {
-        let input = CStr::from_ptr(s).to_string_lossy();
-        let output = CString::new(format!("Processed: {}", input))
-            .unwrap();
-        output.into_raw()
-    }
-}
-
-#[no_mangle]
-pub extern "C" fn rust_free_string(s: *mut c_char) {
-    if !s.is_null() {
+    // Get function symbols
+    let add_fn: libloading::Symbol<unsafe extern "C" fn(i32, i32) -> i32> =
         unsafe {
-            let _ = CString::from_raw(s);
-        }
-    }
-}
+            lib.get(b"rust_add").expect("Failed to load symbol")
+        };
 
-// Pattern 2: Caller provides buffer
-#[no_mangle]
-pub extern "C" fn process_into_buffer(
-    input: *const c_char,
-    output: *mut c_char,
-    output_size: usize,
-) -> i32 {
-    if input.is_null() || output.is_null() || output_size == 0 {
-        return -1;
-    }
-
-    unsafe {
-        let input_str = CStr::from_ptr(input).to_string_lossy();
-        let processed = format!("Result: {}", input_str.to_uppercase());
-        let bytes = processed.as_bytes();
-
-        if bytes.len() >= output_size {
-            return -2;  // Buffer too small
-        }
-
-        std::ptr::copy_nonoverlapping(
-            bytes.as_ptr(),
-            output as *mut u8,
-            bytes.len(),
-        );
-        *output.add(bytes.len()) = 0;  // Null terminator
-
-        bytes.len() as i32
-    }
+    // Test the function
+    let result = unsafe { add_fn(10, 32) };
+    assert_eq!(result, 42);
 }
 ```
 
-## Part 7: Common FFI Pitfalls and Solutions
+## Best Practices
 
-### ABI Compatibility Issues
+1. **Minimize Unsafe Code**: Keep unsafe blocks small and isolated
+2. **Document Safety Requirements**: Clearly state what callers must guarantee
+3. **Use Safe Abstractions**: Wrap unsafe code in safe APIs
+4. **Validate All Inputs**: Never trust data from FFI boundaries
+5. **Handle Errors Gracefully**: Convert panics to error codes at FFI boundaries
+6. **Test Thoroughly**: Include fuzzing and property-based testing
+7. **Use Tools**: Run Miri, Valgrind, and sanitizers on FFI code
 
-```rust
-// ❌ BAD: Using Rust-specific types across FFI
-#[no_mangle]
-pub extern "C" fn bad_ffi(s: String) -> Vec<u8> {  // Won't work!
-    s.into_bytes()
-}
+## Common Pitfalls
 
-// ✅ GOOD: Use C-compatible types
-#[no_mangle]
-pub extern "C" fn good_ffi(s: *const c_char, out: *mut u8, out_len: *mut usize) -> i32 {
-    if s.is_null() || out.is_null() || out_len.is_null() {
-        return -1;
-    }
-    // Implementation...
-    0
-}
-```
-
-### Lifetime and Ownership Confusion
-
-```rust
-// ❌ BAD: Returning references across FFI
-#[no_mangle]
-pub extern "C" fn get_static_str() -> *const c_char {
-    let s = String::from("temporary");
-    s.as_ptr() as *const c_char  // Dangling pointer!
-}
-
-// ✅ GOOD: Return static or heap-allocated data
-static STATIC_STR: &[u8] = b"permanent\0";
-
-#[no_mangle]
-pub extern "C" fn get_static_str() -> *const c_char {
-    STATIC_STR.as_ptr() as *const c_char
-}
-```
-
-### Platform-Specific Size Assumptions
-
-```rust
-// ❌ BAD: Assuming size_t is usize
-extern "C" {
-    fn process(data: *const u8, size: usize);  // May not match C's size_t!
-}
-
-// ✅ GOOD: Use libc types
-use libc::size_t;
-
-extern "C" {
-    fn process(data: *const u8, size: size_t);
-}
-```
-
-## Part 8: Modern FFI Tools Comparison (2024)
-
-| Tool | Use Case | Pros | Cons |
-|------|----------|------|------|
-| **bindgen** | C → Rust | Automatic, handles complex headers | Requires clang, unsafe bindings |
-| **cbindgen** | Rust → C | Simple, generates clean headers | Manual memory management |
-| **cxx** | C++ ↔ Rust | Type-safe, zero-cost | Limited C++ feature support |
-| **autocxx** | C++ → Rust | Handles more C++ features | Larger compile times |
-| **diplomat** | Rust → Multiple | Multi-language support | Additional complexity |
-
-### Quick Decision Guide
-
-```mermaid
-graph TD
-    A[FFI Need] --> B{Language?}
-    B -->|Pure C| C{Direction?}
-    B -->|C++| D{Complexity?}
-    C -->|C to Rust| E[bindgen]
-    C -->|Rust to C| F[cbindgen]
-    D -->|Simple| G[cxx]
-    D -->|Complex| H[autocxx]
-    A --> I{Multi-language?}
-    I -->|Yes| J[diplomat]
-```
-
-## Try It Yourself
-
-### Exercise 1: Cross-Language Data Structure
-Create a Rust library that exposes a thread-safe queue to C:
-```rust
-// Requirements:
-// - Thread-safe push/pop operations
-// - C-compatible interface
-// - Proper memory management
-// - Error codes for empty queue
-```
-
-### Exercise 2: Build System Integration
-Set up a CMake project that:
-- Builds a Rust static library
-- Links it with a C++ application
-- Handles cross-compilation to ARM64
-- Ensures reproducible builds
-
-### Exercise 3: Safety Audit
-Review this FFI code and identify all safety issues:
-```rust
-#[no_mangle]
-pub extern "C" fn process_data(input: *const u8, len: usize) -> *mut u8 {
-    let slice = unsafe { std::slice::from_raw_parts(input, len) };
-    let processed = slice.iter().map(|x| x + 1).collect::<Vec<_>>();
-    Box::into_raw(processed.into_boxed_slice()) as *mut u8
-}
-```
-
-## Best Practices Summary (2024)
-
-### Safety First
-- **Always validate** FFI inputs (null checks, bounds checks)
-- **Document safety contracts** explicitly in comments
-- **Use safe wrappers** - never expose raw unsafe APIs
-- **Test with sanitizers** - Use AddressSanitizer, ThreadSanitizer
-- **Run Miri** on FFI code to catch UB
-
-### Build Reproducibility
-- **Pin all versions** - Use exact versions in Cargo.toml
-- **Vendor dependencies** - Use cargo-vendor for offline builds
-- **Container builds** - Use Docker for consistent environments
-- **Document toolchain** - Specify exact Rust, clang, GCC versions
-
-### Performance
-- **Minimize allocations** across FFI boundary
-- **Use repr(C)** for zero-cost struct passing
-- **Batch operations** to reduce FFI overhead
-- **Profile FFI calls** - They can be surprisingly expensive
-
-### Maintenance
-- **Generate bindings** in CI to catch breaking changes
-- **Version your C API** with proper symbol versioning
-- **Use integration tests** that exercise FFI paths
-- **Document ownership** clearly for every pointer
-
-## Real-World Case Studies
-
-### Firecracker (Amazon)
-- Uses Rust for VMM, interfaces with KVM (C API)
-- Clean FFI abstractions for system calls
-- See: github.com/firecracker-microvm/firecracker
-
-### Stylo (Mozilla Firefox)
-- Rust CSS engine integrated into C++ browser
-- Complex bidirectional FFI with careful lifetime management
-- See: github.com/servo/servo
-
-### Rustls (Used by curl, nginx)
-- Pure Rust TLS replacing OpenSSL
-- C API via rustls-ffi for drop-in replacement
-- See: github.com/rustls/rustls-ffi
-
-### Linux Kernel Rust Support
-- Kernel modules in Rust calling C kernel APIs
-- Custom abstractions for kernel-specific patterns
-- See: rust-for-linux.com
+1. **Memory Management**: Ensure consistent allocation/deallocation across FFI
+2. **String Encoding**: C uses null-terminated strings, Rust doesn't
+3. **ABI Compatibility**: Always use `#[repr(C)]` for FFI structs
+4. **Lifetime Management**: Raw pointers don't encode lifetimes
+5. **Thread Safety**: Verify thread safety of external libraries
 
 ## Summary
 
-FFI is powerful but requires careful attention to:
-- **Safety contracts** - Document and enforce invariants
-- **Build reproducibility** - Control all dependencies
-- **Performance** - Measure and optimize FFI overhead
-- **Maintainability** - Use tools and automation
+Unsafe Rust and FFI provide powerful tools for systems programming:
 
-Modern tools (cxx, diplomat) make FFI safer and easier than ever, but understanding the fundamentals remains crucial for production systems.
+- **Unsafe Rust** enables low-level operations with explicit opt-in
+- **FFI** allows seamless integration with C/C++ codebases
+- **Safe abstractions** wrap unsafe code in safe interfaces
+- **Tools like bindgen and cbindgen** automate binding generation
+- **cxx** provides safe C++ interop
 
----
+Always prefer safe Rust, use unsafe only when necessary, and wrap it in safe abstractions.
 
-Next: [Chapter 23: Embedded HAL - Hardware Register Access & Volatile Memory](./23_embedded_hal.md)
+## Additional Resources
+
+- [The Rustonomicon](https://doc.rust-lang.org/nomicon/)
+- [bindgen User Guide](https://rust-lang.github.io/rust-bindgen/)
+- [cxx Documentation](https://cxx.rs/)
+- [FFI Omnibus](http://jakegoulding.com/rust-ffi-omnibus/)

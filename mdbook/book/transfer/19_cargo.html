@@ -159,50 +159,17 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="chapter-19-cargo--dependency-management"><a class="header" href="#chapter-19-cargo--dependency-management">Chapter 19: Cargo &amp; Dependency Management</a></h1>
-<p>Modern software development relies heavily on dependencies, and managing them correctly is crucial for reproducible builds, security, and maintainability. Coming from C++, .NET, or other ecosystems, Rust’s Cargo provides a refreshingly coherent approach to dependency management.</p>
-<h2 id="chapter-overview"><a class="header" href="#chapter-overview">Chapter Overview</a></h2>
-<p>This chapter covers the critical aspects of dependency management in Rust:</p>
-<ul>
-<li><strong>Rust editions</strong> and their impact on projects</li>
-<li><strong>Toolchain channels</strong> (stable, beta, nightly) and when to use each</li>
-<li><strong>Transitive dependency pinning</strong> and version resolution</li>
-<li><strong>Cargo resolver versions</strong> and migration to v2/v3</li>
-<li><strong>Cargo.lock</strong> files and when to commit them</li>
-<li><strong>Reproducible builds</strong> guarantees and limitations</li>
-<li><strong>Semantic versioning</strong> strategies and best practices</li>
-<li><strong>Private package repositories</strong> (Kellnr, Alexandrie, Panamax, Artifactory)</li>
-<li><strong>Workspace management</strong> for multi-crate projects</li>
-<li><strong>Benchmarking</strong> with Criterion</li>
-<li><strong>Examples</strong> directory structure</li>
-<li><strong>Documentation generation</strong> with rustdoc</li>
-</ul>
-<blockquote>
-<p>📚 <strong>Official Documentation</strong>: <a href="https://doc.rust-lang.org/cargo/">The Cargo Book</a></p>
-</blockquote>
-<hr />
+<p>Cargo is Rust’s build system and package manager. It handles dependencies, compilation, testing, and distribution. This chapter covers dependency management, from editions and toolchains to private registries and reproducible builds.</p>
 <h2 id="1-rust-editions"><a class="header" href="#1-rust-editions">1. Rust Editions</a></h2>
-<h3 id="what-are-editions"><a class="header" href="#what-are-editions">What Are Editions?</a></h3>
-<p>Rust editions are opt-in milestones that allow the language to evolve while maintaining its stability guarantees. Every three years, Rust releases a new edition that may include breaking changes to syntax or semantics, but:</p>
-<ul>
-<li><strong>All editions are fully interoperable</strong> - crates using different editions work together seamlessly</li>
-<li><strong>Old code continues to compile</strong> - editions are opt-in, not forced updates</li>
-<li><strong>The compiler supports all editions</strong> - one compiler handles all edition variants</li>
-</ul>
+<p>Rust editions are opt-in milestones released every three years that allow the language to evolve while maintaining stability guarantees. All editions remain fully interoperable - crates using different editions work together seamlessly.</p>
 <h3 id="available-editions"><a class="header" href="#available-editions">Available Editions</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>Edition</th><th>Released</th><th>Default Resolver</th><th>Key Changes</th></tr></thead><tbody>
 <tr><td><strong>2015</strong></td><td>Rust 1.0</td><td>v1</td><td>Original edition, <code>extern crate</code> required</td></tr>
-<tr><td><strong>2018</strong></td><td>Rust 1.31 (Dec 2018)</td><td>v1</td><td>Module system improvements, <code>async</code>/<code>await</code>, NLL</td></tr>
-<tr><td><strong>2021</strong></td><td>Rust 1.56 (Oct 2021)</td><td>v2</td><td>Disjoint captures, <code>into_iter()</code> arrays, reserved identifiers</td></tr>
-<tr><td><strong>2024</strong></td><td>Rust 1.85 (Feb 2025)</td><td>v3</td><td>MSRV-aware resolver, <code>gen</code> keyword, unsafe env functions</td></tr>
+<tr><td><strong>2018</strong></td><td>Rust 1.31</td><td>v1</td><td>Module system improvements, <code>async</code>/<code>await</code>, NLL</td></tr>
+<tr><td><strong>2021</strong></td><td>Rust 1.56</td><td>v2</td><td>Disjoint captures, <code>into_iter()</code> arrays, reserved identifiers</td></tr>
+<tr><td><strong>2024</strong></td><td>Rust 1.85</td><td>v3</td><td>MSRV-aware resolver, <code>gen</code> keyword, unsafe env functions</td></tr>
 </tbody></table>
 </div>
-<h3 id="configuring-edition"><a class="header" href="#configuring-edition">Configuring Edition</a></h3>
-<pre><code class="language-toml">[package]
-name = "my-project"
-version = "0.1.0"
-edition = "2021"  # Specify edition here
-# edition = "2024" when available (Rust 1.85+)
-</code></pre>
 <h3 id="key-edition-changes"><a class="header" href="#key-edition-changes">Key Edition Changes</a></h3>
 <p><strong>Edition 2018:</strong></p>
 <ul>
@@ -220,7 +187,7 @@ edition = "2021"  # Specify edition here
 <li>Default to resolver v2 for Cargo</li>
 <li>Panic macros require format strings</li>
 </ul>
-<p><strong>Edition 2024 (Coming Feb 2025):</strong></p>
+<p><strong>Edition 2024:</strong></p>
 <ul>
 <li>MSRV-aware dependency resolution (resolver v3)</li>
 <li><code>gen</code> keyword for generators/coroutines</li>
@@ -228,147 +195,84 @@ edition = "2021"  # Specify edition here
 <li>Tail expression temporary lifetime changes</li>
 <li><code>unsafe extern</code> blocks and attributes</li>
 </ul>
-<h3 id="migration-between-editions"><a class="header" href="#migration-between-editions">Migration Between Editions</a></h3>
-<pre><code class="language-bash"># WARNING: This command MODIFIES your code!
-# Automatically migrates code to be compatible with the next edition
+<h3 id="configuration-and-migration"><a class="header" href="#configuration-and-migration">Configuration and Migration</a></h3>
+<pre><code class="language-toml">[package]
+name = "my-project"
+version = "0.1.0"
+edition = "2021"
+</code></pre>
+<pre><code class="language-bash"># Migrate code to next edition (modifies files)
 cargo fix --edition
 
-# Also apply idiomatic style changes for the new edition
+# Apply idiomatic style changes
 cargo fix --edition --edition-idioms
 
-# After running cargo fix, manually update Cargo.toml
-# edition = "2021" → edition = "2024"
+# Then update Cargo.toml manually
 </code></pre>
 <h3 id="edition-selection-strategy"><a class="header" href="#edition-selection-strategy">Edition Selection Strategy</a></h3>
 <div class="table-wrapper"><table><thead><tr><th>Project Type</th><th>Recommended Edition</th><th>Rationale</th></tr></thead><tbody>
-<tr><td><strong>New projects</strong></td><td>Latest stable</td><td>Access to all improvements</td></tr>
-<tr><td><strong>Libraries</strong></td><td>Conservative (2018/2021)</td><td>Wider compatibility</td></tr>
-<tr><td><strong>Applications</strong></td><td>Latest stable</td><td>Modern features, better ergonomics</td></tr>
-<tr><td><strong>Legacy code</strong></td><td>Keep current</td><td>Migrate when beneficial</td></tr>
+<tr><td>New projects</td><td>Latest stable</td><td>Access to all improvements</td></tr>
+<tr><td>Libraries</td><td>Conservative (2018/2021)</td><td>Wider compatibility</td></tr>
+<tr><td>Applications</td><td>Latest stable</td><td>Modern features</td></tr>
+<tr><td>Legacy code</td><td>Keep current</td><td>Migrate when beneficial</td></tr>
 </tbody></table>
 </div>
-<blockquote>
-<p>📖 <strong>Learn More</strong>: <a href="https://doc.rust-lang.org/edition-guide/">The Rust Edition Guide</a></p>
-</blockquote>
-<hr />
-<h2 id="2-rust-toolchain-channels"><a class="header" href="#2-rust-toolchain-channels">2. Rust Toolchain Channels</a></h2>
-<h3 id="the-release-train-model"><a class="header" href="#the-release-train-model">The Release Train Model</a></h3>
-<p>Rust uses a “train model” with three channels, each serving different needs:</p>
+<h2 id="2-toolchain-channels"><a class="header" href="#2-toolchain-channels">2. Toolchain Channels</a></h2>
+<p>Rust uses a release train model with three channels:</p>
 <pre><code>Nightly (daily) → Beta (6 weeks) → Stable (6 weeks)
-         ↓              ↓                ↓
-    Cutting edge    Pre-release    Production ready
 </code></pre>
-<h3 id="channel-characteristics"><a class="header" href="#channel-characteristics">Channel Characteristics</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Channel</th><th>Release Cycle</th><th>Stability</th><th>Features</th><th>Use Case</th></tr></thead><tbody>
-<tr><td><strong>Stable</strong></td><td>Every 6 weeks</td><td>Guaranteed stable</td><td>Only stabilized</td><td>Production</td></tr>
-<tr><td><strong>Beta</strong></td><td>Every 6 weeks</td><td>Generally stable</td><td>Next stable release</td><td>Testing</td></tr>
-<tr><td><strong>Nightly</strong></td><td>Daily</td><td>May break</td><td>Unstable features</td><td>Experimentation</td></tr>
+<div class="table-wrapper"><table><thead><tr><th>Channel</th><th>Release Cycle</th><th>Stability</th><th>Use Case</th></tr></thead><tbody>
+<tr><td><strong>Stable</strong></td><td>6 weeks</td><td>Guaranteed stable</td><td>Production</td></tr>
+<tr><td><strong>Beta</strong></td><td>6 weeks</td><td>Generally stable</td><td>Testing upcoming releases</td></tr>
+<tr><td><strong>Nightly</strong></td><td>Daily</td><td>May break</td><td>Experimental features</td></tr>
 </tbody></table>
 </div>
 <h3 id="stable-channel"><a class="header" href="#stable-channel">Stable Channel</a></h3>
-<p>The default and recommended channel for most users:</p>
 <pre><code class="language-bash"># Install or switch to stable
 rustup default stable
-
-# Update stable toolchain
-rustup update stable
 
 # Use specific stable version
 rustup install 1.82.0
 rustup default 1.82.0
 </code></pre>
-<p><strong>When to use:</strong></p>
-<ul>
-<li>Production applications</li>
-<li>Published libraries</li>
-<li>CI/CD pipelines</li>
-<li>Learning Rust</li>
-</ul>
 <h3 id="beta-channel"><a class="header" href="#beta-channel">Beta Channel</a></h3>
-<p>Pre-release versions for testing upcoming features:</p>
 <pre><code class="language-bash"># Switch to beta
 rustup default beta
 
 # Test with beta in CI
 rustup run beta cargo test
 </code></pre>
-<p><strong>When to use:</strong></p>
-<ul>
-<li>Testing for upcoming breakage</li>
-<li>CI regression testing</li>
-<li>Preparing for next stable</li>
-</ul>
 <h3 id="nightly-channel"><a class="header" href="#nightly-channel">Nightly Channel</a></h3>
-<p>Bleeding-edge features and unstable APIs:</p>
-<pre><code class="language-bash"># Switch to nightly
-rustup default nightly
-
-# Use nightly for specific project
+<pre><code class="language-bash"># Use nightly for specific project
 rustup override set nightly
 
 # Install specific nightly
 rustup install nightly-2024-11-28
 </code></pre>
-<p><strong>Enabling unstable features:</strong></p>
-<pre><pre class="playground"><code class="language-rust">// Only works on nightly
+<p>Enabling unstable features:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Only works on nightly
 #![feature(generators)]
 #![feature(type_alias_impl_trait)]
-
-fn main() {
-    // Use unstable features
-}</code></pre></pre>
-<h3 id="managing-toolchains"><a class="header" href="#managing-toolchains">Managing Toolchains</a></h3>
-<p><strong>Project-specific toolchain (<code>rust-toolchain.toml</code>):</strong></p>
-<pre><code class="language-toml">[toolchain]
+<span class="boring">}</span></code></pre></pre>
+<h3 id="project-toolchain-configuration"><a class="header" href="#project-toolchain-configuration">Project Toolchain Configuration</a></h3>
+<pre><code class="language-toml"># rust-toolchain.toml
+[toolchain]
 channel = "1.82.0"  # Or "stable", "beta", "nightly"
 components = ["rustfmt", "clippy"]
 targets = ["wasm32-unknown-unknown"]
 </code></pre>
-<p><strong>Toolchain override commands:</strong></p>
+<p>Override commands:</p>
 <pre><code class="language-bash"># Set override for current directory
 rustup override set nightly
-
-# Remove override
-rustup override unset
-
-# List overrides
-rustup override list
 
 # Run command with specific toolchain
 cargo +nightly build
 cargo +1.82.0 test
 </code></pre>
-<h3 id="unstable-features-and-feature-gates"><a class="header" href="#unstable-features-and-feature-gates">Unstable Features and Feature Gates</a></h3>
-<p>Nightly Rust allows access to unstable features via feature gates:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>// src/lib.rs or src/main.rs
-#![feature(const_trait_impl)]  // Language feature
-#![feature(test)]               // Library feature
-
-// Now you can use the unstable features
-extern crate test;
-use test::Bencher;
-<span class="boring">}</span></code></pre></pre>
-<p><strong>Common unstable features:</strong></p>
-<ul>
-<li><code>async_fn_in_trait</code> - Async functions in traits</li>
-<li><code>generators</code> - Generator/coroutine support</li>
-<li><code>const_generics</code> - Const generics extensions</li>
-<li><code>specialization</code> - Trait specialization</li>
-</ul>
-<h3 id="choosing-the-right-channel"><a class="header" href="#choosing-the-right-channel">Choosing the Right Channel</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Scenario</th><th>Recommended Channel</th><th>Reasoning</th></tr></thead><tbody>
-<tr><td><strong>Web service production</strong></td><td>Stable</td><td>Reliability crucial</td></tr>
-<tr><td><strong>Library development</strong></td><td>Stable + Beta CI</td><td>Ensure compatibility</td></tr>
-<tr><td><strong>Compiler plugin</strong></td><td>Nightly</td><td>Requires compiler internals</td></tr>
-<tr><td><strong>Embedded no_std</strong></td><td>Stable or Nightly</td><td>Depends on features needed</td></tr>
-<tr><td><strong>Learning/tutorials</strong></td><td>Stable</td><td>Consistent experience</td></tr>
-<tr><td><strong>Research/experimentation</strong></td><td>Nightly</td><td>Access to latest features</td></tr>
-</tbody></table>
-</div>
 <h3 id="cicd-multi-channel-testing"><a class="header" href="#cicd-multi-channel-testing">CI/CD Multi-Channel Testing</a></h3>
-<pre><code class="language-yaml"># .github/workflows/rust.yml
+<pre><code class="language-yaml"># GitHub Actions
 strategy:
   matrix:
     rust: [stable, beta, nightly]
@@ -380,316 +284,77 @@ steps:
       toolchain: ${{ matrix.rust }}
       override: true
 </code></pre>
-<blockquote>
-<p>📖 <strong>Learn More</strong>:</p>
-<ul>
-<li><a href="https://rust-lang.github.io/rustup/">The rustup book</a></li>
-<li><a href="https://doc.rust-lang.org/book/appendix-07-nightly-rust.html">Appendix G: How Rust is Made and “Nightly Rust”</a></li>
-</ul>
-</blockquote>
-<hr />
-<h2 id="3-how-cargo-resolves-dependencies"><a class="header" href="#3-how-cargo-resolves-dependencies">3. How Cargo Resolves Dependencies</a></h2>
-<h3 id="semantic-versioning-and-caret-requirements"><a class="header" href="#semantic-versioning-and-caret-requirements">Semantic Versioning and Caret Requirements</a></h3>
-<p>Cargo uses semantic versioning (SemVer) by default, with caret requirements:</p>
+<h2 id="3-dependency-resolution"><a class="header" href="#3-dependency-resolution">3. Dependency Resolution</a></h2>
+<h3 id="version-requirements"><a class="header" href="#version-requirements">Version Requirements</a></h3>
+<p>Cargo uses semantic versioning (SemVer) with various requirement operators:</p>
 <pre><code class="language-toml">[dependencies]
-serde = "1.0"        # Actually means "^1.0" - compatible with 1.x.y
-tokio = "1.21.2"     # Compatible with 1.21.2 to 1.x.y (but not 2.0)
-</code></pre>
-<p><strong>Key SemVer rules:</strong></p>
-<ul>
-<li><strong>Major version</strong> (1.x.y → 2.x.y): Breaking changes</li>
-<li><strong>Minor version</strong> (1.1.x → 1.2.x): Backward-compatible features</li>
-<li><strong>Patch version</strong> (1.1.1 → 1.1.2): Bug fixes only</li>
-</ul>
-<h3 id="version-requirement-operators"><a class="header" href="#version-requirement-operators">Version Requirement Operators</a></h3>
-<pre><code class="language-toml">[dependencies]
+# Caret (default) - compatible versions
+serde = "1.0"        # means ^1.0.0
+
 # Exact version
 exact = "=1.0.0"
 
-# Range requirements
+# Range
 range = "&gt;=1.2, &lt;1.5"
 
 # Wildcard
 wildcard = "1.0.*"
 
-# Tilde requirements (patch-level compatible)
-patch_only = "~1.0.0"  # 1.0.0 to 1.0.x
-
-# Caret requirements (default - backwards compatible)
-default = "^1.0.0"     # 1.0.0 to 1.x.y
+# Tilde - patch updates only
+tilde = "~1.0.0"
 </code></pre>
-<h3 id="transitive-dependency-resolution"><a class="header" href="#transitive-dependency-resolution">Transitive Dependency Resolution</a></h3>
-<p>Cargo builds a dependency graph and resolves versions using a <strong>maximum version strategy</strong>:</p>
+<h3 id="transitive-dependencies"><a class="header" href="#transitive-dependencies">Transitive Dependencies</a></h3>
+<p>Cargo builds a dependency graph and resolves versions using maximum version strategy:</p>
 <pre><code>Your Project
 ├── crate-a = "1.0"
 │   └── shared = "2.1"    # Transitive dependency
 └── crate-b = "2.0"
-    └── shared = "2.3"    # Same dependency, different version requirement
+    └── shared = "2.3"    # Same dependency, different version
 </code></pre>
-<p><strong>Resolution:</strong> Cargo picks <code>shared = "2.3"</code> (highest compatible version).</p>
-<blockquote>
-<p>📖 <strong>Learn More</strong>: <a href="https://doc.rust-lang.org/cargo/reference/resolver.html">Dependency Resolution in The Cargo Book</a></p>
-</blockquote>
-<hr />
-<h2 id="4-cargo-resolver-versions"><a class="header" href="#4-cargo-resolver-versions">4. Cargo Resolver Versions</a></h2>
-<h3 id="understanding-resolver-versions"><a class="header" href="#understanding-resolver-versions">Understanding Resolver Versions</a></h3>
-<p>Cargo has three resolver versions that control how features and dependencies are resolved:</p>
-<div class="table-wrapper"><table><thead><tr><th>Resolver</th><th>Default For</th><th>Key Behavior</th><th>Rust Version</th></tr></thead><tbody>
-<tr><td><strong>v1</strong></td><td>Edition 2015/2018</td><td>Unifies features for a package across all uses</td><td>All</td></tr>
-<tr><td><strong>v2</strong></td><td>Edition 2021</td><td>Features resolved independently per target</td><td>1.51+</td></tr>
-<tr><td><strong>v3</strong></td><td>Edition 2024</td><td>MSRV-aware dependency resolution</td><td>1.84+</td></tr>
+<p>Resolution: Cargo picks <code>shared = "2.3"</code> (highest compatible version).</p>
+<h3 id="resolver-versions"><a class="header" href="#resolver-versions">Resolver Versions</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Resolver</th><th>Default For</th><th>Behavior</th></tr></thead><tbody>
+<tr><td><strong>v1</strong></td><td>Edition 2015/2018</td><td>Unifies features across all uses</td></tr>
+<tr><td><strong>v2</strong></td><td>Edition 2021</td><td>Independent feature resolution per target</td></tr>
+<tr><td><strong>v3</strong></td><td>Edition 2024 (Rust 1.84+)</td><td>MSRV-aware dependency selection, default in 2024</td></tr>
 </tbody></table>
 </div>
-<h3 id="resolver-version-2-changes"><a class="header" href="#resolver-version-2-changes">Resolver Version 2 Changes</a></h3>
-<p>The v2 resolver, default since Edition 2021, provides more precise feature resolution:</p>
-<pre><code class="language-toml"># Cargo.toml
-[package]
-name = "my-project"
-version = "0.1.0"
-edition = "2021"  # Implies resolver = "2"
-
-# Or explicitly set for older editions:
+<pre><code class="language-toml"># Explicit resolver configuration
 [package]
 edition = "2018"
-resolver = "2"  # Opt-in to v2 resolver
-</code></pre>
-<p><strong>Key differences in v2:</strong></p>
-<ul>
-<li><strong>Platform-specific dependencies</strong>: Features for <code>target.'cfg(windows)'</code> dependencies aren’t enabled when building for Linux</li>
-<li><strong>Build dependencies</strong>: <code>build-dependencies</code> and proc-macros don’t share features with normal dependencies</li>
-<li><strong>Dev dependencies</strong>: <code>dev-dependencies</code> only activate features when building tests/examples</li>
-</ul>
-<h3 id="workspace-resolver-configuration"><a class="header" href="#workspace-resolver-configuration">Workspace Resolver Configuration</a></h3>
-<p>For virtual workspaces, explicitly set the resolver:</p>
-<pre><code class="language-toml"># Workspace Cargo.toml
+resolver = "2"  # Opt into v2 resolver
+
+# For workspaces
 [workspace]
 members = ["crate-a", "crate-b"]
-resolver = "2"  # Must be set explicitly for workspaces
+resolver = "2"
 </code></pre>
-<h3 id="migration-and-debugging"><a class="header" href="#migration-and-debugging">Migration and Debugging</a></h3>
-<pre><code class="language-bash"># WARNING: This command MODIFIES your code for edition compatibility
-cargo fix --edition
-
-# Analyze feature resolution
-cargo tree -f '{p} {f}'
-
-# Find duplicate dependencies with different features
-cargo tree -d
-
-# See why a feature is enabled
-cargo tree -e features -i &lt;package&gt;
-</code></pre>
-<p><strong>Migration notes:</strong></p>
+<p>Key v2 differences:</p>
 <ul>
-<li>Most projects require few or no changes</li>
-<li><code>cargo fix --edition</code> automatically modifies code for compatibility AND reports feature resolution differences</li>
-<li>Use <code>cargo tree</code> to debug feature activation issues</li>
+<li>Platform-specific dependencies don’t affect other platforms</li>
+<li>Build dependencies don’t share features with normal dependencies</li>
+<li>Dev dependencies only activate features when building tests/examples</li>
 </ul>
-<blockquote>
-<p>📖 <strong>Official Documentation</strong>:</p>
+<p>Key v3 additions (Edition 2024 default):</p>
 <ul>
-<li><a href="https://doc.rust-lang.org/cargo/reference/resolver.html">Cargo Resolver Documentation</a></li>
-<li><a href="https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html">Edition 2021 Resolver Changes</a></li>
+<li>MSRV-aware dependency resolution when <code>rust-version</code> is specified</li>
+<li>Falls back to compatible versions when newer versions require higher MSRV</li>
+<li>Better support for workspaces with mixed Rust versions</li>
 </ul>
-</blockquote>
-<hr />
-<h2 id="5-minimum-supported-rust-version-msrv"><a class="header" href="#5-minimum-supported-rust-version-msrv">5. Minimum Supported Rust Version (MSRV)</a></h2>
-<h3 id="declaring-msrv"><a class="header" href="#declaring-msrv">Declaring MSRV</a></h3>
-<p>The <code>rust-version</code> field specifies your project’s minimum supported Rust version:</p>
-<pre><code class="language-toml">[package]
-name = "my-project"
-version = "0.1.0"
-rust-version = "1.74"  # Minimum Rust version required
-</code></pre>
-<h3 id="how-msrv-works"><a class="header" href="#how-msrv-works">How MSRV Works</a></h3>
-<p><strong>What it does:</strong></p>
-<ul>
-<li>Documents the minimum Rust version for users</li>
-<li>Cargo emits warnings when building with older Rust versions</li>
-<li>With resolver v3, influences dependency resolution</li>
-<li>Used by tools like <code>clippy</code> for compatibility lints</li>
-</ul>
-<p><strong>What it doesn’t do:</strong></p>
-<ul>
-<li>Doesn’t prevent building with older versions (use <code>--ignore-rust-version</code> to bypass)</li>
-<li>Doesn’t guarantee dependencies maintain compatible MSRV</li>
-<li>Doesn’t automatically test against the specified version</li>
-</ul>
-<h3 id="finding-your-projects-msrv"><a class="header" href="#finding-your-projects-msrv">Finding Your Project’s MSRV</a></h3>
-<p>Use the <code>cargo-msrv</code> tool to determine and verify MSRV:</p>
-<pre><code class="language-bash"># Install cargo-msrv
-cargo install cargo-msrv
-
-# Find the minimum supported Rust version
-cargo msrv find
-
-# Verify your declared MSRV works
-cargo msrv verify
-
-# Use specific search strategy
-cargo msrv find --bisect  # Binary search (default)
-cargo msrv find --linear  # Linear search
-</code></pre>
-<h3 id="msrv-best-practices"><a class="header" href="#msrv-best-practices">MSRV Best Practices</a></h3>
-<p><strong>For Libraries:</strong></p>
-<pre><code class="language-toml">[package]
-rust-version = "1.74"  # Be conservative for wide compatibility
-
-# Document MSRV policy in README
-# Consider supporting 6-12 months of Rust releases
-</code></pre>
-<p><strong>For Applications:</strong></p>
-<pre><code class="language-toml">[package]
-rust-version = "1.82"  # Can use newer features
-
-# Pin exact version for reproducible builds
-# rust-toolchain.toml
-[toolchain]
-channel = "1.82.0"
-</code></pre>
-<h3 id="cicd-msrv-testing"><a class="header" href="#cicd-msrv-testing">CI/CD MSRV Testing</a></h3>
-<pre><code class="language-yaml"># GitHub Actions example
-name: MSRV Check
-on: [push, pull_request]
-
-jobs:
-  msrv:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install MSRV toolchain
-      run: |
-        rustup toolchain install $(grep rust-version Cargo.toml | cut -d'"' -f2) --profile minimal
-        rustup default $(grep rust-version Cargo.toml | cut -d'"' -f2)
-    - name: Build with MSRV
-      run: cargo build --locked
-    - name: Test with MSRV
-      run: cargo test --locked
-</code></pre>
-<h3 id="msrv-and-dependencies"><a class="header" href="#msrv-and-dependencies">MSRV and Dependencies</a></h3>
-<p><strong>Challenge:</strong> Dependencies can increase their MSRV in minor versions:</p>
-<pre><code class="language-toml"># Your Cargo.toml
-rust-version = "1.74"
-
-[dependencies]
-serde = "1.0"  # Might update to require Rust 1.75+
-</code></pre>
-<p><strong>Solutions:</strong></p>
-<ol>
-<li><strong>Use resolver v3</strong> (when available) for automatic MSRV-compatible resolution</li>
-<li><strong>Pin dependencies</strong> if they break MSRV:
-<pre><code class="language-toml"># Pin to last compatible version
-problematic-dep = "=1.2.3"
-</code></pre>
-</li>
-<li><strong>Use <code>cargo update -Z msrv-policy</code></strong> (nightly) to respect MSRV when updating</li>
-</ol>
-<h3 id="msrv-policy-guidelines"><a class="header" href="#msrv-policy-guidelines">MSRV Policy Guidelines</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Project Type</th><th>Suggested MSRV</th><th>Rationale</th></tr></thead><tbody>
-<tr><td><strong>Foundational libraries</strong></td><td>6-12 months old</td><td>Maximum compatibility</td></tr>
-<tr><td><strong>Application libraries</strong></td><td>3-6 months old</td><td>Balance features/compatibility</td></tr>
-<tr><td><strong>Applications</strong></td><td>Current stable</td><td>Use latest features</td></tr>
-<tr><td><strong>Internal tools</strong></td><td>Latest stable</td><td>No external users</td></tr>
+<h2 id="4-cargolock"><a class="header" href="#4-cargolock">4. Cargo.lock</a></h2>
+<p>The <code>Cargo.lock</code> file pins exact dependency versions for reproducible builds.</p>
+<h3 id="when-to-commit"><a class="header" href="#when-to-commit">When to Commit</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Project Type</th><th>Commit?</th><th>Reason</th></tr></thead><tbody>
+<tr><td><strong>Binary/Application</strong></td><td>Yes</td><td>Reproducible builds</td></tr>
+<tr><td><strong>Library</strong></td><td>No</td><td>Allow flexible version resolution</td></tr>
+<tr><td><strong>Workspace root</strong></td><td>Yes</td><td>Consistent versions across workspace</td></tr>
 </tbody></table>
 </div>
-<blockquote>
-<p>📖 <strong>Documentation</strong>:</p>
-<ul>
-<li><a href="https://doc.rust-lang.org/cargo/reference/rust-version.html">Rust Version in Cargo Book</a></li>
-<li><a href="https://github.com/foresterre/cargo-msrv">cargo-msrv Documentation</a></li>
-<li><a href="https://rust-lang.github.io/rfcs/2495-min-rust-version.html">RFC 2495: Min Rust Version</a></li>
-</ul>
-</blockquote>
-<hr />
-<h2 id="6-cargolock-the-version-lockfile"><a class="header" href="#6-cargolock-the-version-lockfile">6. Cargo.lock: The Version Lockfile</a></h2>
-<h3 id="what-cargolock-contains"><a class="header" href="#what-cargolock-contains">What Cargo.lock Contains</a></h3>
-<pre><code class="language-toml"># This file is automatically generated by Cargo.
-# It is not intended for manual editing.
-version = 3
+<h3 id="lock-file-usage"><a class="header" href="#lock-file-usage">Lock File Usage</a></h3>
+<pre><code class="language-bash"># Build with exact lock file versions
+cargo build --locked
 
-[[package]]
-name = "proc-macro2"
-version = "1.0.47"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ea3d908b0e36316caf9e9e2c4625cdde190a7e6f440d794667ed17a1855e725"
-dependencies = [
- "unicode-ident",
-]
-
-[[package]]
-name = "quote"
-version = "1.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bbe448f377a7d6961e30f5955f9b8d106c3f5e449d493ee1b125c1d43c2b5179"
-dependencies = [
- "proc-macro2",
-]
-</code></pre>
-<h3 id="when-to-commit-cargolock"><a class="header" href="#when-to-commit-cargolock">When to Commit Cargo.lock</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Project Type</th><th>Commit Cargo.lock?</th><th>Rationale</th></tr></thead><tbody>
-<tr><td><strong>Binary/Application</strong></td><td>✅ <strong>Yes</strong></td><td>Ensures reproducible builds across environments</td></tr>
-<tr><td><strong>Library</strong></td><td>❌ <strong>No</strong></td><td>Allows downstream crates flexibility in version selection</td></tr>
-<tr><td><strong>Workspace root</strong></td><td>✅ <strong>Yes</strong></td><td>Pins versions for all workspace members</td></tr>
-</tbody></table>
-</div>
-<p><strong>Exception for libraries:</strong> Consider committing if you have specific CI/testing requirements.</p>
-<h3 id="cargolock-and-cicd"><a class="header" href="#cargolock-and-cicd">Cargo.lock and CI/CD</a></h3>
-<pre><code class="language-yaml"># GitHub Actions example
-- name: Cache dependencies
-  uses: actions/cache@v3
-  with:
-    path: |
-      ~/.cargo/registry
-      ~/.cargo/git
-      target/
-    key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-</code></pre>
-<p>The <code>Cargo.lock</code> hash ensures cache invalidation when dependencies change.</p>
-<blockquote>
-<p>📖 <strong>Learn More</strong>: <a href="https://doc.rust-lang.org/cargo/guide/cargo-toml-vs-cargo-lock.html">Cargo.lock Format</a></p>
-</blockquote>
-<hr />
-<h2 id="7-reproducible-builds-in-cargo"><a class="header" href="#7-reproducible-builds-in-cargo">7. Reproducible Builds in Cargo</a></h2>
-<h3 id="what-cargo-guarantees"><a class="header" href="#what-cargo-guarantees">What Cargo Guarantees</a></h3>
-<p>✅ <strong>Guaranteed reproducible:</strong></p>
-<ul>
-<li>Same <code>Cargo.lock</code> → same dependency versions</li>
-<li>Same Rust compiler version → same compilation behavior</li>
-<li>Same target platform → same binary output</li>
-</ul>
-<p>❌ <strong>Not automatically guaranteed:</strong></p>
-<ul>
-<li>Compiler version differences</li>
-<li>Different target architectures</li>
-<li>System library differences (for <code>sys</code> crates)</li>
-</ul>
-<h3 id="ensuring-reproducibility"><a class="header" href="#ensuring-reproducibility">Ensuring Reproducibility</a></h3>
-<pre><code class="language-toml"># rust-toolchain.toml - pins compiler version
-[toolchain]
-channel = "1.70.0"
-components = ["rustfmt", "clippy"]
-targets = ["x86_64-unknown-linux-gnu"]
-</code></pre>
-<pre><code class="language-dockerfile"># Dockerfile with pinned Rust version
-FROM rust:1.70.0-slim as builder
-WORKDIR /app
-COPY Cargo.lock Cargo.toml ./
-# Pre-build dependencies for faster rebuilds
-RUN mkdir src &amp;&amp; echo "fn main() {}" &gt; src/main.rs &amp;&amp; cargo build --release
-COPY . .
-RUN cargo build --release
-</code></pre>
-<h3 id="the---locked-flag"><a class="header" href="#the---locked-flag">The <code>--locked</code> Flag</a></h3>
-<pre><code class="language-bash"># CI builds should use --locked to prevent dependency updates
-cargo build --release --locked
-
-# Fails if Cargo.lock is out of sync with Cargo.toml
-cargo check --locked
-</code></pre>
-<hr />
-<h2 id="8-dependency-update-strategies"><a class="header" href="#8-dependency-update-strategies">8. Dependency Update Strategies</a></h2>
-<h3 id="manual-updates"><a class="header" href="#manual-updates">Manual Updates</a></h3>
-<pre><code class="language-bash"># Update all dependencies within semver constraints
+# Update all dependencies
 cargo update
 
 # Update specific dependency
@@ -698,53 +363,84 @@ cargo update -p serde
 # Update to specific version
 cargo update -p tokio --precise 1.21.0
 </code></pre>
-<h3 id="automated-dependency-management"><a class="header" href="#automated-dependency-management">Automated Dependency Management</a></h3>
-<p><strong>Dependabot configuration (<code>.github/dependabot.yml</code>):</strong></p>
-<pre><code class="language-yaml">version: 2
-updates:
-  - package-ecosystem: "cargo"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    groups:
-      aws:
-        patterns:
-          - "aws-*"
-      tokio:
-        patterns:
-          - "tokio*"
+<h2 id="5-minimum-supported-rust-version-msrv"><a class="header" href="#5-minimum-supported-rust-version-msrv">5. Minimum Supported Rust Version (MSRV)</a></h2>
+<pre><code class="language-toml">[package]
+rust-version = "1.74"  # Minimum Rust version
 </code></pre>
-<p><strong>Renovate configuration:</strong></p>
-<pre><code class="language-json">{
-  "extends": ["config:base"],
-  "cargo": {
-    "rangeStrategy": "pin"
-  }
-}
-</code></pre>
-<h3 id="semantic-versioning-strategy"><a class="header" href="#semantic-versioning-strategy">Semantic Versioning Strategy</a></h3>
-<pre><code class="language-toml"># Conservative: Pin major versions
-serde = "1.0.144"
+<h3 id="finding-and-testing-msrv"><a class="header" href="#finding-and-testing-msrv">Finding and Testing MSRV</a></h3>
+<pre><code class="language-bash"># Install cargo-msrv
+cargo install cargo-msrv
 
-# Moderate: Allow minor updates
-tokio = "~1.21.0"
+# Find minimum version
+cargo msrv find
 
-# Aggressive: Allow patch updates
-uuid = "^1.0.0"
+# Verify declared MSRV
+cargo msrv verify
 </code></pre>
-<hr />
-<h2 id="9-private-package-repositories"><a class="header" href="#9-private-package-repositories">9. Private Package Repositories</a></h2>
-<h3 id="overview-of-private-registry-solutions"><a class="header" href="#overview-of-private-registry-solutions">Overview of Private Registry Solutions</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Solution</th><th>Type</th><th>Key Features</th><th>Best For</th></tr></thead><tbody>
-<tr><td><strong>Kellnr</strong></td><td>Self-hosted registry</td><td>Web UI, docs hosting, crates.io proxy</td><td>Small-medium teams</td></tr>
-<tr><td><strong>Alexandrie</strong></td><td>Alternative registry</td><td>Modular backends, Git/S3 storage</td><td>Custom deployments</td></tr>
-<tr><td><strong>Panamax</strong></td><td>Mirror tool</td><td>Offline development, full mirror</td><td>Air-gapped environments</td></tr>
-<tr><td><strong>Artifactory</strong></td><td>Enterprise</td><td>Sparse index, CI/CD integration</td><td>Large enterprises</td></tr>
+<h3 id="ci-testing"><a class="header" href="#ci-testing">CI Testing</a></h3>
+<pre><code class="language-yaml"># GitHub Actions
+- name: Test MSRV
+  run: |
+    rustup install $(grep rust-version Cargo.toml | cut -d'"' -f2)
+    cargo test --locked
+</code></pre>
+<h3 id="msrv-policy-guidelines"><a class="header" href="#msrv-policy-guidelines">MSRV Policy Guidelines</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Project Type</th><th>Suggested MSRV</th><th>Rationale</th></tr></thead><tbody>
+<tr><td>Foundational libraries</td><td>6-12 months old</td><td>Maximum compatibility</td></tr>
+<tr><td>Application libraries</td><td>3-6 months old</td><td>Balance features/compatibility</td></tr>
+<tr><td>Applications</td><td>Current stable</td><td>Use latest features</td></tr>
+<tr><td>Internal tools</td><td>Latest stable</td><td>No external users</td></tr>
 </tbody></table>
 </div>
-<h3 id="kellnr-the-private-rust-registry"><a class="header" href="#kellnr-the-private-rust-registry">Kellnr: The Private Rust Registry</a></h3>
-<p><a href="https://kellnr.io">Kellnr</a> is a complete private registry solution:</p>
+<h2 id="6-workspace-management"><a class="header" href="#6-workspace-management">6. Workspace Management</a></h2>
+<p>Workspaces allow managing multiple related crates in a single repository:</p>
+<pre><code class="language-toml"># Root Cargo.toml
+[workspace]
+members = ["crate-a", "crate-b", "crate-c"]
+resolver = "2"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = "1.47"
+
+[workspace.package]
+authors = ["Your Name"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/user/repo"
+</code></pre>
+<p>Member crates inherit workspace configuration:</p>
+<pre><code class="language-toml"># crate-a/Cargo.toml
+[package]
+name = "crate-a"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+tokio.workspace = true
+</code></pre>
+<h3 id="workspace-commands"><a class="header" href="#workspace-commands">Workspace Commands</a></h3>
+<pre><code class="language-bash"># Build all workspace members
+cargo build --workspace
+
+# Test specific member
+cargo test -p crate-a
+
+# Run example from workspace member
+cargo run -p crate-b --example demo
+</code></pre>
+<h2 id="7-private-registries"><a class="header" href="#7-private-registries">7. Private Registries</a></h2>
+<h3 id="registry-options"><a class="header" href="#registry-options">Registry Options</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Solution</th><th>Type</th><th>Best For</th></tr></thead><tbody>
+<tr><td><strong>Kellnr</strong></td><td>Self-hosted registry</td><td>Small-medium teams</td></tr>
+<tr><td><strong>Alexandrie</strong></td><td>Alternative registry</td><td>Custom deployments</td></tr>
+<tr><td><strong>Panamax</strong></td><td>Mirror</td><td>Offline development</td></tr>
+<tr><td><strong>Artifactory</strong></td><td>Enterprise</td><td>Large organizations</td></tr>
+</tbody></table>
+</div>
+<h3 id="kellnr-setup"><a class="header" href="#kellnr-setup">Kellnr Setup</a></h3>
 <pre><code class="language-toml"># .cargo/config.toml
 [registries]
 kellnr = {
@@ -752,26 +448,13 @@ kellnr = {
     token = "your-auth-token"
 }
 </code></pre>
-<p><strong>Docker deployment:</strong></p>
+<p>Docker deployment:</p>
 <pre><code class="language-bash">docker run -p 8000:8000 \
   -e "KELLNR_ORIGIN__HOSTNAME=your-domain" \
   ghcr.io/kellnr/kellnr:latest
 </code></pre>
-<p><strong>Features:</strong></p>
-<ul>
-<li>Web UI for crate management</li>
-<li>Documentation hosting (like docs.rs)</li>
-<li>Crates.io proxy/cache</li>
-<li>User and group management</li>
-<li>PostgreSQL/SQLite backends</li>
-<li>S3/filesystem storage</li>
-</ul>
-<blockquote>
-<p>📖 <strong>Documentation</strong>: <a href="https://kellnr.io/documentation">kellnr.io/documentation</a></p>
-</blockquote>
-<h3 id="alexandrie-modular-alternative-registry"><a class="header" href="#alexandrie-modular-alternative-registry">Alexandrie: Modular Alternative Registry</a></h3>
-<p><a href="https://github.com/Hirevo/alexandrie">Alexandrie</a> offers flexible backend options:</p>
-<pre><code class="language-toml"># alexandrie.toml configuration
+<h3 id="alexandrie-configuration"><a class="header" href="#alexandrie-configuration">Alexandrie Configuration</a></h3>
+<pre><code class="language-toml"># alexandrie.toml
 [database]
 url = "postgresql://localhost/alexandrie"
 
@@ -780,32 +463,18 @@ type = "s3"
 bucket = "my-crates"
 region = "us-east-1"
 </code></pre>
-<p><strong>Features:</strong></p>
-<ul>
-<li>Multiple database backends (PostgreSQL, MySQL, SQLite)</li>
-<li>Flexible storage (filesystem, S3, Git)</li>
-<li>Optional web frontend</li>
-<li>Docker deployment ready</li>
-</ul>
-<blockquote>
-<p>📖 <strong>Documentation</strong>: <a href="https://hirevo.github.io/alexandrie/">Alexandrie Docs</a></p>
-</blockquote>
-<h3 id="panamax-mirror-for-offline-development"><a class="header" href="#panamax-mirror-for-offline-development">Panamax: Mirror for Offline Development</a></h3>
-<p><a href="https://github.com/panamax-rs/panamax">Panamax</a> creates complete mirrors:</p>
+<h3 id="panamax-mirror"><a class="header" href="#panamax-mirror">Panamax Mirror</a></h3>
 <pre><code class="language-bash"># Initialize mirror
 panamax init my-mirror
 
-# Sync all crates
-panamax sync my-mirror
-
-# Or sync only project dependencies
+# Sync dependencies
 cargo vendor
 panamax sync my-mirror vendor/
 
-# Serve the mirror
+# Serve mirror
 panamax serve my-mirror --port 8080
 </code></pre>
-<p><strong>Client configuration:</strong></p>
+<p>Client configuration:</p>
 <pre><code class="language-toml"># .cargo/config.toml
 [source.my-mirror]
 registry = "http://panamax.internal/crates.io-index"
@@ -813,800 +482,348 @@ registry = "http://panamax.internal/crates.io-index"
 [source.crates-io]
 replace-with = "my-mirror"
 </code></pre>
-<blockquote>
-<p>📖 <strong>Documentation</strong>: <a href="https://github.com/panamax-rs/panamax">Panamax GitHub</a></p>
-</blockquote>
-<h3 id="jfrog-artifactory-enterprise-solution"><a class="header" href="#jfrog-artifactory-enterprise-solution">JFrog Artifactory: Enterprise Solution</a></h3>
-<p><a href="https://jfrog.com/artifactory/">Artifactory</a> provides enterprise-grade registry:</p>
+<h3 id="artifactory-setup"><a class="header" href="#artifactory-setup">Artifactory Setup</a></h3>
 <pre><code class="language-toml"># .cargo/config.toml
 [registries]
 artifactory = {
     index = "https://artifactory.company.com/artifactory/api/cargo/rust-local"
 }
 </code></pre>
-<p><strong>Publishing with authentication:</strong></p>
+<p>Publishing:</p>
 <pre><code class="language-bash">cargo publish --registry artifactory \
   --token "Bearer &lt;access-token&gt;"
 </code></pre>
-<p><strong>Features:</strong></p>
-<ul>
-<li>Sparse index support (Cargo 1.60+)</li>
-<li>Virtual repositories</li>
-<li>LDAP/SAML integration</li>
-<li>Vulnerability scanning</li>
-<li>CI/CD integration</li>
-<li>High availability</li>
-</ul>
-<blockquote>
-<p>📖 <strong>Documentation</strong>: <a href="https://www.jfrog.com/confluence/display/JFROG/Cargo+Registry">JFrog Cargo Registry</a></p>
-</blockquote>
-<hr />
-<h2 id="10-alternative-registries-and-git-dependencies"><a class="header" href="#10-alternative-registries-and-git-dependencies">10. Alternative Registries and Git Dependencies</a></h2>
-<h3 id="using-alternative-registries"><a class="header" href="#using-alternative-registries">Using Alternative Registries</a></h3>
-<pre><code class="language-toml"># .cargo/config.toml
-[registries]
-my-company = { index = "https://github.com/my-company/crate-index" }
+<h2 id="8-build-configuration"><a class="header" href="#8-build-configuration">8. Build Configuration</a></h2>
+<h3 id="profiles"><a class="header" href="#profiles">Profiles</a></h3>
+<pre><code class="language-toml">[profile.dev]
+opt-level = 0
+debug = true
+overflow-checks = true
 
-[source.crates-io]
-replace-with = "my-company"
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.bench]
+inherits = "release"
+
+# Custom profile
+[profile.production]
+inherits = "release"
+lto = "fat"
+panic = "abort"
 </code></pre>
-<pre><code class="language-toml"># In Cargo.toml
-[dependencies]
-serde = "1.0"  # from crates.io
-internal-lib = { version = "2.0", registry = "my-company" }
+<h3 id="build-scripts"><a class="header" href="#build-scripts">Build Scripts</a></h3>
+<pre><pre class="playground"><code class="language-rust">// build.rs
+fn main() {
+    // Link system libraries
+    println!("cargo:rustc-link-lib=ssl");
+
+    // Rerun if files change
+    println!("cargo:rerun-if-changed=src/native.c");
+
+    // Compile C code
+    cc::Build::new()
+        .file("src/native.c")
+        .compile("native");
+
+    // Set environment variables
+    println!("cargo:rustc-env=BUILD_TIME={}",
+             chrono::Utc::now().to_rfc3339());
+}</code></pre></pre>
+<h3 id="build-dependencies"><a class="header" href="#build-dependencies">Build Dependencies</a></h3>
+<pre><code class="language-toml">[build-dependencies]
+cc = "1.0"
+chrono = "0.4"
 </code></pre>
-<h3 id="git-dependencies"><a class="header" href="#git-dependencies">Git Dependencies</a></h3>
+<h2 id="9-dependencies"><a class="header" href="#9-dependencies">9. Dependencies</a></h2>
+<h3 id="dependency-types"><a class="header" href="#dependency-types">Dependency Types</a></h3>
 <pre><code class="language-toml">[dependencies]
-# Git repository
-my-lib = { git = "https://github.com/user/my-lib" }
+normal = "1.0"
 
-# Specific branch
-my-lib = { git = "https://github.com/user/my-lib", branch = "feature" }
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1.0"
 
-# Specific tag
-my-lib = { git = "https://github.com/user/my-lib", tag = "v1.0.0" }
+[build-dependencies]
+cc = "1.0"
 
-# Specific commit
-my-lib = { git = "https://github.com/user/my-lib", rev = "abc123" }
-</code></pre>
-<h3 id="path-dependencies"><a class="header" href="#path-dependencies">Path Dependencies</a></h3>
-<pre><code class="language-toml">[dependencies]
-# Local path dependency
-shared-utils = { path = "../shared-utils" }
-
-# Conditional dependencies
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 </code></pre>
-<hr />
-<h2 id="11-workspace-management"><a class="header" href="#11-workspace-management">11. Workspace Management</a></h2>
-<h3 id="workspace-configuration"><a class="header" href="#workspace-configuration">Workspace Configuration</a></h3>
-<pre><code class="language-toml"># Cargo.toml in workspace root
-[workspace]
-members = [
-    "web-server",
-    "database",
-    "shared-models",
-]
-exclude = ["legacy-code"]
+<h3 id="features"><a class="header" href="#features">Features</a></h3>
+<pre><code class="language-toml">[dependencies]
+tokio = { version = "1.47", default-features = false, features = ["rt-multi-thread", "macros"] }
 
-# Shared workspace dependencies
-[workspace.dependencies]
-serde = { version = "1.0", features = ["derive"] }
-tokio = { version = "1.47", features = ["full"] }
-uuid = "1.0"
-
-# Shared configuration
-[workspace.package]
-authors = ["Your Team &lt;team@company.com&gt;"]
-edition = "2021"
-license = "MIT OR Apache-2.0"
+[features]
+default = ["std"]
+std = ["serde/std"]
+alloc = ["serde/alloc"]
+performance = ["lto", "parallel"]
 </code></pre>
-<pre><code class="language-toml"># Member crate Cargo.toml
-[package]
-name = "web-server"
-version = "0.1.0"
-# Inherit workspace configuration
-authors.workspace = true
-edition.workspace = true
-license.workspace = true
+<h3 id="git-and-path-dependencies"><a class="header" href="#git-and-path-dependencies">Git and Path Dependencies</a></h3>
+<pre><code class="language-toml">[dependencies]
+# Git repository
+from-git = { git = "https://github.com/user/repo", branch = "main" }
 
-[dependencies]
-# Use workspace dependencies
-serde.workspace = true
-tokio.workspace = true
-# Local workspace dependencies
-shared-models = { path = "../shared-models" }
+# Specific commit
+specific = { git = "https://github.com/user/repo", rev = "abc123" }
+
+# Local path
+local = { path = "../local-crate" }
+
+# Published with override
+override = { version = "1.0", path = "../override" }
 </code></pre>
-<h3 id="workspace-commands"><a class="header" href="#workspace-commands">Workspace Commands</a></h3>
-<pre><code class="language-bash"># Build entire workspace
-cargo build
-
-# Build specific package
-cargo build -p web-server
-
-# Run tests across workspace
-cargo test
-
-# Update dependencies for workspace
-cargo update
-</code></pre>
-<hr />
-<h2 id="12-security-and-audit"><a class="header" href="#12-security-and-audit">12. Security and Audit</a></h2>
-<h3 id="dependency-auditing"><a class="header" href="#dependency-auditing">Dependency Auditing</a></h3>
-<pre><code class="language-bash"># Install cargo-audit
-cargo install cargo-audit
-
-# Audit dependencies for known vulnerabilities
-cargo audit
-
-# Fix vulnerabilities (updates Cargo.lock)
-cargo audit fix
-</code></pre>
-<h3 id="supply-chain-security"><a class="header" href="#supply-chain-security">Supply Chain Security</a></h3>
-<pre><code class="language-toml"># .cargo/config.toml - require signatures for some registries
-[registries.secure-registry]
-index = "https://secure-registry.example.com/"
-protocol = "sparse"
-</code></pre>
-<p><strong>CI/CD security checks:</strong></p>
-<pre><code class="language-yaml">- name: Security audit
-  run: |
-    cargo install cargo-audit
-    cargo audit
-
-- name: Check for vulnerabilities
-  run: |
-    cargo install cargo-deny
-    cargo deny check
-</code></pre>
-<hr />
-<h2 id="13-performance-and-optimization"><a class="header" href="#13-performance-and-optimization">13. Performance and Optimization</a></h2>
-<h3 id="dependency-features"><a class="header" href="#dependency-features">Dependency Features</a></h3>
-<pre><code class="language-toml"># Minimize dependencies by disabling default features
-[dependencies]
-tokio = { version = "1.47", default-features = false, features = ["rt"] }
-serde = { version = "1.0", features = ["derive"] }
-</code></pre>
-<h3 id="build-performance"><a class="header" href="#build-performance">Build Performance</a></h3>
-<pre><code class="language-toml"># .cargo/config.toml - optimize builds
-[build]
-jobs = 4                    # Parallel build jobs
-rustflags = ["-C", "target-cpu=native"]
-
-[profile.dev]
-debug = 1                   # Reduce debug info for faster builds
-incremental = true
-
-[profile.release]
-codegen-units = 1          # Better optimization
-lto = true                 # Link-time optimization
-</code></pre>
-<h3 id="dependency-caching"><a class="header" href="#dependency-caching">Dependency Caching</a></h3>
-<pre><code class="language-dockerfile"># Multi-stage Docker build optimizing dependency caching
-FROM rust:1.70 as planner
-WORKDIR /app
-RUN cargo install cargo-chef
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
-
-FROM rust:1.70 as cacher
-WORKDIR /app
-RUN cargo install cargo-chef
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
-
-FROM rust:1.70 as builder
-WORKDIR /app
-COPY --from=cacher /app/target target
-COPY . .
-RUN cargo build --release
-</code></pre>
-<hr />
-<h2 id="14-benchmarking-with-criterion"><a class="header" href="#14-benchmarking-with-criterion">14. Benchmarking with Criterion</a></h2>
-<h3 id="setting-up-benchmarks"><a class="header" href="#setting-up-benchmarks">Setting Up Benchmarks</a></h3>
-<p>Criterion.rs is the de facto standard for benchmarking in Rust:</p>
-<pre><code class="language-toml"># Cargo.toml
-[dev-dependencies]
-criterion = { version = "0.5", features = ["html_reports"] }
-
-[[bench]]
-name = "my_benchmark"
-harness = false  # Disable default benchmark harness
-</code></pre>
-<h3 id="writing-benchmarks"><a class="header" href="#writing-benchmarks">Writing Benchmarks</a></h3>
+<h2 id="10-documentation"><a class="header" href="#10-documentation">10. Documentation</a></h2>
+<h3 id="writing-documentation"><a class="header" href="#writing-documentation">Writing Documentation</a></h3>
 <pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
 </span><span class="boring">fn main() {
-</span>// benches/my_benchmark.rs
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-
-fn fibonacci(n: u64) -&gt; u64 {
-    match n {
-        0 =&gt; 1,
-        1 =&gt; 1,
-        n =&gt; fibonacci(n-1) + fibonacci(n-2),
-    }
-}
-
-fn criterion_benchmark(c: &amp;mut Criterion) {
-    c.bench_function("fib 20", |b| {
-        b.iter(|| fibonacci(black_box(20)))
-    });
-}
-
-criterion_group!(benches, criterion_benchmark);
-criterion_main!(benches);
-<span class="boring">}</span></code></pre></pre>
-<h3 id="advanced-benchmarking-features"><a class="header" href="#advanced-benchmarking-features">Advanced Benchmarking Features</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>use criterion::{BenchmarkId, Criterion, Throughput};
-
-fn bench_with_input_sizes(c: &amp;mut Criterion) {
-    let mut group = c.benchmark_group("sorting");
-
-    for size in [100, 1000, 10000].iter() {
-        group.throughput(Throughput::Elements(*size as u64));
-        group.bench_with_input(
-            BenchmarkId::from_parameter(size),
-            size,
-            |b, &amp;size| {
-                let mut vec: Vec&lt;i32&gt; = (0..size).collect();
-                b.iter(|| vec.sort());
-            },
-        );
-    }
-    group.finish();
-}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="running-and-analyzing-benchmarks"><a class="header" href="#running-and-analyzing-benchmarks">Running and Analyzing Benchmarks</a></h3>
-<pre><code class="language-bash"># Run all benchmarks
-cargo bench
-
-# Run specific benchmark
-cargo bench --bench my_benchmark
-
-# Save baseline for comparison
-cargo bench -- --save-baseline my_baseline
-
-# Compare against baseline
-cargo bench -- --baseline my_baseline
-
-# Generate HTML reports (in target/criterion/)
-cargo bench -- --verbose
-</code></pre>
-<h3 id="built-in-benchmarking-nightly"><a class="header" href="#built-in-benchmarking-nightly">Built-in Benchmarking (Nightly)</a></h3>
-<p>For simpler needs, Rust’s unstable benchmark feature:</p>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span>#![feature(test)]
-<span class="boring">fn main() {
-</span>extern crate test;
-
-#[bench]
-fn bench_simple(b: &amp;mut test::Bencher) {
-    b.iter(|| {
-        // Code to benchmark
-        1 + 1
-    });
-}
-<span class="boring">}</span></code></pre></pre>
-<pre><code class="language-bash"># Run with nightly
-cargo +nightly bench
-</code></pre>
-<h3 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h3>
-<ol>
-<li><strong>Use <code>black_box</code></strong> to prevent compiler optimizations</li>
-<li><strong>Warm up</strong> with multiple iterations</li>
-<li><strong>Test different input sizes</strong> for algorithms</li>
-<li><strong>Compare baselines</strong> when optimizing</li>
-<li><strong>Run in release mode</strong> for accurate results</li>
-</ol>
-<blockquote>
-<p>📖 <strong>Documentation</strong>:</p>
-<ul>
-<li><a href="https://bheisler.github.io/criterion.rs/book/">Criterion.rs Book</a></li>
-<li><a href="https://doc.rust-lang.org/cargo/commands/cargo-bench.html">cargo bench Documentation</a></li>
-</ul>
-</blockquote>
-<hr />
-<h2 id="15-examples-directory-structure"><a class="header" href="#15-examples-directory-structure">15. Examples Directory Structure</a></h2>
-<h3 id="standard-examples-layout"><a class="header" href="#standard-examples-layout">Standard Examples Layout</a></h3>
-<pre><code>my-project/
-├── Cargo.toml
-├── src/
-│   └── lib.rs
-├── examples/
-│   ├── simple.rs              # Single-file example
-│   ├── client.rs              # Another single-file example
-│   └── complex_example/       # Multi-file example
-│       ├── main.rs
-│       └── helper.rs
-└── tests/
-</code></pre>
-<h3 id="creating-examples"><a class="header" href="#creating-examples">Creating Examples</a></h3>
-<p><strong>Single-file example:</strong></p>
-<pre><pre class="playground"><code class="language-rust">// examples/simple.rs
-use my_project::MyStruct;
-
-fn main() {
-    let instance = MyStruct::new();
-    println!("Example output: {:?}", instance);
-}</code></pre></pre>
-<p><strong>Multi-file example:</strong></p>
-<pre><pre class="playground"><code class="language-rust">// examples/complex_example/main.rs
-mod helper;
-
-use my_project::MyStruct;
-use helper::process_data;
-
-fn main() {
-    let data = MyStruct::new();
-    let result = process_data(&amp;data);
-    println!("Processed: {:?}", result);
-}</code></pre></pre>
-<h3 id="running-examples"><a class="header" href="#running-examples">Running Examples</a></h3>
-<pre><code class="language-bash"># List all examples
-cargo run --example
-
-# Run specific example
-cargo run --example simple
-
-# Run with arguments
-cargo run --example client -- --host localhost --port 8080
-
-# Build all examples
-cargo build --examples
-
-# Test that examples compile
-cargo test --examples
-</code></pre>
-<h3 id="example-configuration"><a class="header" href="#example-configuration">Example Configuration</a></h3>
-<pre><code class="language-toml"># Cargo.toml
-[[example]]
-name = "client"
-required-features = ["client-feature"]
-
-[[example]]
-name = "server"
-path = "examples/custom_path/server.rs"
-</code></pre>
-<h3 id="testing-examples"><a class="header" href="#testing-examples">Testing Examples</a></h3>
-<pre><pre class="playground"><code class="language-rust">// examples/testable.rs
-use my_project::calculate;
-
-fn main() {
-    let result = calculate(5, 10);
-    println!("Result: {}", result);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_example_logic() {
-        assert_eq!(calculate(5, 10), 15);
-    }
-}</code></pre></pre>
-<pre><code class="language-bash"># Run tests in examples
-cargo test --example testable
-</code></pre>
-<h3 id="best-practices-1"><a class="header" href="#best-practices-1">Best Practices</a></h3>
-<ol>
-<li><strong>Keep examples focused</strong> on specific use cases</li>
-<li><strong>Include comments</strong> explaining the example</li>
-<li><strong>Use realistic scenarios</strong> that users might encounter</li>
-<li><strong>Test examples</strong> in CI to ensure they stay working</li>
-<li><strong>Document in README</strong> which examples demonstrate what</li>
-</ol>
-<blockquote>
-<p>📖 <strong>Documentation</strong>: <a href="https://doc.rust-lang.org/cargo/guide/project-layout.html">Package Layout - The Cargo Book</a></p>
-</blockquote>
-<hr />
-<h2 id="16-documentation-generation-with-rustdoc"><a class="header" href="#16-documentation-generation-with-rustdoc">16. Documentation Generation with rustdoc</a></h2>
-<h3 id="documentation-comments"><a class="header" href="#documentation-comments">Documentation Comments</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>//! # My Library
+</span>//! Module-level documentation
 //!
-//! This crate provides functionality for processing data.
-//!
-//! ## Quick Start
-//!
-//! ```
-//! use my_lib::process;
-//! let result = process("input");
-//! ```
+//! This module provides utilities for working with strings.
 
-/// Processes the given input string.
-///
-/// # Arguments
-///
-/// * `input` - A string slice to process
-///
-/// # Returns
-///
-/// The processed string
+/// Calculate factorial of n
 ///
 /// # Examples
 ///
 /// ```
-/// use my_lib::process;
-///
-/// let result = process("hello");
-/// assert_eq!(result, "HELLO");
+/// assert_eq!(factorial(5), 120);
+/// assert_eq!(factorial(0), 1);
 /// ```
 ///
 /// # Panics
 ///
-/// Panics if the input is empty.
-pub fn process(input: &amp;str) -&gt; String {
-    if input.is_empty() {
-        panic!("Input cannot be empty");
+/// Panics if the result would overflow.
+pub fn factorial(n: u32) -&gt; u32 {
+    match n {
+        0 =&gt; 1,
+        _ =&gt; n * factorial(n - 1),
     }
-    input.to_uppercase()
 }
 <span class="boring">}</span></code></pre></pre>
-<h3 id="generating-documentation"><a class="header" href="#generating-documentation">Generating Documentation</a></h3>
-<pre><code class="language-bash"># Generate docs for your crate
-cargo doc
-
-# Generate and open in browser
+<h3 id="documentation-commands"><a class="header" href="#documentation-commands">Documentation Commands</a></h3>
+<pre><code class="language-bash"># Generate and open docs
 cargo doc --open
 
 # Include dependencies
-cargo doc --no-deps  # Exclude dependencies (default)
-cargo doc --document-private-items  # Include private items
+cargo doc --no-deps
 
-# Generate for all workspace members
-cargo doc --workspace
+# Document private items
+cargo doc --document-private-items
 
-# Generate for specific package
-cargo doc -p my_package
-</code></pre>
-<h3 id="advanced-rustdoc-features"><a class="header" href="#advanced-rustdoc-features">Advanced rustdoc Features</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>/// # Safety
-///
-/// This function is unsafe because it dereferences a raw pointer.
-pub unsafe fn dangerous(ptr: *const u8) -&gt; u8 {
-    *ptr
-}
-
-/// This function is deprecated.
-///
-/// Use [`new_function`] instead.
-#[deprecated(since = "0.2.0", note = "Use new_function instead")]
-pub fn old_function() {}
-
-/// Links to other items: [`Vec`], [`std::io::Error`]
-///
-/// External links: [Rust Book](https://doc.rust-lang.org/book/)
-pub fn documented() {}
-<span class="boring">}</span></code></pre></pre>
-<h3 id="testing-documentation-examples"><a class="header" href="#testing-documentation-examples">Testing Documentation Examples</a></h3>
-<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
-</span><span class="boring">fn main() {
-</span>/// ```
-/// use my_lib::add;
-/// assert_eq!(add(2, 2), 4);
-/// ```
-///
-/// ```compile_fail
-/// use my_lib::add;
-/// add("not", "numbers");  // This should fail
-/// ```
-///
-/// ```no_run
-/// use my_lib::expensive_operation;
-/// expensive_operation();  // Compiles but doesn't run
-/// ```
-///
-/// ```ignore
-/// // This example is ignored during testing
-/// unimplemented_feature();
-/// ```
-pub fn add(a: i32, b: i32) -&gt; i32 {
-    a + b
-}
-<span class="boring">}</span></code></pre></pre>
-<pre><code class="language-bash"># Run documentation tests
+# Test documentation examples
 cargo test --doc
-
-# Run all tests including doc tests
-cargo test
 </code></pre>
-<h3 id="customizing-documentation"><a class="header" href="#customizing-documentation">Customizing Documentation</a></h3>
+<h2 id="11-examples-directory"><a class="header" href="#11-examples-directory">11. Examples Directory</a></h2>
+<p>Structure example code for users:</p>
+<pre><code>examples/
+├── basic.rs           # cargo run --example basic
+├── advanced.rs        # cargo run --example advanced
+└── multi-file/        # Multi-file example
+    ├── main.rs
+    └── helper.rs
+</code></pre>
 <pre><code class="language-toml"># Cargo.toml
-[package.metadata.docs.rs]
-# Specify features to enable on docs.rs
-all-features = true
-# Specify targets for docs.rs
-targets = ["x86_64-unknown-linux-gnu"]
-# Custom rustdoc args
-rustdoc-args = ["--cfg", "docsrs"]
+[[example]]
+name = "multi-file"
+path = "examples/multi-file/main.rs"
 </code></pre>
-<h3 id="rustdoc-vs-cargo-doc"><a class="header" href="#rustdoc-vs-cargo-doc">rustdoc vs cargo doc</a></h3>
-<pre><code class="language-bash"># Direct rustdoc usage
-rustdoc src/lib.rs --crate-name my_lib
-
-# cargo doc (recommended)
-cargo doc
-
-# cargo rustdoc with custom flags
-cargo rustdoc -- --document-private-items --html-in-header custom.html
-</code></pre>
-<h3 id="publishing-to-docsrs"><a class="header" href="#publishing-to-docsrs">Publishing to docs.rs</a></h3>
-<p>Documentation is automatically built and hosted on <a href="https://docs.rs">docs.rs</a> when you publish to crates.io:</p>
-<pre><code class="language-bash"># Publish crate (docs built automatically)
-cargo publish
-
-# Your docs will be available at:
-# https://docs.rs/your-crate/latest/
-</code></pre>
-<h3 id="best-practices-2"><a class="header" href="#best-practices-2">Best Practices</a></h3>
-<ol>
-<li><strong>Document all public APIs</strong> with examples</li>
-<li><strong>Use doc tests</strong> to ensure examples work</li>
-<li><strong>Link between items</strong> using <code>[</code>backticks<code>]</code></li>
-<li><strong>Include module-level documentation</strong> with <code>//!</code></li>
-<li><strong>Add diagrams</strong> using ASCII art or links to images</li>
-<li><strong>Use semantic sections</strong>: Examples, Panics, Safety, Errors</li>
-</ol>
-<blockquote>
-<p>📖 <strong>Documentation</strong>:</p>
-<ul>
-<li><a href="https://doc.rust-lang.org/rustdoc/">The rustdoc Book</a></li>
-<li><a href="https://doc.rust-lang.org/cargo/commands/cargo-doc.html">cargo doc Documentation</a></li>
-<li><a href="https://docs.rs">Documentation on docs.rs</a></li>
-</ul>
-</blockquote>
-<hr />
-<h2 id="17-migration-from-other-package-managers"><a class="header" href="#17-migration-from-other-package-managers">17. Migration from Other Package Managers</a></h2>
-<h3 id="from-npmpackagejson"><a class="header" href="#from-npmpackagejson">From npm/package.json</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>npm</th><th>Cargo</th></tr></thead><tbody>
-<tr><td><code>package.json</code></td><td><code>Cargo.toml</code></td></tr>
-<tr><td><code>package-lock.json</code></td><td><code>Cargo.lock</code></td></tr>
-<tr><td><code>npm install</code></td><td><code>cargo build</code></td></tr>
-<tr><td><code>npm update</code></td><td><code>cargo update</code></td></tr>
-<tr><td><code>devDependencies</code></td><td><code>[dev-dependencies]</code></td></tr>
-</tbody></table>
-</div>
-<h3 id="from-nuget-net"><a class="header" href="#from-nuget-net">From NuGet (.NET)</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>NuGet</th><th>Cargo</th></tr></thead><tbody>
-<tr><td><code>*.csproj</code></td><td><code>Cargo.toml</code></td></tr>
-<tr><td><code>packages.lock.json</code></td><td><code>Cargo.lock</code></td></tr>
-<tr><td>Package Source</td><td>Registry</td></tr>
-<tr><td><code>dotnet restore</code></td><td><code>cargo fetch</code></td></tr>
-</tbody></table>
-</div>
-<h3 id="from-maven-java"><a class="header" href="#from-maven-java">From Maven (Java)</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Maven</th><th>Cargo</th></tr></thead><tbody>
-<tr><td><code>pom.xml</code></td><td><code>Cargo.toml</code></td></tr>
-<tr><td>Repository</td><td>Registry</td></tr>
-<tr><td><code>mvn dependency:tree</code></td><td><code>cargo tree</code></td></tr>
-</tbody></table>
-</div>
-<hr />
-<h2 id="18-best-practices-summary"><a class="header" href="#18-best-practices-summary">18. Best Practices Summary</a></h2>
-<h3 id="version-management"><a class="header" href="#version-management">Version Management</a></h3>
-<p>✅ <strong>Do:</strong></p>
-<ul>
-<li>Use semantic versioning consistently</li>
-<li>Commit <code>Cargo.lock</code> for applications</li>
-<li>Pin Rust version with <code>rust-toolchain.toml</code></li>
-<li>Regular dependency audits</li>
-</ul>
-<p>❌ <strong>Don’t:</strong></p>
-<ul>
-<li>Use exact versions unless necessary</li>
-<li>Ignore security advisories</li>
-<li>Mix different versioning strategies</li>
-</ul>
-<h3 id="workspace-organization"><a class="header" href="#workspace-organization">Workspace Organization</a></h3>
-<p>✅ <strong>Do:</strong></p>
-<ul>
-<li>Use workspaces for multi-crate projects</li>
-<li>Share common dependencies</li>
-<li>Keep workspace configuration minimal</li>
-</ul>
-<p>❌ <strong>Don’t:</strong></p>
-<ul>
-<li>Create overly complex workspace hierarchies</li>
-<li>Mix library and application concerns</li>
-</ul>
-<h3 id="cicd-integration"><a class="header" href="#cicd-integration">CI/CD Integration</a></h3>
-<p>✅ <strong>Do:</strong></p>
-<ul>
-<li>Cache dependencies effectively</li>
-<li>Use <code>--locked</code> flag in CI</li>
-<li>Run security audits automatically</li>
-</ul>
-<p>❌ <strong>Don’t:</strong></p>
-<ul>
-<li>Allow dependency updates in production builds</li>
-<li>Skip vulnerability checks</li>
-</ul>
-<hr />
-<h2 id="practical-exercise-complete-project-setup"><a class="header" href="#practical-exercise-complete-project-setup">Practical Exercise: Complete Project Setup</a></h2>
-<h3 id="full-featured-cargo-configuration"><a class="header" href="#full-featured-cargo-configuration">Full-Featured Cargo Configuration</a></h3>
-<p>Create a robust dependency management setup for a web service:</p>
-<pre><code class="language-toml"># Cargo.toml
-[package]
-name = "web-service"
-version = "0.1.0"
-edition = "2021"  # Edition 2024 available with Rust 1.85+
-authors = ["Your Name &lt;you@example.com&gt;"]
-license = "MIT OR Apache-2.0"
-description = "A web service with comprehensive Cargo setup"
-repository = "https://github.com/yourname/web-service"
-documentation = "https://docs.rs/web-service"
-
-# Explicitly use resolver v2 (optional with edition 2021)
-resolver = "2"
-
-[dependencies]
-# Web framework
-axum = "0.8"
-
-# Async runtime
-tokio = { version = "1.47", features = ["full"] }
-
-# Serialization
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-
-# Database
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres"] }
-
-# Error handling
-anyhow = "1.0"
-thiserror = "2.0"
-
-# Logging
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-[dev-dependencies]
-# Testing
-tokio-test = "0.4"
-pretty_assertions = "1.4"
-
-# Benchmarking
+<h2 id="12-benchmarking-with-criterion"><a class="header" href="#12-benchmarking-with-criterion">12. Benchmarking with Criterion</a></h2>
+<pre><code class="language-toml">[dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
-name = "api_benchmark"
+name = "my_benchmark"
 harness = false
-
-[[example]]
-name = "client"
-required-features = ["client"]
-
-[features]
-default = ["postgres"]
-postgres = ["sqlx/postgres"]
-mysql = ["sqlx/mysql"]
-client = []
-
-[profile.release]
-opt-level = 3
-lto = true
-codegen-units = 1
-
-[profile.bench]
-inherits = "release"
-
-# Documentation settings for docs.rs
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
-
-```yaml
-# .github/workflows/ci.yml
-name: CI
-on: [push, pull_request]
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: 1.70.0
-        override: true
-    - name: Cache dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - name: Build
-      run: cargo build --locked
-    - name: Test
-      run: cargo test --locked
-    - name: Security audit
-      run: |
-        cargo install cargo-audit
-        cargo audit
 </code></pre>
-<h3 id="complete-project-structure"><a class="header" href="#complete-project-structure">Complete Project Structure</a></h3>
-<pre><code>web-service/
-├── Cargo.toml
-├── Cargo.lock         # Commit this for applications
-├── .cargo/
-│   └── config.toml    # Local cargo configuration
-├── src/
-│   ├── main.rs        # Binary entry point
-│   └── lib.rs         # Library code
-├── examples/
-│   ├── client.rs      # Example client
-│   └── server.rs      # Example server
-├── benches/
-│   └── api_benchmark.rs  # Criterion benchmarks
-├── tests/
-│   └── integration.rs # Integration tests
-└── .github/
-    └── workflows/
-        └── ci.yml     # GitHub Actions CI
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// benches/my_benchmark.rs
+use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+
+fn fibonacci(n: u64) -&gt; u64 {
+    match n {
+        0 | 1 =&gt; 1,
+        n =&gt; fibonacci(n-1) + fibonacci(n-2),
+    }
+}
+
+fn bench_fibonacci(c: &amp;mut Criterion) {
+    let mut group = c.benchmark_group("fibonacci");
+
+    for i in [20, 30, 35].iter() {
+        group.bench_with_input(BenchmarkId::from_parameter(i), i, |b, &amp;i| {
+            b.iter(|| fibonacci(black_box(i)));
+        });
+    }
+
+    group.finish();
+}
+
+criterion_group!(benches, bench_fibonacci);
+criterion_main!(benches);
+<span class="boring">}</span></code></pre></pre>
+<p>Run benchmarks:</p>
+<pre><code class="language-bash">cargo bench
+
+# Save baseline
+cargo bench -- --save-baseline main
+
+# Compare with baseline
+cargo bench -- --baseline main
 </code></pre>
-<h3 id="cargo-configuration"><a class="header" href="#cargo-configuration">Cargo Configuration</a></h3>
-<pre><code class="language-toml"># .cargo/config.toml
-[build]
-jobs = 4
-target-dir = "target"
+<h2 id="13-security"><a class="header" href="#13-security">13. Security</a></h2>
+<h3 id="dependency-auditing"><a class="header" href="#dependency-auditing">Dependency Auditing</a></h3>
+<pre><code class="language-bash"># Install audit tools
+cargo install cargo-audit
+cargo install cargo-deny
 
-[registries]
-# Configure private registry if needed
-# private = { index = "https://my-registry.com/index" }
+# Check for vulnerabilities
+cargo audit
 
-[net]
-retry = 3
-git-fetch-with-cli = true
-
-[profile.dev]
-opt-level = 0
-debug = true
-
-[profile.release-with-debug]
-inherits = "release"
-debug = true
+# Audit with fix suggestions
+cargo audit fix
 </code></pre>
-<p>This comprehensive setup provides:</p>
-<ul>
-<li><strong>Resolver v2</strong> for precise feature resolution</li>
-<li><strong>Benchmarking</strong> support with Criterion</li>
-<li><strong>Examples</strong> directory for usage demonstrations</li>
-<li><strong>Documentation</strong> configuration for docs.rs</li>
-<li><strong>Security auditing</strong> in CI/CD</li>
-<li><strong>Private registry</strong> support</li>
-<li><strong>Optimized builds</strong> with LTO and single codegen unit</li>
-</ul>
-<hr />
-<h2 id="summary"><a class="header" href="#summary">Summary</a></h2>
-<p>Cargo’s dependency management system provides powerful tools for maintaining reproducible, secure builds. Key takeaways:</p>
-<ul>
-<li><strong>Understand SemVer</strong>: Use appropriate version constraints for your needs</li>
-<li><strong>Commit Cargo.lock</strong> for applications, not libraries</li>
-<li><strong>Pin environments</strong>: Use <code>rust-toolchain.toml</code> and <code>--locked</code> in CI</li>
-<li><strong>Audit regularly</strong>: Use <code>cargo audit</code> and automated security scanning</li>
-<li><strong>Organize wisely</strong>: Leverage workspaces for multi-crate projects</li>
-</ul>
-<p>Coming from other ecosystems, Cargo’s approach might feel restrictive at first, but this strictness enables the reliability and safety that Rust is known for in production environments.</p>
+<h3 id="deny-configuration"><a class="header" href="#deny-configuration">Deny Configuration</a></h3>
+<pre><code class="language-toml"># deny.toml
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+skip = []
+
+[licenses]
+allow = ["MIT", "Apache-2.0", "BSD-3-Clause"]
+deny = ["GPL-3.0"]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"
+</code></pre>
+<pre><code class="language-bash">cargo deny check
+</code></pre>
+<h2 id="14-dependency-update-strategies"><a class="header" href="#14-dependency-update-strategies">14. Dependency Update Strategies</a></h2>
+<h3 id="manual-updates"><a class="header" href="#manual-updates">Manual Updates</a></h3>
+<pre><code class="language-bash"># Update all dependencies
+cargo update
+
+# Update specific crate
+cargo update -p serde
+
+# See outdated dependencies
+cargo install cargo-outdated
+cargo outdated
+</code></pre>
+<h3 id="automated-updates-with-dependabot"><a class="header" href="#automated-updates-with-dependabot">Automated Updates with Dependabot</a></h3>
+<pre><code class="language-yaml"># .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      aws:
+        patterns: ["aws-*"]
+      tokio:
+        patterns: ["tokio*"]
+</code></pre>
+<h3 id="renovate-configuration"><a class="header" href="#renovate-configuration">Renovate Configuration</a></h3>
+<pre><code class="language-json">{
+  "extends": ["config:base"],
+  "cargo": {
+    "enabled": true,
+    "rangeStrategy": "bump"
+  },
+  "packageRules": [{
+    "matchManagers": ["cargo"],
+    "matchPackagePatterns": ["^aws-"],
+    "groupName": "AWS SDK"
+  }]
+}
+</code></pre>
+<h2 id="15-reproducible-builds"><a class="header" href="#15-reproducible-builds">15. Reproducible Builds</a></h2>
+<p>Ensure reproducibility with:</p>
+<ol>
+<li><strong>Committed <code>Cargo.lock</code></strong> for applications</li>
+<li><strong>Pinned toolchain</strong> via <code>rust-toolchain.toml</code></li>
+<li><strong><code>--locked</code> flag</strong> in CI builds</li>
+<li><strong>Vendored dependencies</strong> for offline builds</li>
+</ol>
+<h3 id="docker-example"><a class="header" href="#docker-example">Docker Example</a></h3>
+<pre><code class="language-dockerfile">FROM rust:1.82 AS builder
+WORKDIR /app
+
+# Cache dependencies
+COPY Cargo.lock Cargo.toml ./
+RUN mkdir src &amp;&amp; echo "fn main() {}" &gt; src/main.rs
+RUN cargo build --release --locked
+RUN rm -rf src
+
+# Build application
+COPY . .
+RUN touch src/main.rs &amp;&amp; cargo build --release --locked
+
+FROM debian:bookworm-slim
+COPY --from=builder /app/target/release/app /usr/local/bin/
+CMD ["app"]
+</code></pre>
+<h3 id="vendoring-dependencies"><a class="header" href="#vendoring-dependencies">Vendoring Dependencies</a></h3>
+<pre><code class="language-bash"># Vendor all dependencies
+cargo vendor
+
+# Configure to use vendored dependencies
+mkdir .cargo
+cat &gt; .cargo/config.toml &lt;&lt; EOF
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "vendor"
+EOF
+
+# Build offline
+cargo build --offline
+</code></pre>
+<h2 id="16-useful-commands"><a class="header" href="#16-useful-commands">16. Useful Commands</a></h2>
+<pre><code class="language-bash"># Dependency tree
+cargo tree
+cargo tree -d                    # Show duplicates
+cargo tree -i serde              # Inverse dependencies
+cargo tree -e features           # Show features
+
+# Workspace commands
+cargo build --workspace          # Build all members
+cargo test --workspace           # Test all members
+cargo publish --dry-run         # Verify before publishing
+
+# Check commands
+cargo check                      # Fast compilation check
+cargo clippy                     # Linting
+cargo fmt                        # Format code
+
+# Cache management
+cargo clean                      # Remove target directory
+cargo clean -p specific-crate   # Clean specific crate
+
+# Package management
+cargo new myproject --lib       # Create library
+cargo init                      # Initialize in existing directory
+cargo package                   # Create distributable package
+cargo publish                   # Publish to crates.io
+</code></pre>
 <h2 id="additional-resources"><a class="header" href="#additional-resources">Additional Resources</a></h2>
 <ul>
-<li>📚 <a href="https://doc.rust-lang.org/cargo/">The Cargo Book</a> - Official Cargo documentation</li>
-<li>📖 <a href="https://doc.rust-lang.org/rustdoc/">The rustdoc Book</a> - Documentation generation guide</li>
-<li>🔧 <a href="https://doc.rust-lang.org/cargo/reference/">Cargo Reference</a> - Detailed reference</li>
-<li>📊 <a href="https://bheisler.github.io/criterion.rs/book/">Criterion.rs</a> - Benchmarking guide</li>
-<li>🏢 <a href="https://kellnr.io/documentation">Kellnr Documentation</a> - Private registry</li>
-<li>🔐 <a href="https://github.com/RustSec/rustsec/tree/main/cargo-audit">cargo-audit</a> - Security auditing</li>
+<li><a href="https://doc.rust-lang.org/cargo/">The Cargo Book</a></li>
+<li><a href="https://doc.rust-lang.org/edition-guide/">Rust Edition Guide</a></li>
+<li><a href="https://doc.rust-lang.org/cargo/reference/resolver.html">Dependency Resolution</a></li>
+<li><a href="https://doc.rust-lang.org/cargo/reference/publishing.html">Publishing on crates.io</a></li>
 </ul>
 
                     </main>
