@@ -75,8 +75,6 @@ cargo llvm-cov --html --output-dir coverage
 # Generate JSON report
 cargo llvm-cov --json --output-path coverage.json
 
-# Pretty-printed JSON
-cargo llvm-cov --json --output-path coverage.json --json-pretty
 ```
 
 ### LCOV Format
@@ -234,9 +232,6 @@ cargo llvm-cov --bin my-binary
 
 # Exclude tests from coverage
 cargo llvm-cov --ignore-filename-regex='tests/'
-
-# Include specific files
-cargo llvm-cov --include-pattern='src/core/*'
 ```
 
 ### Coverage Attributes
